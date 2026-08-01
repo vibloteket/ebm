@@ -52,7 +52,9 @@ def _steer(body, origin, output):
         body.velocity = (max(-120, min(120, (100 - x) * 4)) if abs(error) > 24 else min(-140, max(-280, float(body.velocity.x) - 14)), max(-220, min(220, error * 5)))
     else:
         error = 50 - y
-        body.velocity = (max(-120, min(120, (100 - x) * 4)) if abs(error) > 24 else max(140, min(280, float(body.velocity.x) + 14)), max(-220, min(220, error * 5)))
+        # Do not accelerate outward until the ball is centered inside R1's
+        # aperture; otherwise high-offset entries can leave through bare edge.
+        body.velocity = (max(-120, min(120, (100 - x) * 4)) if abs(error) > 12 else max(140, min(280, float(body.velocity.x) + 14)), max(-220, min(220, error * 5)))
 
 
 TILE_CLASS = PoweredChannelTile

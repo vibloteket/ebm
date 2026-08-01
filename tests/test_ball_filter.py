@@ -12,8 +12,10 @@ def test_engine_balls_use_shared_material_properties():
 
 
 def test_balls_collide_with_each_other():
-    engine=Engine(300,240);engine.resize(300,240)
+    engine=Engine(300,240)
     for ball in list(engine.balls):engine.remove_ball(ball)
+    for active in list(engine.active_tiles.values()):engine.registry.destroy_owner(active.owner_id)
+    engine.active_tiles.clear()
     engine.space.gravity = (0, 0)
     left=engine.add_ball(80,100,velocity=(100,0));right=engine.add_ball(120,100,velocity=(-100,0))
     for _ in range(60):engine.space.step(1/240)
@@ -21,4 +23,3 @@ def test_balls_collide_with_each_other():
     assert left.body.velocity.x<0
     assert right.body.velocity.x>0
     for ball in list(engine.balls):engine.remove_ball(ball)
-    for active in list(engine.active_tiles.values()):engine.registry.destroy_owner(active.owner_id)

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import math
 from typing import Any, Callable
 
-from .ports import INPUT_PORTS, OUTPUT_PORTS, PORT_SPECS, Port
+from .ports import OUTPUT_PORTS, PORT_SPECS, Port
 from .tile_api import (
     BALL_COLLISION_TYPE,
     BALL_ELASTICITY,
@@ -15,33 +16,36 @@ from .tile_api import (
 
 BALL_RADIUS = 8
 BALL_MASS = 1
-DEFAULT_DT = 1 / 240
-DEFAULT_DURATION = 12.0
+DEFAULT_DT = 1 / 120
+VALIDATION_BALLS = 120
+MAX_ACTIVE_BALLS = 20
+SPAWN_INTERVAL = 0.4
 EXIT_TOLERANCE = 28
 EXIT_SPEED = 20
 BOUNDS_EPSILON = 0.25
-STUCK_SPEED = 6
-STUCK_AFTER = 3.0
 
 
 @dataclass
 class ValidationBall:
+    id: int
     entry: Port
     body: Any
     shape: Any
-    slow_since: float | None = None
+    spawned_at: float
 
 
 @dataclass
 class ValidationResult:
     name: str
-    duration: float
+    balls_target: int
+    max_active_allowed: int
     balls_spawned: int = 0
     exited: int = 0
-    unexpected: int = 0
-    out_of_bounds: int = 0
-    stuck: int = 0
     active: int = 0
+    peak_active: int = 0
+    invalid: int = 0
+    lost: int = 0
+    capacity_exceeded: bool = False
     output_counts: dict[str, int] = field(default_factory=lambda: {port.name: 0 for port in OUTPUT_PORTS})
     details: list[dict[str, Any]] = field(default_factory=list)
 
@@ -50,46 +54,51 @@ class ValidationResult:
         return all(self.output_counts.values())
 
     @property
-    def ok(self) -> bool:
-        return (
-            self.unexpected == 0
-            and self.out_of_bounds == 0
-            and self.stuck == 0
-            and self.active == 0
-            and self.exited == self.balls_spawned
-            and self.all_outputs_used
-        )
+    def conserved(self) -> bool:
+        return self.exited + self.active + self.invalid + self.lost == self.balls_spawned
 
     @property
-    def pass_ratio(self) -> float:
-        return self.exited / self.balls_spawned if self.balls_spawned else 0.0
+    def ok(self) -> bool:
+        return (
+            self.balls_spawned == self.balls_target
+            and self.invalid == 0
+            and self.lost == 0
+            and self.conserved
+            and not self.capacity_exceeded
+            and self.active <= self.max_active_allowed
+            and self.all_outputs_used
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
-            "duration": self.duration,
+            "balls_target": self.balls_target,
+            "max_active_allowed": self.max_active_allowed,
             "balls_spawned": self.balls_spawned,
             "exited": self.exited,
-            "unexpected": self.unexpected,
-            "out_of_bounds": self.out_of_bounds,
-            "stuck": self.stuck,
             "active": self.active,
+            "peak_active": self.peak_active,
+            "invalid": self.invalid,
+            "lost": self.lost,
+            "capacity_exceeded": self.capacity_exceeded,
             "output_counts": self.output_counts,
             "all_outputs_used": self.all_outputs_used,
-            "pass_ratio": self.pass_ratio,
+            "conserved": self.conserved,
             "ok": self.ok,
             "details": self.details,
         }
 
 
-def validate_tile_port_spec(
+def validate_tile_flow(
     tile_factory: Callable[[], Any],
     *,
     name: str = "tile flow",
-    duration: float = DEFAULT_DURATION,
+    balls: int = VALIDATION_BALLS,
+    max_active: int = MAX_ACTIVE_BALLS,
+    spawn_interval: float = SPAWN_INTERVAL,
     dt: float = DEFAULT_DT,
 ) -> ValidationResult:
-    """Validate every input state; any valid output is accepted, and all outputs must be used."""
+    """Run one concurrent flow test with a global active-ball allowance and no drain phase."""
     import pymunk
 
     space = pymunk.Space()
@@ -98,126 +107,137 @@ def validate_tile_port_spec(
     registry = TileResourceRegistry.for_space(space)
     builder = TileBuilder(registry, 1, (0, 0))
     tile.build(builder)
-    result = ValidationResult(name=name, duration=duration)
+    result = ValidationResult(name, balls, max_active)
+    active: list[ValidationBall] = []
+    combinations = {port: PORT_SPECS[port].sample_values()[1] for port in (Port.T0, Port.L0, Port.R0)}
+    t = 0.0
+    next_spawn = 0.0
 
-    for entry in (Port.T0, Port.L0, Port.R0):
-        spec = PORT_SPECS[entry]
-        _, combinations = spec.sample_values()
-        for dx, dy, dvx, dvy in combinations:
-            ball = _spawn_ball(space, entry, dx, dy, dvx, dvy)
+    while result.balls_spawned < balls:
+        if t + 1e-9 >= next_spawn:
+            index = result.balls_spawned
+            entry = (Port.T0, Port.L0, Port.R0)[index % 3]
+            samples = combinations[entry]
+            dx, dy, dvx, dvy = samples[(index // 3) % len(samples)]
+            active.append(_spawn_ball(space, index + 1, entry, t, dx, dy, dvx, dvy))
             result.balls_spawned += 1
-            outcome = _run_one(space, tile, builder, ball, duration, dt)
-            result.details.append(outcome)
-            status = outcome["status"]
-            if status == "exited":
-                result.exited += 1
-                result.output_counts[outcome["exit"]] += 1
-            elif status == "unexpected":
-                result.unexpected += 1
-            elif status == "out_of_bounds":
-                result.out_of_bounds += 1
-            elif status == "stuck":
-                result.stuck += 1
-            else:
-                result.active += 1
-            _remove_ball(space, ball)
+            next_spawn += spawn_interval
 
+        tile.update(builder, dt)
+        space.step(dt)
+        t += dt
+        _classify_active(space, active, result, t)
+        result.active = len(active)
+        result.peak_active = max(result.peak_active, result.active)
+        if result.active > max_active:
+            result.capacity_exceeded = True
+
+    # No drain phase: balls still physically inside immediately become the
+    # tile's allowed active inventory, whether buffered or merely in transit.
+    _classify_active(space, active, result, t)
+    result.active = len(active)
+    result.peak_active = max(result.peak_active, result.active)
+    if result.active > max_active:
+        result.capacity_exceeded = True
+    for ball in active:
+        result.details.append(_detail(ball, "active", None, t))
+        _remove_ball(space, ball)
     registry.destroy_owner(1)
     return result
 
 
-def _run_one(space, tile, builder, ball: ValidationBall, duration: float, dt: float) -> dict[str, Any]:
-    t = 0.0
-    for _ in range(int(duration / dt)):
-        tile.update(builder, dt)
-        space.step(dt)
-        t += dt
-        classification = _classify_ball(ball.body.position, ball.body.velocity)
-        if classification is not None:
-            status, label = classification
-            return _detail(ball, status, label, t)
-        if ball.body.velocity.length < STUCK_SPEED:
-            if ball.slow_since is None:
-                ball.slow_since = t
-            elif t - ball.slow_since >= STUCK_AFTER:
-                return _detail(ball, "stuck", "settled", t)
+# Keep the editor-facing name while the API transitions from sampled
+# single-ball validation to concurrent aggregate flow validation.
+def validate_tile_port_spec(tile_factory: Callable[[], Any], **kwargs) -> ValidationResult:
+    kwargs.pop("duration", None)
+    return validate_tile_flow(tile_factory, **kwargs)
+
+
+def _classify_active(space, active: list[ValidationBall], result: ValidationResult, t: float) -> None:
+    for ball in list(active):
+        classification = _classify_ball(space, ball)
+        if classification is None:
+            continue
+        status, label = classification
+        result.details.append(_detail(ball, status, label, t))
+        if status == "exited":
+            result.exited += 1
+            result.output_counts[label] += 1
+        elif status == "lost":
+            result.lost += 1
         else:
-            ball.slow_since = None
-    return _detail(ball, "active", None, duration)
+            result.invalid += 1
+        _remove_ball(space, ball)
+        active.remove(ball)
 
 
-def _spawn_ball(space, entry: Port, dx: float, dy: float, dvx: float, dvy: float) -> ValidationBall:
+def _classify_ball(space, ball: ValidationBall) -> tuple[str, str | None] | None:
+    if ball.body not in space.bodies or ball.shape not in space.shapes:
+        return "lost", "removed"
+    x, y = float(ball.body.position.x), float(ball.body.position.y)
+    vx, vy = float(ball.body.velocity.x), float(ball.body.velocity.y)
+    if not all(math.isfinite(value) for value in (x, y, vx, vy)):
+        return "lost", "non-finite-state"
+    for port in (Port.B0, Port.L1, Port.R1):
+        if _in_exit_aperture(port, x, y, vx, vy):
+            if _satisfies_exit_spec(port, PORT_SPECS[port], x, y, vx, vy):
+                return "exited", port.name
+            return "invalid", f"bad-exit-spec:{port.name}"
+    if not _ball_fully_inside_tile(x, y):
+        return "invalid", _bounds_label(x, y)
+    return None
+
+
+def _spawn_ball(space, ball_id, entry, t, dx, dy, dvx, dvy) -> ValidationBall:
     import pymunk
 
     spec = PORT_SPECS[entry]
     base_vx, base_vy = _entry_base_velocity(entry)
     if entry == Port.T0:
-        position = (spec.x_center + dx, spec.y_center + BALL_RADIUS + dy)
+        position = spec.x_center + dx, spec.y_center + BALL_RADIUS + dy
     elif entry == Port.L0:
-        position = (spec.x_center + BALL_RADIUS + dx, spec.y_center + dy)
+        position = spec.x_center + BALL_RADIUS + dx, spec.y_center + dy
     else:
-        position = (spec.x_center - BALL_RADIUS + dx, spec.y_center + dy)
+        position = spec.x_center - BALL_RADIUS + dx, spec.y_center + dy
     x = max(BALL_RADIUS + .5, min(200 - BALL_RADIUS - .5, position[0]))
     y = max(BALL_RADIUS + .5, min(200 - BALL_RADIUS - .5, position[1]))
     body = pymunk.Body(BALL_MASS, pymunk.moment_for_circle(BALL_MASS, 0, BALL_RADIUS))
-    body.position = (x, y)
-    body.velocity = (base_vx + dvx, base_vy + dvy)
+    body.position = x, y
+    body.velocity = base_vx + dvx, base_vy + dvy
     shape = pymunk.Circle(body, BALL_RADIUS)
     shape.friction = BALL_FRICTION
     shape.elasticity = BALL_ELASTICITY
     shape.collision_type = BALL_COLLISION_TYPE
     shape.filter = ball_shape_filter()
     space.add(body, shape)
-    return ValidationBall(entry, body, shape)
+    return ValidationBall(ball_id, entry, body, shape, t)
 
 
 def _entry_base_velocity(entry: Port) -> tuple[float, float]:
-    if entry == Port.T0:
-        return 0, 70
-    if entry == Port.L0:
-        return 110, 0
+    if entry == Port.T0: return 0, 70
+    if entry == Port.L0: return 110, 0
     return -110, 0
 
 
-def _classify_ball(position, velocity) -> tuple[str, str | None] | None:
-    x, y = float(position.x), float(position.y)
-    vx, vy = float(velocity.x), float(velocity.y)
-    for port in (Port.B0, Port.L1, Port.R1):
-        if _in_exit_aperture(port, x, y, vx, vy):
-            spec = PORT_SPECS[port]
-            if _satisfies_exit_spec(port, spec, x, y, vx, vy):
-                return "exited", port.name
-            return "unexpected", f"bad-exit-spec:{port.name}"
-    if not _ball_fully_inside_tile(x, y):
-        return "out_of_bounds", _bounds_label(x, y)
-    return None
-
-
-def _in_exit_aperture(port: Port, x: float, y: float, vx: float, vy: float) -> bool:
-    if not _ball_fully_inside_tile(x, y):
-        return False
-    if port == Port.B0:
-        return abs(x - 100) <= EXIT_TOLERANCE and y >= 200 - BALL_RADIUS - 2 and vy >= EXIT_SPEED
-    if port == Port.L1:
-        return x <= BALL_RADIUS + 2 and abs(y - 150) <= EXIT_TOLERANCE and vx <= -EXIT_SPEED
+def _in_exit_aperture(port, x, y, vx, vy) -> bool:
+    if not _ball_fully_inside_tile(x, y): return False
+    if port == Port.B0: return abs(x - 100) <= EXIT_TOLERANCE and y >= 200 - BALL_RADIUS - 2 and vy >= EXIT_SPEED
+    if port == Port.L1: return x <= BALL_RADIUS + 2 and abs(y - 150) <= EXIT_TOLERANCE and vx <= -EXIT_SPEED
     return x >= 200 - BALL_RADIUS - 2 and abs(y - 50) <= EXIT_TOLERANCE and vx >= EXIT_SPEED
 
 
 def _satisfies_exit_spec(port, spec, x, y, vx, vy) -> bool:
-    if abs(x - spec.x_center) > spec.x_range + EXIT_TOLERANCE or abs(y - spec.y_center) > spec.y_range + EXIT_TOLERANCE:
-        return False
-    if port == Port.B0:
-        return vy >= spec.vy_min
-    if port == Port.L1:
-        return vx <= -spec.vx_min and abs(vy) <= spec.exit_vy_range
+    if abs(x - spec.x_center) > spec.x_range + EXIT_TOLERANCE or abs(y - spec.y_center) > spec.y_range + EXIT_TOLERANCE: return False
+    if port == Port.B0: return vy >= spec.vy_min
+    if port == Port.L1: return vx <= -spec.vx_min and abs(vy) <= spec.exit_vy_range
     return vx >= spec.vx_min and abs(vy) <= spec.exit_vy_range
 
 
-def _ball_fully_inside_tile(x: float, y: float) -> bool:
+def _ball_fully_inside_tile(x, y) -> bool:
     return BALL_RADIUS - BOUNDS_EPSILON <= x <= 200 - BALL_RADIUS + BOUNDS_EPSILON and BALL_RADIUS - BOUNDS_EPSILON <= y <= 200 - BALL_RADIUS + BOUNDS_EPSILON
 
 
-def _bounds_label(x: float, y: float) -> str:
+def _bounds_label(x, y) -> str:
     if y < BALL_RADIUS - BOUNDS_EPSILON: return "top"
     if y > 200 - BALL_RADIUS + BOUNDS_EPSILON: return "bottom"
     if x < BALL_RADIUS - BOUNDS_EPSILON: return "left"
@@ -227,12 +247,14 @@ def _bounds_label(x: float, y: float) -> str:
 
 def _detail(ball, status, label, t):
     return {
+        "id": ball.id,
         "entry": ball.entry.name,
         "status": status,
         "exit": label,
+        "spawned_at": round(ball.spawned_at, 3),
         "finished_at": round(t, 3),
-        "finish_pos": [round(float(ball.body.position.x), 2), round(float(ball.body.position.y), 2)],
-        "finish_vel": [round(float(ball.body.velocity.x), 2), round(float(ball.body.velocity.y), 2)],
+        "position": [round(float(ball.body.position.x), 2), round(float(ball.body.position.y), 2)],
+        "velocity": [round(float(ball.body.velocity.x), 2), round(float(ball.body.velocity.y), 2)],
     }
 
 

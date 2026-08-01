@@ -9,7 +9,7 @@ from pyodide.ffi import create_proxy
 from .ports import Port, PORT_SPECS, TILE_SIZE
 from .tile_api import BALL_COLLISION_TYPE, BALL_ELASTICITY, BALL_FRICTION, TileBuilder, TileResourceRegistry, VisualSegment, ball_shape_filter
 from .tile_catalog import default_tile
-from .validator import _entry_base_velocity, validate_tile_port_spec
+from .validator import _entry_base_velocity, validate_tile_flow
 
 
 class _FlowContract:
@@ -57,7 +57,7 @@ class DebugEngine:
         self.tile.build(self.builder)
         self.spawn_timer = 0.0
         # Short validation for debug UI. The command-line validator uses stricter defaults.
-        self.validation = validate_tile_port_spec(default_tile, duration=7.0)
+        self.validation = validate_tile_flow(default_tile)
 
     def step(self, dt: float) -> None:
         self.spawn_timer -= dt
@@ -228,8 +228,8 @@ def _update_validation(validation_el) -> None:
     validation_el.textContent = (
         f"{'PASS' if result.ok else 'FAIL'}: "
         f"{result.exited}/{result.balls_spawned} exited, "
-        f"{result.unexpected} unexpected, {result.out_of_bounds} out, "
-        f"{result.stuck} stuck, {result.active} active"
+        f"{result.active}/{result.max_active_allowed} active, "
+        f"peak {result.peak_active}, {result.invalid + result.lost} invalid/lost"
     )
 
 

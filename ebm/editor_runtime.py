@@ -8,7 +8,7 @@ import types
 from .editor_console import console_muted, console_phase
 from .tile_api import TileBuilder, TileResourceRegistry
 from .tile_base import TileBase
-from .validator import validate_tile_port_spec
+from .validator import validate_tile_flow
 
 
 class EditorRuntime:
@@ -43,7 +43,7 @@ class EditorRuntime:
             return json.dumps({"ok": False, "message": "Run the source before validating."})
         try:
             with console_phase("validation"):
-                result = validate_tile_port_spec(self.tile_class, name=self.tile_class.id)
+                result = validate_tile_flow(self.tile_class, name=self.tile_class.id)
             return json.dumps({"ok": result.ok, "result": result.to_dict()})
         except Exception as error:
             return json.dumps(self._error(error))

@@ -4,4 +4,4 @@ Tiles do not route identified balls. Every tile accepts the fixed inputs `T0`, `
 
 A tile class has metadata plus `build(builder)` and optional `update(builder, dt)`. It has no route constructor argument and no `routes` property.
 
-Strict validation samples 243 input position/velocity states, requires every ball to leave through a valid output with a valid handoff state, rejects loss/stalls/out-of-bounds balls, and requires all three outputs to be exercised across the test.
+Strict validation runs one concurrent stream of 120 balls, balanced across all inputs with varied entry states. There is no drain phase. At every step, at most 20 balls may remain active inside the tile, whether buffered or in transit. At completion, every entered ball must be either a valid exit or still physically present inside; loss, invalid exits, non-finite state, and removal are failures. All three outputs must be exercised.
