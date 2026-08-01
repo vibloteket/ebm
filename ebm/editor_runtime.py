@@ -5,6 +5,7 @@ import sys
 import traceback
 import types
 
+from .editor_console import console_phase
 from .ports import Port, RoutePermutation
 from .tile_api import TileBuilder, TileResourceRegistry
 from .tile_base import TileBase
@@ -25,7 +26,8 @@ class EditorRuntime:
         try:
             sys.modules[module.__name__] = module
             code = compile(source, "editor_tile.py", "exec")
-            exec(code, namespace)
+            with console_phase("compile"):
+                exec(code, namespace)
             tile_class = namespace.get("TILE_CLASS")
             self._check_tile_class(tile_class)
             for route in tile_class.routes:
@@ -49,15 +51,16 @@ class EditorRuntime:
         if self.tile_class is None:
             return json.dumps({"ok": False, "message": "Run the source before validating."})
         try:
-            results = [
-                validate_tile_port_spec(
-                    lambda route=route: self.tile_class(route),
-                    route,
-                    name=f"{self.tile_class.id} {route}",
-                    duration=12.0,
-                )
-                for route in self.tile_class.routes
-            ]
+            with console_phase("validation"):
+                results = [
+                    validate_tile_port_spec(
+                        lambda route=route: self.tile_class(route),
+                        route,
+                        name=f"{self.tile_class.id} {route}",
+                        duration=12.0,
+                    )
+                    for route in self.tile_class.routes
+                ]
             return json.dumps({
                 "ok": all(result.ok for result in results),
                 "results": [result.to_dict() for result in results],
@@ -89,7 +92,8 @@ class EditorRuntime:
         registry = TileResourceRegistry.for_space(space)
         builder = TileBuilder(registry, 1, (0, 0))
         try:
-            tile.build(builder)
+            with console_phase("build"):
+                tile.build(builder)
         finally:
             registry.destroy_owner(1)
 

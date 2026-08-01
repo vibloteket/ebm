@@ -10,6 +10,7 @@ from .ports import Port, TILE_SIZE
 from .routes import route_selection_at
 from .tile_api import BALL_COLLISION_TYPE, TileBuilder, TileResourceRegistry, ball_shape_filter
 from .tile_catalog import tile_for_route
+from .tile_output import suppress_tile_output
 
 BOUNDARY_SPAWN_INTERVAL = 1.2
 # One retained tile around the viewport is enough for seamless panning. At
@@ -108,7 +109,8 @@ class Engine:
 
         started = time.perf_counter()
         for active in list(self.active_tiles.values()):
-            active.tile.update(active.builder, min(dt, 0.05))
+            with suppress_tile_output():
+                active.tile.update(active.builder, min(dt, 0.05))
         self._profile_add("tile_update", started)
 
         started = time.perf_counter()
@@ -154,7 +156,8 @@ class Engine:
             owner_id = self._next_tile_owner
             self._next_tile_owner += 1
             builder = TileBuilder(self.registry, owner_id, origin)
-            tile.build(builder)
+            with suppress_tile_output():
+                tile.build(builder)
             self.active_tiles[coord] = ActiveTile(tile, builder, owner_id)
             # Camera movement can expose several tile columns before a periodic
             # boundary spawner fires. Seed each newly activated tile

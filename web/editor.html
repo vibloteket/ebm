@@ -45,6 +45,10 @@
   <section class="code-pane">
     <div class="code-heading"><span>Python source</span><span id="draft-state">Original</span></div>
     <div class="editor-shell" id="source-editor" aria-label="Python source editor"></div>
+    <section class="console-panel" id="console-panel">
+      <header><button id="console-toggle" type="button" aria-expanded="true">Console <span id="console-count">0</span></button><button id="console-clear" type="button">Clear</button></header>
+      <div id="console-output" role="log" aria-live="polite"><div class="console-empty">Output from print() will appear here.</div></div>
+    </section>
     <footer><span id="cursor-position">Ln 1, Col 1</span><span>Local autosave</span></footer>
   </section>
 </main>

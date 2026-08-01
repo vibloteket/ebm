@@ -7,6 +7,7 @@ from js import window
 from pyodide.ffi import create_proxy
 
 from . import editor_runtime
+from .editor_console import console_phase
 from .debug_demo import Ball, _draw_port_overlays
 from .ports import Port, PORT_SPECS, TILE_SIZE
 from .tile_api import BALL_COLLISION_TYPE, TileBuilder, TileResourceRegistry, VisualSegment, ball_shape_filter
@@ -49,7 +50,8 @@ class EditorPreview:
             for col in range(size):
                 tile = self.tile_class(self.route)
                 builder = TileBuilder(self.registry, owner, (col * TILE_SIZE, row * TILE_SIZE))
-                tile.build(builder)
+                with console_phase(f"build {row},{col}"):
+                    tile.build(builder)
                 self.owners.append((owner, tile, builder))
                 owner += 1
         # Every open boundary input has an independent phase and cadence.
@@ -73,8 +75,10 @@ class EditorPreview:
                 # mechanisms that only work when inputs arrive simultaneously.
                 self.spawn_clocks[boundary] += self.rng.uniform(0.65, 1.35)
         for _ in range(max(1, int(dt / (1 / 60)))):
-            for _, tile, builder in self.owners:
-                tile.update(builder, 1 / 60)
+            for owner, tile, builder in self.owners:
+                row, col = divmod(owner - 1, self.grid_size)
+                with console_phase(f"update {row},{col}"):
+                    tile.update(builder, 1 / 60)
             self.space.step(1 / 60)
         edge = self.grid_size * TILE_SIZE
         for ball in list(self.balls):
