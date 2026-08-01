@@ -13,7 +13,9 @@ class TileBase:
     routes: tuple[RoutePermutation, ...] = ()
 
     def build(self, tile):  # pragma: no cover - interface
+        """Create this instance's physical and visual resources with a TileBuilder."""
         raise NotImplementedError
 
     def update(self, tile, dt: float) -> None:
+        """Advance optional tile state; dt is elapsed simulation time in seconds."""
         pass

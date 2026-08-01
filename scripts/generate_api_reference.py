@@ -1,0 +1,107 @@
+#!/usr/bin/env python3
+"""Generate the browser tile API reference from the public Python API."""
+
+from __future__ import annotations
+
+import inspect
+import json
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from ebm.ports import Port, RoutePermutation, TILE_SIZE  # noqa: E402
+from ebm.tile_api import ContactEvent, TileBuilder  # noqa: E402
+from ebm.tile_base import TileBase  # noqa: E402
+
+
+def public_signature(member) -> str:
+    signature = str(inspect.signature(member))
+    return signature.replace("(self, ", "(").replace("(self)", "()")
+
+
+def method_reference(cls, names: tuple[str, ...]) -> list[dict[str, str]]:
+    return [
+        {
+            "name": name,
+            "signature": public_signature(getattr(cls, name)),
+            "description": inspect.getdoc(getattr(cls, name)) or "",
+        }
+        for name in names
+    ]
+
+
+def build_reference() -> dict:
+    return {
+        "apiVersion": TileBase.api_version,
+        "tileSize": TILE_SIZE,
+        "tileBase": {
+            "description": inspect.getdoc(TileBase),
+            "properties": [
+                {"name": "id", "type": "str", "required": True, "description": "Stable, globally unique tile ID, for example vb.water-wheel."},
+                {"name": "title", "type": "str", "required": True, "description": "Human-readable name shown in the editor and catalog."},
+                {"name": "author", "type": "str", "required": True, "description": "Name of the tile author or project."},
+                {"name": "api_version", "type": "int", "required": True, "description": "Tile API version. The current supported value is 1."},
+                {"name": "routes", "type": "tuple[RoutePermutation, ...]", "required": True, "description": "Every route permutation this tile can implement."},
+                {"name": "self.route", "type": "RoutePermutation", "required": True, "description": "The route selected for this particular tile instance."},
+            ],
+            "methods": method_reference(TileBase, ("build", "update")),
+        },
+        "tileBuilder": {
+            "description": inspect.getdoc(TileBuilder),
+            "methods": method_reference(TileBuilder, (
+                "static_segment", "static_circle", "sensor_box", "on_ball_contact",
+                "visual_segment", "body_position", "remove",
+            )),
+        },
+        "contactEvent": {
+            "description": inspect.getdoc(ContactEvent),
+            "properties": [
+                {"name": "own_shape", "type": "ShapeHandle", "description": "The tile-owned shape that received the contact."},
+                {"name": "ball_body", "type": "pymunk.Body", "description": "The contacting ball body. Its position and velocity can be inspected or changed."},
+                {"name": "point", "type": "tuple[float, float] | None", "description": "Reserved contact point; currently None in API v1."},
+                {"name": "normal", "type": "tuple[float, float] | None", "description": "Reserved contact normal; currently None in API v1."},
+            ],
+        },
+        "ports": [{"name": port.name, "point": list(port.point), "kind": "input" if port.name in {"T0", "L0", "R0"} else "output"} for port in Port],
+        "recipes": [
+            {
+                "title": "Sloping rail",
+                "description": "A physical segment that guides balls using friction and restitution.",
+                "code": "tile.static_segment(\n    (20, 70), (180, 130),\n    radius=4, friction=0.8, elasticity=0.2,\n)",
+            },
+            {
+                "title": "Powered channel",
+                "description": "A rail whose surface actively carries contacting balls.",
+                "code": "tile.static_segment(\n    (20, 100), (180, 100),\n    radius=4, surface_velocity=(80, 0),\n)",
+            },
+            {
+                "title": "Ball contact sensor",
+                "description": "Detect balls without adding visible or colliding geometry.",
+                "code": "sensor = tile.sensor_box(40, 40, 160, 160)\n\ndef on_ball(event):\n    print(event.ball_body.position)\n\ntile.on_ball_contact(sensor, on_ball)",
+            },
+            {
+                "title": "Custom route",
+                "description": "Declare an explicit bijection from all three input ports to all three outputs.",
+                "code": "ROUTE = RoutePermutation({\n    Port.T0: Port.B0,\n    Port.L0: Port.R1,\n    Port.R0: Port.L1,\n})",
+            },
+        ],
+        "limitations": [
+            "API v1 supports static segments and circles, sensors, contact callbacks, and visual segments.",
+            "Dynamic bodies, attached shapes, joints, motors, springs, forces, and impulses are not available yet.",
+            "Tile code receives a TileBuilder, never direct access to the shared Pymunk Space.",
+            "Build points are limited to the 200 × 200 tile plus the documented 10-unit build margin.",
+        ],
+    }
+
+
+def main() -> None:
+    output = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "web" / "api-reference.json"
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(build_reference(), indent=2) + "\n")
+    print(f"Generated {output}")
+
+
+if __name__ == "__main__":
+    main()

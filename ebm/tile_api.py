@@ -154,6 +154,7 @@ class TileBuilder:
         return self.origin[0] + x, self.origin[1] + y
 
     def static_segment(self, a, b, radius=1, *, friction=.8, elasticity=.2, surface_velocity=(0, 0)):
+        """Build a fixed physical rail from local point a to b; return its ShapeHandle."""
         import pymunk
 
         if radius < 0 or radius > BUILD_MARGIN:
@@ -164,6 +165,7 @@ class TileBuilder:
         return self._registry.add(self._owner, shape, ShapeHandle)
 
     def static_circle(self, center, radius, *, friction=.4, elasticity=.75):
+        """Build a fixed physical circle in local coordinates; return its ShapeHandle."""
         import pymunk
 
         x, y = map(float, center)
@@ -174,6 +176,7 @@ class TileBuilder:
         return self._registry.add(self._owner, shape, ShapeHandle)
 
     def sensor_box(self, left, top, right, bottom):
+        """Build an invisible, non-colliding rectangular sensor; return its ShapeHandle."""
         import pymunk
 
         points=[self._point(p) for p in ((left,top),(right,top),(right,bottom),(left,bottom))]
@@ -181,9 +184,11 @@ class TileBuilder:
         return self._registry.add(self._owner,shape,ShapeHandle)
 
     def on_ball_contact(self, shape: ShapeHandle, callback, *, collide: bool = False):
+        """Call callback(ContactEvent) while a ball contacts an owned shape."""
         self._registry.on_contact(self._owner, shape, callback, collide=collide)
 
     def visual_segment(self, a, b, radius=3):
+        """Build a non-physical line used only by renderers; return a VisualSegment."""
         # Visual-only primitives are owned and bounds-checked but never added to
         # Pymunk, so reference graphics cannot interfere with ball routing.
         local_a=(float(a[0]),float(a[1]));local_b=(float(b[0]),float(b[1]))
@@ -191,9 +196,11 @@ class TileBuilder:
         return self._registry.add_visual(self._owner,VisualSegment(local_a,local_b,float(radius)))
 
     def body_position(self, body: BodyHandle):
+        """Return the current world-space position of an owned BodyHandle."""
         return self._registry.resolve(self._owner, body).position
 
     def remove(self, handle):
+        """Remove an owned resource from the simulation before normal cleanup."""
         obj=self._registry.resolve(self._owner,handle)
         self._registry.space.remove(obj)
 
