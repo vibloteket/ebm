@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Endless Ball Machine — Tile Debug</title>
+    <link rel="stylesheet" href="./style.css?v=0.51" />
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.27.2/full/pyodide.js"></script>
+  </head>
+  <body class="debug-page">
+    <main>
+      <section id="debug-toolbar">
+        <div>
+          <a href="./">← machine</a>
+          <h1>Tile Debug</h1>
+          <p id="contract-title">Loading…</p>
+          <p id="validation-report" class="validation-report">Validation pending…</p>
+        </div>
+        <label>
+          Filler contract
+          <select id="tile-select"></select>
+        </label>
+      </section>
+      <canvas id="machine"></canvas>
+      <div id="loading">
+        <h1>Endless Ball Machine</h1>
+        <p>Loading debug simulator…</p>
+      </div>
+    </main>
+    <script type="module" src="./debug.js?v=0.51"></script>
+  </body>
+</html>

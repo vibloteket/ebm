@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+  <title>Route Map Debug — Endless Ball Machine</title>
+  <link rel="stylesheet" href="./map-debug.css?v=0.5">
+</head>
+<body>
+  <canvas id="map" aria-label="Route contract map"></canvas>
+  <header>
+    <div><a href="./admin.html">← Admin</a><h1>Route Map Debug</h1><p>Compare port signatures and internal route pairings</p></div>
+    <div class="legend"><span class="top">T0</span><span class="left">L0</span><span class="right">R0</span><span class="bottom">B0</span><span class="out-left">L1</span><span class="out-right">R1</span></div>
+  </header>
+  <section id="strategy-panel">
+    <label>Map strategy
+      <select id="strategy">
+        <option value="current">Current generator</option>
+        <option value="three-lane">Uniform original three lanes</option>
+        <option value="southeast">Uniform southeast 2-in / 2-out</option>
+        <option value="southwest">Uniform southwest 2-in / 2-out</option>
+        <option value="mixed">Uniform 2-in / 2-out, mixed routing</option>
+        <option value="mixed3" selected>Uniform 3-in / 3-out, mixed permutations</option>
+        <option value="edges">Edge-generated connected map</option>
+      </select>
+    </label>
+    <p id="description"></p>
+    <label id="weight-row">Permutation weights
+      <select id="weights">
+        <option value="equal">Equal · 1 1 1 1 1 1</option>
+        <option value="turn" selected>Turn-biased · 1 2 2 2 2 1</option>
+        <option value="straight">Straight-biased · 4 1 1 1 1 4</option>
+        <option value="down">Down-biased · 3 2 2 2 2 3</option>
+        <option value="mixed">Balanced · 3 1 2 2 1 3</option>
+      </select>
+    </label>
+    <output id="stats"></output>
+    <label class="toggle"><input id="problems" type="checkbox" checked> Highlight connection errors</label>
+    <label class="toggle"><input id="tracers" type="checkbox" checked> Animate route tracers</label>
+    <output id="tracer-stats"></output>
+    <output id="analysis-stats"></output>
+  </section>
+  <aside id="controls">
+    <button id="out" title="Zoom out (−)">−</button><button id="reset" title="Reset view (0)">0.5×</button><button id="in" title="Zoom in (+)">+</button>
+  </aside>
+  <output id="position"></output>
+  <script type="module" src="./map-debug.js?v=0.5"></script>
+</body>
+</html>

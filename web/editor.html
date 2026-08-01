@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Tile Editor — Endless Ball Machine</title>
+  <link rel="stylesheet" href="./editor.css?v=0.60">
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.27.2/full/pyodide.js"></script>
+</head>
+<body>
+<header class="topbar">
+  <div><a href="./admin.html">← Special pages</a><h1>Tile Editor</h1></div>
+  <div class="actions">
+    <button id="import-button" type="button">Import .py</button>
+    <input id="import-file" type="file" accept=".py,text/x-python" hidden>
+    <button id="reset-button" type="button">Reset</button>
+    <button id="download-button" type="button">Download .py</button>
+    <button id="run-button" type="button" class="primary">Run <kbd>⌘↵</kbd></button>
+  </div>
+</header>
+<main class="workspace">
+  <section class="preview-pane">
+    <div class="pane-toolbar">
+      <label>Tile<select id="tile-select"><option>Loading tiles…</option></select></label>
+      <label>Route<select id="route-select"></select></label>
+      <div class="mode-switch" role="group" aria-label="Preview mode">
+        <button class="active" data-mode="single">Single</button><button data-mode="repeat">3 × 3</button>
+      </div>
+      <button id="validate-button" type="button">Validate 243 states</button>
+    </div>
+    <div class="tile-meta" id="tile-meta">
+      <label>Title<input id="tile-title" type="text" placeholder="My Tile"></label>
+      <label>Tile ID<input id="tile-id" type="text" placeholder="local.my-tile"></label>
+      <label>Author<input id="tile-author" type="text" placeholder="Your name"></label>
+      <span id="tile-origin">Loading catalog…</span>
+    </div>
+    <canvas id="preview" aria-label="Tile preview"></canvas>
+    <section class="status-panel">
+      <div id="status" class="status pending">Loading Python runtime…</div>
+      <div id="validation-results"></div>
+    </section>
+  </section>
+  <section class="code-pane">
+    <div class="code-heading"><span>Python source</span><span id="draft-state">Original</span></div>
+    <div class="editor-shell" id="source-editor" aria-label="Python source editor"></div>
+    <footer><span id="cursor-position">Ln 1, Col 1</span><span>Local autosave</span></footer>
+  </section>
+</main>
+<div id="loading"><div><h2>Starting Tile Editor</h2><p>Loading Pyodide and pymunk…</p></div></div>
+<script src="./vendor/codemirror/editor-codemirror.js?v=0.61"></script>
+<script type="module" src="./editor.js?v=0.61"></script>
+</body>
+</html>

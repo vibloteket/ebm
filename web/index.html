@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Endless Ball Machine</title>
+    <link rel="stylesheet" href="./style.css?v=0.51" />
+    <script src="./v3-renderer.js?v=0.42"></script>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.27.2/full/pyodide.js"></script>
+  </head>
+  <body>
+    <main>
+      <div id="machine-layers">
+        <canvas id="static-machine" aria-hidden="true"></canvas>
+        <canvas id="dynamic-machine" aria-label="Endless Ball Machine"></canvas>
+      </div>
+      <aside id="renderer-controls" aria-label="Renderer controls">
+        <label>Renderer
+          <select id="renderer-select">
+            <option value="basic" selected>Basic</option>
+            <option value="v3">Pigment V3</option>
+          </select>
+        </label>
+      </aside>
+      <aside id="view-controls" aria-label="View controls">
+        <button id="zoom-out" type="button" title="Zoom out (−)">−</button>
+        <button id="zoom-reset" type="button" title="Reset zoom (0)">0.5×</button>
+        <button id="zoom-in" type="button" title="Zoom in (+)">+</button>
+        <a href="./admin.html" title="Special pages">Admin</a>
+      </aside>
+      <output id="performance-stats" hidden></output>
+      <div id="loading">
+        <h1>Endless Ball Machine</h1>
+        <p>Loading Pyodide + pymunk…</p>
+      </div>
+    </main>
+    <script type="module" src="./main.js?v=0.51"></script>
+  </body>
+</html>

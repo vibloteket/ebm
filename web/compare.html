@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Crayon renderer comparison — Endless Ball Machine</title>
+    <link rel="stylesheet" href="./compare.css?v=0.36" />
+  </head>
+  <body>
+    <header>
+      <nav><a href="./">← Maskinen</a><a href="./debug.html">Tile debug</a></nav>
+      <div class="intro">
+        <p class="eyebrow">Rendering bake-off</p>
+        <h1>Which crayon style feels right?</h1>
+        <p>The same small machine, rendered by four candidates. Click an example to select your favorite.</p>
+      </div>
+      <div class="controls">
+        <label>Pigment <input id="pigment" type="range" min="35" max="100" value="76" /></label>
+        <label>Paper grain <input id="grain" type="range" min="0" max="100" value="58" /></label>
+        <button id="animate" type="button" aria-pressed="true">■ Stop animation</button>
+      </div>
+    </header>
+
+    <main class="comparison" id="comparison">
+      <article class="sample" data-renderer="wax">
+        <div class="sample-heading"><div><span>01</span><h2>Wax stamp v2</h2></div><em>Canvas · cached sprite</em></div>
+        <canvas aria-label="Canvas-rendering med vaxkritpensel"></canvas>
+        <p>Strong pigment body with sparse clusters. Wheels are pre-rendered sprites, so their texture rotates without flicker.</p>
+      </article>
+
+      <article class="sample" data-renderer="fiber">
+        <div class="sample-heading"><div><span>02</span><h2>Dry crayon</h2></div><em>Canvas 2D</em></div>
+        <canvas aria-label="Canvas-rendering med torr krittextur"></canvas>
+        <p>Drier strokes with gaps where paper fibers show through. These can be replaced with scanned brush masks.</p>
+      </article>
+
+      <article class="sample" data-renderer="shader">
+        <div class="sample-heading"><div><span>03</span><h2>Pigment shader v3</h2></div><em id="shader-status">WebGL2 · local texture</em></div>
+        <canvas aria-label="WebGL2-rendering med lokal kritshader"></canvas>
+        <p>Fractally distorted silhouette, fully transparent pigment gaps, and a narrow intermittent core that keeps the shape readable.</p>
+      </article>
+
+      <article class="sample" data-renderer="shader-original">
+        <div class="sample-heading"><div><span>04</span><h2>Original pigment · local</h2></div><em id="shader-original-status">WebGL2 · local texture</em></div>
+        <canvas aria-label="Ursprunglig WebGL2-pigmentshader med lokal textur"></canvas>
+        <p>The original dense, evenly granular pigment, now attached to the wheels and ball so it follows their movement.</p>
+      </article>
+    </main>
+
+    <footer>
+      <strong id="selection">No favorite selected yet.</strong>
+      <p>These are style prototypes, not performance tests. Static tiles can be baked and reused in the machine regardless of technique.</p>
+    </footer>
+    <script type="module" src="./compare.js?v=0.36"></script>
+  </body>
+</html>
