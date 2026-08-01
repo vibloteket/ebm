@@ -6,14 +6,13 @@ import traceback
 import types
 
 from .editor_console import console_muted, console_phase
-from .ports import Port, RoutePermutation
 from .tile_api import TileBuilder, TileResourceRegistry
 from .tile_base import TileBase
 from .validator import validate_tile_port_spec
 
 
 class EditorRuntime:
-    """Compile and validate an editor-provided tile without touching shipped modules."""
+    """Compile and validate an editor-provided flow tile."""
 
     def __init__(self):
         self.tile_class = None
@@ -22,29 +21,18 @@ class EditorRuntime:
     def compile(self, source: str) -> str:
         module = types.ModuleType("ebm_editor_tile")
         module.__package__ = "ebm"
-        namespace = module.__dict__
         try:
             sys.modules[module.__name__] = module
             code = compile(source, "editor_tile.py", "exec")
             with console_phase("compile"):
-                exec(code, namespace)
-            tile_class = namespace.get("TILE_CLASS")
+                exec(code, module.__dict__)
+            tile_class = module.__dict__.get("TILE_CLASS")
             self._check_tile_class(tile_class)
-            # These instances only verify every declared route. They are not
-            # the visible preview tile and must not duplicate its debug output.
             with console_muted():
-                for route in tile_class.routes:
-                    tile = tile_class(route)
-                    self._check_instance(tile, route)
+                self._check_instance(tile_class())
             self.tile_class = tile_class
             self.source = source
-            return json.dumps({
-                "ok": True,
-                "id": tile_class.id,
-                "title": tile_class.title,
-                "author": tile_class.author,
-                "routes": [list(route.key) for route in tile_class.routes],
-            })
+            return json.dumps({"ok": True, "id": tile_class.id, "title": tile_class.title, "author": tile_class.author})
         except Exception as error:
             return json.dumps(self._error(error))
         finally:
@@ -55,19 +43,8 @@ class EditorRuntime:
             return json.dumps({"ok": False, "message": "Run the source before validating."})
         try:
             with console_phase("validation"):
-                results = [
-                    validate_tile_port_spec(
-                        lambda route=route: self.tile_class(route),
-                        route,
-                        name=f"{self.tile_class.id} {route}",
-                        duration=12.0,
-                    )
-                    for route in self.tile_class.routes
-                ]
-            return json.dumps({
-                "ok": all(result.ok for result in results),
-                "results": [result.to_dict() for result in results],
-            })
+                result = validate_tile_port_spec(self.tile_class, name=self.tile_class.id)
+            return json.dumps({"ok": result.ok, "result": result.to_dict()})
         except Exception as error:
             return json.dumps(self._error(error))
 
@@ -75,7 +52,7 @@ class EditorRuntime:
     def _check_tile_class(tile_class):
         if not isinstance(tile_class, type) or not issubclass(tile_class, TileBase):
             raise TypeError("Source must export a TileBase subclass as TILE_CLASS")
-        if tile_class.api_version != 1:
+        if tile_class.api_version != 2:
             raise ValueError(f"Unsupported api_version: {tile_class.api_version}")
         if not isinstance(tile_class.id, str) or not tile_class.id.strip() or tile_class.id == TileBase.id:
             raise ValueError("Tile must declare a stable id")
@@ -83,13 +60,9 @@ class EditorRuntime:
             raise ValueError("Tile must declare a title")
         if not isinstance(tile_class.author, str) or not tile_class.author.strip():
             raise ValueError("Tile must declare an author")
-        if not tile_class.routes or not all(isinstance(route, RoutePermutation) for route in tile_class.routes):
-            raise ValueError("Tile must declare one or more RoutePermutation values")
 
     @staticmethod
-    def _check_instance(tile, route):
-        if not hasattr(tile, "build"):
-            raise TypeError("TILE_CLASS instances must implement build(builder)")
+    def _check_instance(tile):
         import pymunk
         space = pymunk.Space()
         registry = TileResourceRegistry.for_space(space)
@@ -102,21 +75,13 @@ class EditorRuntime:
 
     @staticmethod
     def _error(error: Exception) -> dict:
-        line = None
-        if isinstance(error, SyntaxError):
-            line = error.lineno
-        else:
+        line = error.lineno if isinstance(error, SyntaxError) else None
+        if line is None:
             for frame in reversed(traceback.extract_tb(error.__traceback__)):
                 if frame.filename == "editor_tile.py":
                     line = frame.lineno
                     break
-        return {
-            "ok": False,
-            "type": type(error).__name__,
-            "message": str(error),
-            "line": line,
-            "traceback": "".join(traceback.format_exception(type(error), error, error.__traceback__)),
-        }
+        return {"ok": False, "type": type(error).__name__, "message": str(error), "line": line}
 
 
 _runtime = EditorRuntime()

@@ -22,7 +22,7 @@ _proxies = []
 
 
 class EditorPreview:
-    def __init__(self, route_index=0, mode="single"):
+    def __init__(self, mode="single"):
         import pymunk
         self.space = pymunk.Space()
         self.space.gravity = (0, 900)
@@ -31,9 +31,9 @@ class EditorPreview:
         self.rng = random.Random(17)
         self.spawn_clocks = {}
         self.owners = []
-        self.configure(route_index, mode)
+        self.configure(mode)
 
-    def configure(self, route_index, mode):
+    def configure(self, mode):
         if editor_runtime._runtime.tile_class is None:
             raise RuntimeError("Run valid tile source first")
         for ball in list(self.balls):
@@ -42,8 +42,6 @@ class EditorPreview:
             self.registry.destroy_owner(owner)
         self.owners = []
         self.tile_class = editor_runtime._runtime.tile_class
-        self.route_index = max(0, min(int(route_index), len(self.tile_class.routes) - 1))
-        self.route = self.tile_class.routes[self.route_index]
         self.mode = "repeat" if str(mode) == "repeat" else "single"
         size = 3 if self.mode == "repeat" else 1
         owner = 1
@@ -52,7 +50,7 @@ class EditorPreview:
                 is_log_tile = (row == size // 2 and col == size // 2)
                 output_context = console_phase(f"build {row},{col}") if is_log_tile else console_muted()
                 with output_context:
-                    tile = self.tile_class(self.route)
+                    tile = self.tile_class()
                     builder = TileBuilder(self.registry, owner, (col * TILE_SIZE, row * TILE_SIZE))
                     tile.build(builder)
                 self.owners.append((owner, tile, builder))
@@ -166,13 +164,13 @@ def start(canvas):
     window.requestAnimationFrame(frame_proxy)
 
 
-def refresh(route_index=0, mode="single"):
+def refresh(mode="single"):
     global _preview
     if _preview is None:
         return
     # Rebuild even while paused, then draw the fresh state once without
     # advancing physics. This keeps Run useful as an edit/inspect workflow.
-    _preview.configure(int(route_index), str(mode))
+    _preview.configure(str(mode))
     if _canvas is not None:
         draw(_canvas, _preview)
 
@@ -216,7 +214,7 @@ def draw(canvas, preview):
                     for point in points[1:]:ctx.lineTo(sx(point.x),sy(point.y))
                     ctx.closePath();ctx.fillStyle="rgba(49,90,168,.28)";ctx.fill();ctx.lineWidth=2;ctx.stroke()
     if preview.mode == "single":
-        _draw_port_overlays(ctx, preview.route, sx, sy, scale)
+        _draw_port_overlays(ctx, sx, sy, scale)
     for ball in preview.balls:
         p=ball.body.position;ctx.beginPath();ctx.arc(sx(p.x),sy(p.y),8*scale,0,math.tau)
         ctx.fillStyle="#1672d4";ctx.fill();ctx.strokeStyle="#0c3f8f";ctx.lineWidth=1.5;ctx.stroke()

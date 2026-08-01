@@ -47,7 +47,7 @@ root, out = map(Path, sys.argv[1:])
 sys.path.insert(0, str(root))
 from ebm.tile_catalog import all_tiles
 
-manifest = {"apiVersion": 1, "tiles": []}
+manifest = {"apiVersion": 2, "tiles": []}
 source_dir = out / "tiles" / "sources"
 source_dir.mkdir(parents=True, exist_ok=True)
 for registration in all_tiles():
@@ -63,7 +63,6 @@ for registration in all_tiles():
         "module": registration.module,
         "class": cls.__name__,
         "source": f"tiles/sources/{source_name}",
-        "routes": [list(route.key) for route in cls.routes],
         "builtin": registration.builtin,
     })
 (out / "tiles" / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")

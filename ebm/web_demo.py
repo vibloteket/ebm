@@ -218,7 +218,7 @@ def _cached_tile(active):
     # while retaining almost all of the benefit of caching by contract.
     row=int(active.builder.origin[1]//TILE_SIZE);col=int(active.builder.origin[0]//TILE_SIZE)
     variant = (row*31 + col*17) % 3
-    key = (_renderer, active.tile.route.key, variant)
+    key = (_renderer, active.tile.id, variant)
     cached = _tile_cache.get(key)
     if cached is not None:
         _render_profile["cache_hits"] += 1

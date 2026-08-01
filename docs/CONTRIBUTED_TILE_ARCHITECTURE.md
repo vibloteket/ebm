@@ -1,3 +1,5 @@
+> **Superseded for tile routing by `FLOW_TILE_API.md` (API v2).** RoutePermutation is no longer part of the tile API.
+
 # Contributed Tile Architecture
 
 Status: implemented foundation; uniform routing, capability API, and six reference routes active

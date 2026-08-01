@@ -10,14 +10,9 @@ function render(reference){
     id = "local.my-tile"
     title = "My Tile"
     author = "Your name"
-    api_version = 1
-    routes = DEFAULT_ROUTES
-
-    def __init__(self, route):
-        self.route = route
+    api_version = 2
 
     def build(self, builder):
-        # builder is a TileBuilder
         pass
 
     def update(self, builder, dt):
@@ -27,7 +22,7 @@ TILE_CLASS = MyTile</code></pre>`;
   const sections=[
     ["class","Tile class",`<p>${escapeHtml(reference.tileBase.description)}</p>${skeleton}<h4>Properties</h4>${propertyTable(reference.tileBase.properties)}<h4>Lifecycle</h4>${methods(reference.tileBase.methods)}`],
     ["builder","TileBuilder",`<p>${escapeHtml(reference.tileBuilder.description)}</p>${methods(reference.tileBuilder.methods)}`],
-    ["routes","Routes & coordinates",`${coordinateMap(reference)}<p>A <code>RoutePermutation</code> maps T0, L0, and R0 bijectively to B0, L1, and R1. Use <code>route.exit_for(entry)</code> to inspect the selected mapping.</p>`],
+    ["ports","Ports & coordinates",`${coordinateMap(reference)}<p>Balls may leave through any valid output. Validation requires every sampled input state to exit successfully and all three outputs to receive balls.</p>`],
     ["events","Handles & events",`<p>Builder methods return ownership-checked handles. A tile can only inspect or remove its own resources. Resources are cleaned up automatically when the instance is destroyed.</p><h4>ContactEvent</h4>${propertyTable(reference.contactEvent.properties)}`],
     ["recipes","Recipes",reference.recipes.map(recipe=>`<article class="api-card"><h4>${escapeHtml(recipe.title)}</h4><p>${escapeHtml(recipe.description)}</p><pre><code>${escapeHtml(recipe.code)}</code></pre></article>`).join("")],
     ["scope","What API v1 can build",`<ul>${reference.limitations.map(item=>`<li>${escapeHtml(item)}</li>`).join("")}</ul>`],

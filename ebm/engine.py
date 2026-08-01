@@ -7,9 +7,8 @@ import time
 from typing import Any
 
 from .ports import Port, TILE_SIZE
-from .routes import route_selection_at
 from .tile_api import BALL_COLLISION_TYPE, BALL_ELASTICITY, BALL_FRICTION, TileBuilder, TileResourceRegistry, ball_shape_filter
-from .tile_catalog import tile_for_route
+from .tile_catalog import default_tile
 from .tile_output import suppress_tile_output
 
 BOUNDARY_SPAWN_INTERVAL = 1.2
@@ -150,8 +149,7 @@ class Engine:
         for coord in sorted(needed - current):
             row, col = coord
             origin = (col * TILE_SIZE, row * TILE_SIZE)
-            selection = route_selection_at(row, col)
-            tile = tile_for_route(selection.route)
+            tile = default_tile()
             owner_id = self._next_tile_owner
             self._next_tile_owner += 1
             builder = TileBuilder(self.registry, owner_id, origin)

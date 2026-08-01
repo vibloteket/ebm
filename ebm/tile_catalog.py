@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from importlib import import_module
 from typing import Type
 
-from .ports import RoutePermutation
 from .tile_base import TileBase
 
 
@@ -18,10 +17,8 @@ class TileRegistration:
     def id(self) -> str:
         return self.tile_class.id
 
-    def create(self, route: RoutePermutation) -> TileBase:
-        if route not in self.tile_class.routes:
-            raise ValueError(f"{self.id} does not support route: {route}")
-        return self.tile_class(route)
+    def create(self) -> TileBase:
+        return self.tile_class()
 
 
 _BUILTIN_MODULES = (
@@ -37,10 +34,8 @@ def _load_registration(module_name: str, *, builtin: bool = True) -> TileRegistr
         raise TypeError(f"{module_name} must export a TileBase subclass as TILE_CLASS")
     if not tile_class.id or tile_class.id == TileBase.id:
         raise ValueError(f"{module_name} must declare a unique tile id")
-    if tile_class.api_version != 1:
+    if tile_class.api_version != 2:
         raise ValueError(f"{tile_class.id} uses unsupported API version {tile_class.api_version}")
-    if not tile_class.routes:
-        raise ValueError(f"{tile_class.id} must declare at least one route")
     return TileRegistration(module_name, tile_class, builtin)
 
 
@@ -61,14 +56,9 @@ def get_tile(tile_id: str) -> TileRegistration:
         raise KeyError(f"unknown tile id: {tile_id}") from None
 
 
-def candidates_for(route: RoutePermutation) -> tuple[TileRegistration, ...]:
-    return tuple(item for item in _REGISTRATIONS if route in item.tile_class.routes)
+def create_tile(tile_id: str) -> TileBase:
+    return get_tile(tile_id).create()
 
 
-def create_tile(tile_id: str, route: RoutePermutation) -> TileBase:
-    return get_tile(tile_id).create(route)
-
-
-def tile_for_route(route: RoutePermutation) -> TileBase:
-    preferred = "ebm.powered-channel" if route in get_tile("ebm.powered-channel").tile_class.routes else "ebm.reference-router"
-    return create_tile(preferred, route)
+def default_tile() -> TileBase:
+    return create_tile("ebm.powered-channel")

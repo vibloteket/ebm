@@ -17,7 +17,7 @@ def test_api_reference_covers_public_builder_methods():
 
 def test_api_reference_describes_current_contract():
     reference = build_reference()
-    assert reference["apiVersion"] == 1
+    assert reference["apiVersion"] == 2
     assert reference["tileSize"] == 200
     assert {port["name"] for port in reference["ports"]} == {"T0", "L0", "R0", "B0", "L1", "R1"}
     assert all(method["description"] for method in reference["tileBuilder"]["methods"])

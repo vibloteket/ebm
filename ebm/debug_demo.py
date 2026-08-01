@@ -7,12 +7,20 @@ from js import window
 from pyodide.ffi import create_proxy
 
 from .ports import Port, PORT_SPECS, TILE_SIZE
-from .routes import DEFAULT_ROUTES
 from .tile_api import BALL_COLLISION_TYPE, BALL_ELASTICITY, BALL_FRICTION, TileBuilder, TileResourceRegistry, VisualSegment, ball_shape_filter
-from .tile_catalog import tile_for_route
-from .validator import _entry_base_velocity, validate_filler_route_port_spec
+from .tile_catalog import default_tile
+from .validator import _entry_base_velocity, validate_tile_port_spec
 
 
+class _FlowContract:
+    entries = (Port.T0, Port.L0, Port.R0)
+    exits = (Port.B0, Port.L1, Port.R1)
+
+    def __str__(self):
+        return "Any input → any output"
+
+
+FLOW_CONTRACT = _FlowContract()
 _debug = None
 _last_ts: float | None = None
 _proxies = []
@@ -32,24 +40,24 @@ class DebugEngine:
 
     @property
     def contract(self):
-        return DEFAULT_ROUTES[self.contract_index]
+        return FLOW_CONTRACT
 
     def set_contract(self, index: int) -> None:
-        index = max(0, min(index, len(DEFAULT_ROUTES) - 1))
+        index = 0
         for ball in list(getattr(self, "balls", [])):
             self.remove_ball(ball)
         if hasattr(self, "builder"):
             self.registry.destroy_owner(self.owner_id)
 
         self.contract_index = index
-        self.tile = tile_for_route(self.contract)
+        self.tile = default_tile()
         self.registry = TileResourceRegistry.for_space(self.space)
         self.owner_id = index + 1
         self.builder = TileBuilder(self.registry, self.owner_id, (0, 0))
         self.tile.build(self.builder)
         self.spawn_timer = 0.0
         # Short validation for debug UI. The command-line validator uses stricter defaults.
-        self.validation = validate_filler_route_port_spec(self.contract, duration=7.0)
+        self.validation = validate_tile_port_spec(default_tile, duration=7.0)
 
     def step(self, dt: float) -> None:
         self.spawn_timer -= dt
@@ -198,7 +206,7 @@ def start(canvas, select, title_el=None, validation_el=None):
 
 def _populate_select(select, title_el, validation_el=None) -> None:
     select.innerHTML = ""
-    for i, contract in enumerate(DEFAULT_ROUTES):
+    for i, contract in enumerate((FLOW_CONTRACT,)):
         option = window.document.createElement("option")
         option.value = str(i)
         option.textContent = _contract_label(contract)
@@ -258,7 +266,7 @@ def draw(canvas, debug: DebugEngine) -> None:
     ctx.lineWidth = 2
     ctx.strokeRect(sx(0), sy(0), TILE_SIZE * scale, TILE_SIZE * scale)
 
-    _draw_port_overlays(ctx, debug.contract, sx, sy, scale)
+    _draw_port_overlays(ctx, sx, sy, scale)
 
     # Plain diagnostic rendering: solid route lines and balls.
     ctx.lineCap = "round"
@@ -280,10 +288,10 @@ def draw(canvas, debug: DebugEngine) -> None:
 BALL_RADIUS = 8
 
 
-def _draw_port_overlays(ctx, contract, sx, sy, scale) -> None:
-    for port in contract.entries:
+def _draw_port_overlays(ctx, sx, sy, scale) -> None:
+    for port in (Port.T0, Port.L0, Port.R0):
         _draw_port_spec_zone(ctx, port, sx, sy, scale, kind="entry")
-    for port in contract.exits:
+    for port in (Port.B0, Port.L1, Port.R1):
         _draw_port_spec_zone(ctx, port, sx, sy, scale, kind="exit")
 
 

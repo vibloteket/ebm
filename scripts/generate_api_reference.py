@@ -11,7 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from ebm.ports import Port, RoutePermutation, TILE_SIZE  # noqa: E402
+from ebm.ports import Port, TILE_SIZE  # noqa: E402
 from ebm.tile_api import ContactEvent, TileBuilder  # noqa: E402
 from ebm.tile_base import TileBase  # noqa: E402
 
@@ -42,9 +42,7 @@ def build_reference() -> dict:
                 {"name": "id", "type": "str", "required": True, "description": "Stable, globally unique tile ID, for example vb.water-wheel."},
                 {"name": "title", "type": "str", "required": True, "description": "Human-readable name shown in the editor and catalog."},
                 {"name": "author", "type": "str", "required": True, "description": "Name of the tile author or project."},
-                {"name": "api_version", "type": "int", "required": True, "description": "Tile API version. The current supported value is 1."},
-                {"name": "routes", "type": "tuple[RoutePermutation, ...]", "required": True, "description": "Every route permutation this tile can implement."},
-                {"name": "self.route", "type": "RoutePermutation", "required": True, "description": "The route selected for this particular tile instance."},
+                {"name": "api_version", "type": "int", "required": True, "description": "Tile API version. The current supported value is 2."},
             ],
             "methods": method_reference(TileBase, ("build", "update")),
         },
@@ -81,14 +79,9 @@ def build_reference() -> dict:
                 "description": "Detect balls without adding visible or colliding geometry.",
                 "code": "sensor = builder.sensor_box(40, 40, 160, 160)\n\ndef on_ball(event):\n    print(event.ball_body.position)\n\nbuilder.on_ball_contact(sensor, on_ball)",
             },
-            {
-                "title": "Custom route",
-                "description": "Declare an explicit bijection from all three input ports to all three outputs.",
-                "code": "ROUTE = RoutePermutation({\n    Port.T0: Port.B0,\n    Port.L0: Port.R1,\n    Port.R0: Port.L1,\n})",
-            },
         ],
         "limitations": [
-            "API v1 supports static segments and circles, sensors, contact callbacks, and visual segments.",
+            "API v2 supports static segments and circles, sensors, contact callbacks, and visual segments.",
             "Dynamic bodies, attached shapes, joints, motors, springs, forces, and impulses are not available yet.",
             "Tile code receives a TileBuilder, never direct access to the shared Pymunk Space.",
             "Build points are limited to the 200 × 200 tile plus the documented 10-unit build margin.",

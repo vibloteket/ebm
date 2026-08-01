@@ -146,37 +146,3 @@ for _p1, _p2 in MIRROR_PORT.items():
 
 UNIFORM_INPUTS = (Port.T0, Port.L0, Port.R0)
 UNIFORM_OUTPUTS = (Port.B0, Port.L1, Port.R1)
-
-
-@dataclass(frozen=True)
-class RoutePermutation:
-    """Explicit bijection between the global three inputs and outputs."""
-
-    exits: tuple[Port, Port, Port]
-
-    def __init__(self, mapping):
-        if isinstance(mapping, dict):
-            exits = tuple(mapping[p] for p in UNIFORM_INPUTS)
-        else:
-            exits = tuple(mapping)
-        if len(exits) != 3 or set(exits) != set(UNIFORM_OUTPUTS):
-            raise ValueError("route must map T0/L0/R0 bijectively to B0/L1/R1")
-        object.__setattr__(self, "exits", exits)
-
-    @property
-    def entries(self):
-        return UNIFORM_INPUTS
-
-    def exit_for(self, entry: Port) -> Port:
-        return self.exits[UNIFORM_INPUTS.index(entry)]
-
-    @property
-    def mapping(self) -> dict[Port, Port]:
-        return dict(zip(UNIFORM_INPUTS, self.exits))
-
-    @property
-    def key(self) -> tuple[str, str, str]:
-        return tuple(p.name for p in self.exits)
-
-    def __str__(self) -> str:
-        return ", ".join(f"{a.name}->{b.name}" for a, b in zip(UNIFORM_INPUTS, self.exits))
