@@ -89,7 +89,7 @@ class EditorRuntime:
     @staticmethod
     def _check_instance(tile, route):
         if not hasattr(tile, "build"):
-            raise TypeError("TILE_CLASS instances must implement build(tile)")
+            raise TypeError("TILE_CLASS instances must implement build(builder)")
         import pymunk
         space = pymunk.Space()
         registry = TileResourceRegistry.for_space(space)

@@ -187,7 +187,7 @@ class WaterWheelTile:
     title = "Water Wheel"
     author = "Contributor"
 
-    def build(self, tile):
+    def build(self, builder):
         wheel = tile.dynamic_body(...)
         tile.circle_shape(wheel, ...)
         tile.pivot(wheel, anchor=(100, 100))

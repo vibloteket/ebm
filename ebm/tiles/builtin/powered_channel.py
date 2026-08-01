@@ -22,11 +22,11 @@ class PoweredChannelTile(TileBase):
         if self.route not in self.routes:
             raise ValueError(f"unsupported route: {self.route}")
 
-    def build(self, tile) -> None:
+    def build(self, builder) -> None:
         # Entry sensor records route ownership. The guide then keeps each ball
         # on the centerline belonging to the route through this tile.
-        entry_sensor = tile.sensor_box(7.75, 7.75, 192.25, 192.25)
-        origin = tile.origin
+        entry_sensor = builder.sensor_box(7.75, 7.75, 192.25, 192.25)
+        origin = builder.origin
         route_points = {
             entry: _route_points(entry, output, index)
             for index, (entry, output) in enumerate(zip(self.route.entries, self.route.exits))
@@ -35,13 +35,13 @@ class PoweredChannelTile(TileBase):
         def classify_and_steer(event):
             _follow_channel(event.ball_body, origin, self.route, route_points)
 
-        tile.on_ball_contact(entry_sensor, classify_and_steer)
+        builder.on_ball_contact(entry_sensor, classify_and_steer)
         for index, (entry, output) in enumerate(zip(self.route.entries, self.route.exits)):
             points = _route_points(entry, output, index)
             for a, b in zip(points, points[1:]):
-                tile.visual_segment(a, b, 3)
+                builder.visual_segment(a, b, 3)
 
-    def update(self, _tile, _dt):
+    def update(self, _builder, _dt):
         pass
 
 

@@ -16,11 +16,11 @@ function render(reference){
     def __init__(self, route):
         self.route = route
 
-    def build(self, tile):
-        # tile is a TileBuilder
+    def build(self, builder):
+        # builder is a TileBuilder
         pass
 
-    def update(self, tile, dt):
+    def update(self, builder, dt):
         pass
 
 TILE_CLASS = MyTile</code></pre>`;

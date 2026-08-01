@@ -22,14 +22,14 @@ class ReferenceRouterTile(TileBase):
         if self.route not in self.routes:
             raise ValueError(f"unsupported route: {self.route}")
 
-    def build(self, tile):
-        sensor = tile.sensor_box(7.75, 7.75, 192.25, 192.25)
-        origin = tile.origin
+    def build(self, builder):
+        sensor = builder.sensor_box(7.75, 7.75, 192.25, 192.25)
+        origin = builder.origin
         for entry, output in zip(self.route.entries, self.route.exits):
-            tile.visual_segment(_inside(entry), _inside(output), 4)
-        tile.on_ball_contact(sensor, lambda event: _steer(event.ball_body, origin, self.route))
+            builder.visual_segment(_inside(entry), _inside(output), 4)
+        builder.on_ball_contact(sensor, lambda event: _steer(event.ball_body, origin, self.route))
 
-    def update(self, _tile, _dt):
+    def update(self, _builder, _dt):
         pass
 
 

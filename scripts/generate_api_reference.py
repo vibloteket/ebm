@@ -69,17 +69,17 @@ def build_reference() -> dict:
             {
                 "title": "Sloping rail",
                 "description": "A physical segment that guides balls using friction and restitution.",
-                "code": "tile.static_segment(\n    (20, 70), (180, 130),\n    radius=4, friction=0.8, elasticity=0.2,\n)",
+                "code": "builder.static_segment(\n    (20, 70), (180, 130),\n    radius=4, friction=0.8, elasticity=0.2,\n)",
             },
             {
                 "title": "Powered channel",
                 "description": "A rail whose surface actively carries contacting balls.",
-                "code": "tile.static_segment(\n    (20, 100), (180, 100),\n    radius=4, surface_velocity=(80, 0),\n)",
+                "code": "builder.static_segment(\n    (20, 100), (180, 100),\n    radius=4, surface_velocity=(80, 0),\n)",
             },
             {
                 "title": "Ball contact sensor",
                 "description": "Detect balls without adding visible or colliding geometry.",
-                "code": "sensor = tile.sensor_box(40, 40, 160, 160)\n\ndef on_ball(event):\n    print(event.ball_body.position)\n\ntile.on_ball_contact(sensor, on_ball)",
+                "code": "sensor = builder.sensor_box(40, 40, 160, 160)\n\ndef on_ball(event):\n    print(event.ball_body.position)\n\nbuilder.on_ball_contact(sensor, on_ball)",
             },
             {
                 "title": "Custom route",

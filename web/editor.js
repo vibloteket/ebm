@@ -18,7 +18,7 @@ class MyTile(TileBase):
             raise ValueError(f"unsupported route: {route}")
         self.route = route
 
-    def build(self, tile):
+    def build(self, builder):
         # Add physical and visual components here.
         # Coordinates are local to this 200 × 200 tile.
         pass

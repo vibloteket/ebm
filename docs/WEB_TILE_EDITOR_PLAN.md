@@ -182,8 +182,8 @@ class MyTile(TileBase):
             raise ValueError(f"unsupported route: {route}")
         self.route = route
 
-    def build(self, tile):
-        tile.static_segment(
+    def build(self, builder):
+        builder.static_segment(
             (20, 80),
             (180, 120),
             radius=4,
