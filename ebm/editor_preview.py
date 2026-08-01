@@ -15,6 +15,7 @@ from .validator import _entry_base_velocity
 
 _preview = None
 _last_ts = None
+_paused = False
 _proxies = []
 
 
@@ -144,10 +145,11 @@ def start(canvas):
 
     def frame(ts):
         global _last_ts
-        dt = 1/60 if _last_ts is None else max(0, min(.05, (ts-_last_ts)/1000))
-        _last_ts = ts
-        if _preview:
-            _preview.step(dt); draw(canvas, _preview)
+        if not _paused:
+            dt = 1/60 if _last_ts is None else max(0, min(.05, (ts-_last_ts)/1000))
+            _last_ts = ts
+            if _preview:
+                _preview.step(dt); draw(canvas, _preview)
         window.requestAnimationFrame(frame_proxy)
 
     frame_proxy = create_proxy(frame); _proxies.append(frame_proxy)
@@ -159,6 +161,14 @@ def refresh(route_index=0, mode="single"):
     if _preview is None:
         return
     _preview.configure(int(route_index), str(mode))
+
+
+def set_paused(paused):
+    """Pause physics and drawing while keeping the animation callback lightweight."""
+    global _paused, _last_ts
+    _paused = bool(paused)
+    _last_ts = None
+    return _paused
 
 
 def draw(canvas, preview):
