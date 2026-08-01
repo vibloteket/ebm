@@ -7,7 +7,7 @@ from typing import Any, Callable
 
 from .ports import Port, PORT_SPECS, PortSpec, MIRROR_PORT, RoutePermutation
 from .routes import ALL_ROUTES, DEFAULT_ROUTES
-from .tile_api import BALL_COLLISION_TYPE, TileBuilder, TileResourceRegistry, ball_shape_filter
+from .tile_api import BALL_COLLISION_TYPE, BALL_ELASTICITY, BALL_FRICTION, TileBuilder, TileResourceRegistry, ball_shape_filter
 from .tile_catalog import tile_for_route
 from .tiles import ReferenceRouterTile
 
@@ -208,8 +208,8 @@ def validate_tile_port_spec(
             body.position = (px, py)
             body.velocity = (vx, vy)
             shape = pymunk.Circle(body, BALL_RADIUS)
-            shape.friction = 0.45
-            shape.elasticity = 0.55
+            shape.friction = BALL_FRICTION
+            shape.elasticity = BALL_ELASTICITY
             shape.collision_type = BALL_COLLISION_TYPE
             shape.filter = ball_shape_filter()
             space.add(body, shape)
@@ -463,8 +463,8 @@ def _spawn_ball(
     body.position = pos
     body.velocity = vel
     shape = pymunk.Circle(body, BALL_RADIUS)
-    shape.friction = 0.45
-    shape.elasticity = 0.55
+    shape.friction = BALL_FRICTION
+    shape.elasticity = BALL_ELASTICITY
     shape.collision_type = BALL_COLLISION_TYPE
     shape.filter = ball_shape_filter()
     space.add(body, shape)

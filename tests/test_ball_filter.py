@@ -1,4 +1,14 @@
 from ebm.engine import Engine
+from ebm.tile_api import BALL_ELASTICITY, BALL_FRICTION
+
+
+def test_engine_balls_use_shared_material_properties():
+    engine=Engine(300,240)
+    ball=engine.add_ball(100,100)
+    assert ball.shape.friction == BALL_FRICTION
+    assert ball.shape.elasticity == BALL_ELASTICITY
+    engine.remove_ball(ball)
+    for active in list(engine.active_tiles.values()):engine.registry.destroy_owner(active.owner_id)
 
 
 def test_balls_do_not_collide_with_each_other():

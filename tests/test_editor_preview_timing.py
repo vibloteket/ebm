@@ -28,6 +28,13 @@ def test_editor_preview_skips_physics_and_drawing_while_paused():
     assert "draw(canvas, _preview)" in frame_source
 
 
+def test_editor_preview_draws_physical_builder_shapes():
+    source = Path("ebm/editor_preview.py").read_text()
+    assert 'type(shape).__name__ == "Segment"' in source
+    assert 'type(shape).__name__ == "Circle"' in source
+    assert 'getattr(shape,"ebm_hidden",False)' in source
+
+
 def test_resuming_resets_frame_timestamp_to_avoid_catch_up():
     source = Path("ebm/editor_preview.py").read_text()
     tree = ast.parse(source)

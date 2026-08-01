@@ -10,7 +10,7 @@ from . import editor_runtime
 from .editor_console import console_muted, console_phase
 from .debug_demo import Ball, _draw_port_overlays
 from .ports import Port, PORT_SPECS, TILE_SIZE
-from .tile_api import BALL_COLLISION_TYPE, TileBuilder, TileResourceRegistry, VisualSegment, ball_shape_filter
+from .tile_api import BALL_COLLISION_TYPE, BALL_ELASTICITY, BALL_FRICTION, TileBuilder, TileResourceRegistry, VisualSegment, ball_shape_filter
 from .validator import _entry_base_velocity
 
 
@@ -121,7 +121,7 @@ class EditorPreview:
         body.position = pos
         body.velocity = (vx + dvx, vy + dvy)
         shape = pymunk.Circle(body, 8)
-        shape.friction = .45; shape.elasticity = .55
+        shape.friction = BALL_FRICTION; shape.elasticity = BALL_ELASTICITY
         shape.collision_type = BALL_COLLISION_TYPE; shape.filter = ball_shape_filter()
         self.space.add(body, shape)
         self.balls.append(Ball(body, shape))
@@ -195,6 +195,20 @@ def draw(canvas, preview):
         for shape in builder.visual_objects:
             if isinstance(shape,VisualSegment):
                 ctx.beginPath();ctx.moveTo(sx(bx+shape.a[0]),sy(by+shape.a[1]));ctx.lineTo(sx(bx+shape.b[0]),sy(by+shape.b[1]));ctx.lineWidth=max(2,shape.radius*2*scale);ctx.stroke()
+            elif getattr(shape,"ebm_hidden",False):
+                continue
+            elif type(shape).__name__ == "Segment":
+                a,b=shape.body.local_to_world(shape.a),shape.body.local_to_world(shape.b)
+                ctx.beginPath();ctx.moveTo(sx(a.x),sy(a.y));ctx.lineTo(sx(b.x),sy(b.y));ctx.lineWidth=max(2,shape.radius*2*scale);ctx.stroke()
+            elif type(shape).__name__ == "Circle":
+                p=shape.body.local_to_world(shape.offset)
+                ctx.beginPath();ctx.arc(sx(p.x),sy(p.y),shape.radius*scale,0,math.tau);ctx.fillStyle="rgba(49,90,168,.28)";ctx.fill();ctx.lineWidth=2;ctx.stroke()
+            elif type(shape).__name__ == "Poly":
+                points=[shape.body.local_to_world(vertex) for vertex in shape.get_vertices()]
+                if points:
+                    ctx.beginPath();ctx.moveTo(sx(points[0].x),sy(points[0].y))
+                    for point in points[1:]:ctx.lineTo(sx(point.x),sy(point.y))
+                    ctx.closePath();ctx.fillStyle="rgba(49,90,168,.28)";ctx.fill();ctx.lineWidth=2;ctx.stroke()
     if preview.mode == "single":
         _draw_port_overlays(ctx, preview.route, sx, sy, scale)
     for ball in preview.balls:

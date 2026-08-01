@@ -8,7 +8,7 @@ from pyodide.ffi import create_proxy
 
 from .ports import Port, PORT_SPECS, TILE_SIZE
 from .routes import DEFAULT_ROUTES
-from .tile_api import BALL_COLLISION_TYPE, TileBuilder, TileResourceRegistry, VisualSegment, ball_shape_filter
+from .tile_api import BALL_COLLISION_TYPE, BALL_ELASTICITY, BALL_FRICTION, TileBuilder, TileResourceRegistry, VisualSegment, ball_shape_filter
 from .tile_catalog import tile_for_route
 from .validator import _entry_base_velocity, validate_filler_route_port_spec
 
@@ -127,8 +127,8 @@ class DebugEngine:
         body.velocity = vel
         body.sketch_seed = self.rng.randint(1, 999_999)
         shape = pymunk.Circle(body, radius)
-        shape.friction = 0.45
-        shape.elasticity = 0.55
+        shape.friction = BALL_FRICTION
+        shape.elasticity = BALL_ELASTICITY
         shape.collision_type = BALL_COLLISION_TYPE
         shape.filter = ball_shape_filter()
         self.space.add(body, shape)

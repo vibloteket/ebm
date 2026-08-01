@@ -8,7 +8,7 @@ from typing import Any
 
 from .ports import Port, TILE_SIZE
 from .routes import route_selection_at
-from .tile_api import BALL_COLLISION_TYPE, TileBuilder, TileResourceRegistry, ball_shape_filter
+from .tile_api import BALL_COLLISION_TYPE, BALL_ELASTICITY, BALL_FRICTION, TileBuilder, TileResourceRegistry, ball_shape_filter
 from .tile_catalog import tile_for_route
 from .tile_output import suppress_tile_output
 
@@ -18,7 +18,6 @@ BOUNDARY_SPAWN_INTERVAL = 1.2
 BUFFER_TILES = 1
 BALL_RADIUS = 8
 BALL_MASS = 1
-BALL_ELASTICITY = 0.55
 PHYSICS_DT = 1 / 60
 
 
@@ -271,7 +270,7 @@ class Engine:
         body.velocity = velocity if velocity is not None else (self._rng.uniform(-40, 40), self._rng.uniform(-10, 40))
         body.sketch_seed = self._rng.randint(1, 999_999)
         shape = pymunk.Circle(body, BALL_RADIUS)
-        shape.friction = 0.45
+        shape.friction = BALL_FRICTION
         shape.elasticity = BALL_ELASTICITY
         shape.color = (80, 190, 255, 1)
         shape.collision_type = BALL_COLLISION_TYPE
