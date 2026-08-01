@@ -5,7 +5,7 @@ import sys
 import traceback
 import types
 
-from .editor_console import console_phase
+from .editor_console import console_muted, console_phase
 from .ports import Port, RoutePermutation
 from .tile_api import TileBuilder, TileResourceRegistry
 from .tile_base import TileBase
@@ -30,9 +30,12 @@ class EditorRuntime:
                 exec(code, namespace)
             tile_class = namespace.get("TILE_CLASS")
             self._check_tile_class(tile_class)
-            for route in tile_class.routes:
-                tile = tile_class(route)
-                self._check_instance(tile, route)
+            # These instances only verify every declared route. They are not
+            # the visible preview tile and must not duplicate its debug output.
+            with console_muted():
+                for route in tile_class.routes:
+                    tile = tile_class(route)
+                    self._check_instance(tile, route)
             self.tile_class = tile_class
             self.source = source
             return json.dumps({

@@ -16,6 +16,7 @@ class EditorConsole:
     def __init__(self):
         self.entries: list[dict[str, str]] = []
         self.phase = "runtime"
+        self.mute_depth = 0
         self._pending = {"stdout": "", "stderr": ""}
         self._window_started = time.monotonic()
         self._window_lines = 0
@@ -25,6 +26,8 @@ class EditorConsole:
         return _ConsoleWriter(self, stream)
 
     def write(self, stream: str, text: str) -> None:
+        if self.mute_depth:
+            return
         pending = self._pending[stream] + str(text)
         parts = pending.split("\n")
         self._pending[stream] = parts.pop()
@@ -100,6 +103,15 @@ def console_phase(name: str):
         yield
     finally:
         console.phase = previous
+
+
+@contextmanager
+def console_muted():
+    console.mute_depth += 1
+    try:
+        yield
+    finally:
+        console.mute_depth -= 1
 
 
 def drain_console() -> str:

@@ -45,3 +45,17 @@ def test_editor_rejects_missing_entrypoint():
     result = json.loads(EditorRuntime().compile("from ebm import TileBase\n"))
     assert not result["ok"]
     assert "TILE_CLASS" in result["message"]
+
+
+def test_compile_checks_do_not_emit_output_from_hidden_instances():
+    source = source_for(PoweredChannelTile).replace(
+        "self.route = route",
+        'self.route = route\n        print("hidden init")',
+    ).replace(
+        "tile.visual_segment((20, 20), (180, 180), 3)",
+        'print("hidden build")\n        tile.visual_segment((20, 20), (180, 180), 3)',
+    )
+    from ebm.editor_console import console
+    console.clear()
+    assert json.loads(EditorRuntime().compile(source))["ok"]
+    assert json.loads(console.drain()) == []

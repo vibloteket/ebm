@@ -7,7 +7,7 @@ from js import window
 from pyodide.ffi import create_proxy
 
 from . import editor_runtime
-from .editor_console import console_phase
+from .editor_console import console_muted, console_phase
 from .debug_demo import Ball, _draw_port_overlays
 from .ports import Port, PORT_SPECS, TILE_SIZE
 from .tile_api import BALL_COLLISION_TYPE, TileBuilder, TileResourceRegistry, VisualSegment, ball_shape_filter
@@ -48,9 +48,11 @@ class EditorPreview:
         owner = 1
         for row in range(size):
             for col in range(size):
-                tile = self.tile_class(self.route)
-                builder = TileBuilder(self.registry, owner, (col * TILE_SIZE, row * TILE_SIZE))
-                with console_phase(f"build {row},{col}"):
+                is_log_tile = (row == size // 2 and col == size // 2)
+                output_context = console_phase(f"build {row},{col}") if is_log_tile else console_muted()
+                with output_context:
+                    tile = self.tile_class(self.route)
+                    builder = TileBuilder(self.registry, owner, (col * TILE_SIZE, row * TILE_SIZE))
                     tile.build(builder)
                 self.owners.append((owner, tile, builder))
                 owner += 1
@@ -77,7 +79,9 @@ class EditorPreview:
         for _ in range(max(1, int(dt / (1 / 60)))):
             for owner, tile, builder in self.owners:
                 row, col = divmod(owner - 1, self.grid_size)
-                with console_phase(f"update {row},{col}"):
+                is_log_tile = (row == self.grid_size // 2 and col == self.grid_size // 2)
+                output_context = console_phase(f"update {row},{col}") if is_log_tile else console_muted()
+                with output_context:
                     tile.update(builder, 1 / 60)
             self.space.step(1 / 60)
         edge = self.grid_size * TILE_SIZE
