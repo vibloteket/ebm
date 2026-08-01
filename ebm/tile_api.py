@@ -12,16 +12,12 @@ BALL_FRICTION = 0.45
 BALL_ELASTICITY = 0.55
 TILE_SENSOR_COLLISION_TYPE = 2
 BALL_CATEGORY = 1 << 0
-BALL_FILTER = None
 
 
 def ball_shape_filter():
-    """Balls interact with tile shapes/sensors, but not with other balls."""
+    """Balls interact with tile shapes, sensors, and other balls."""
     import pymunk
-    return pymunk.ShapeFilter(
-        categories=BALL_CATEGORY,
-        mask=pymunk.ShapeFilter.ALL_MASKS() ^ BALL_CATEGORY,
-    )
+    return pymunk.ShapeFilter(categories=BALL_CATEGORY)
 
 
 @dataclass(frozen=True)
