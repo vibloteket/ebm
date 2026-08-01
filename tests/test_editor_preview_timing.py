@@ -35,6 +35,19 @@ def test_editor_preview_draws_physical_builder_shapes():
     assert 'getattr(shape,"ebm_hidden",False)' in source
 
 
+def test_refresh_rebuilds_and_draws_once_while_paused():
+    source = Path("ebm/editor_preview.py").read_text()
+    tree = ast.parse(source)
+    refresh = next(
+        node for node in ast.walk(tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == "refresh"
+    )
+    refresh_source = ast.get_source_segment(source, refresh)
+    assert "_preview.configure" in refresh_source
+    assert "draw(_canvas, _preview)" in refresh_source
+    assert "_preview.step" not in refresh_source
+
+
 def test_resuming_resets_frame_timestamp_to_avoid_catch_up():
     source = Path("ebm/editor_preview.py").read_text()
     tree = ast.parse(source)

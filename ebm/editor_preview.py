@@ -15,6 +15,7 @@ from .validator import _entry_base_velocity
 
 
 _preview = None
+_canvas = None
 _last_ts = None
 _paused = False
 _proxies = []
@@ -134,7 +135,8 @@ class EditorPreview:
 
 
 def start(canvas):
-    global _preview, _last_ts
+    global _preview, _canvas, _last_ts
+    _canvas = canvas
     _preview = EditorPreview()
     _last_ts = None
 
@@ -168,7 +170,11 @@ def refresh(route_index=0, mode="single"):
     global _preview
     if _preview is None:
         return
+    # Rebuild even while paused, then draw the fresh state once without
+    # advancing physics. This keeps Run useful as an edit/inspect workflow.
     _preview.configure(int(route_index), str(mode))
+    if _canvas is not None:
+        draw(_canvas, _preview)
 
 
 def set_paused(paused):
