@@ -7,6 +7,7 @@ const PY_FILES = [
   "tile_base.py",
   "tile_api.py",
   "tile_catalog.py",
+  "tile_output.py",
   "tiles/__init__.py",
   "tiles/builtin/__init__.py",
   "tiles/builtin/powered_channel.py",
