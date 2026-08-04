@@ -48,6 +48,15 @@ def test_refresh_rebuilds_and_draws_once_while_paused():
     assert "_preview.step" not in refresh_source
 
 
+def test_validation_view_stops_live_simulation_and_canvas_tracks_layout_size():
+    source = Path("ebm/editor_preview.py").read_text()
+    assert 'if _view == "simulation": _preview.step(dt)' in source
+    assert 'if _preview and _view == "simulation": _preview.spawn_boundary()' in source
+    assert "for ball in list(_preview.balls)" in source
+    web_source = Path("web/editor.js").read_text()
+    assert "new ResizeObserver(syncPreviewSize).observe(els.preview)" in web_source
+
+
 def test_failure_replay_draws_validator_trajectory_overlay():
     source = Path("ebm/editor_preview.py").read_text()
     assert "def replay_failure" in source

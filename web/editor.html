@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Tile Editor — Endless Ball Machine</title>
-  <link rel="stylesheet" href="./editor.css?v=0.62">
+  <link rel="stylesheet" href="./editor.css?v=0.63">
   <script src="https://cdn.jsdelivr.net/pyodide/v0.27.2/full/pyodide.js"></script>
   <script data-goatcounter="https://ebm.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </head>
@@ -24,10 +24,13 @@
   <section class="preview-pane">
     <div class="pane-toolbar">
       <label>Tile<select id="tile-select"><option>Loading tiles…</option></select></label>
-      <div class="mode-switch" role="group" aria-label="Preview mode">
+      <div class="mode-switch view-switch" role="group" aria-label="Editor mode">
+        <button class="active" data-view="simulation">Simulation</button><button data-view="validation">Validation</button>
+      </div>
+      <div class="mode-switch simulation-control" role="group" aria-label="Preview grid">
         <button class="active" data-mode="single">Single</button><button data-mode="repeat">3 × 3</button>
       </div>
-      <button id="pause-button" type="button" aria-pressed="false">Pause simulation</button>
+      <button id="pause-button" class="simulation-control" type="button" aria-pressed="false">Pause simulation</button>
       <button id="validate-button" type="button">Validate flow</button>
     </div>
     <div class="tile-meta" id="tile-meta">
@@ -61,6 +64,6 @@
 <div id="api-backdrop" class="api-backdrop"></div>
 <div id="loading"><div><h2>Starting Tile Editor</h2><p>Loading Pyodide and pymunk…</p></div></div>
 <script src="./vendor/codemirror/editor-codemirror.js?v=0.61"></script>
-<script type="module" src="./editor.js?v=0.62"></script>
+<script type="module" src="./editor.js?v=0.63"></script>
 </body>
 </html>

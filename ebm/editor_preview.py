@@ -18,6 +18,7 @@ _preview = None
 _canvas = None
 _last_ts = None
 _paused = False
+_view = "simulation"
 _failure_replay = None
 _replay_started = None
 _proxies = []
@@ -145,7 +146,7 @@ def start(canvas):
         canvas.height = max(260, int(canvas.clientHeight))
 
     def click(_event=None):
-        if _preview: _preview.spawn_boundary()
+        if _preview and _view == "simulation": _preview.spawn_boundary()
 
     resize_proxy = create_proxy(resize); click_proxy = create_proxy(click)
     _proxies.extend((resize_proxy, click_proxy))
@@ -159,7 +160,8 @@ def start(canvas):
             dt = 1/60 if _last_ts is None else max(0, min(.05, (ts-_last_ts)/1000))
             _last_ts = ts
             if _preview:
-                _preview.step(dt); draw(canvas, _preview)
+                if _view == "simulation": _preview.step(dt)
+                draw(canvas, _preview)
         window.requestAnimationFrame(frame_proxy)
 
     frame_proxy = create_proxy(frame); _proxies.append(frame_proxy)
@@ -183,6 +185,20 @@ def set_paused(paused):
     _paused = bool(paused)
     _last_ts = None
     return _paused
+
+
+def set_view(view):
+    """Switch between live simulation and a stationary validation replay stage."""
+    global _view, _failure_replay, _replay_started, _last_ts
+    value = str(view)
+    _view = "validation" if value == "validation" else "simulation"
+    _last_ts = None
+    _failure_replay = None
+    _replay_started = None
+    if _view == "validation" and _preview is not None:
+        for ball in list(_preview.balls):
+            _preview.remove_ball(ball)
+    return _view
 
 
 def replay_failure(detail_json):
@@ -252,7 +268,7 @@ def draw(canvas, preview):
     for ball in preview.balls:
         p=ball.body.position;ctx.beginPath();ctx.arc(sx(p.x),sy(p.y),8*scale,0,math.tau)
         ctx.fillStyle="#1672d4";ctx.fill();ctx.strokeStyle="#0c3f8f";ctx.lineWidth=1.5;ctx.stroke()
-    replay = _replay_position(float(window.performance.now()))
+    replay = _replay_position(float(window.performance.now())) if _view == "validation" else None
     if replay is not None and preview.mode == "single":
         x, y, finished = replay
         points = _failure_replay["trajectory"]
@@ -263,4 +279,6 @@ def draw(canvas, preview):
         ctx.fillStyle="#dc2626";ctx.fill();ctx.strokeStyle="#7f1d1d";ctx.lineWidth=2;ctx.stroke()
         ctx.fillStyle="#7f1d1d";ctx.font="bold 12px system-ui"
         ctx.fillText(f"Replay: ball #{_failure_replay['id']} · {_failure_replay['entry']} → {_failure_replay['exit']}",12,18)
-    ctx.fillStyle="rgba(54,45,35,.78)";ctx.font="12px system-ui";ctx.fillText(f"{len(preview.balls)} balls · click to emit",12,height-12)
+    ctx.fillStyle="rgba(54,45,35,.78)";ctx.font="12px system-ui"
+    footer = f"{len(preview.balls)} balls · click to emit" if _view == "simulation" else ("Choose a failed run below to replay" if replay is None else "Validation replay · red path loops automatically")
+    ctx.fillText(footer,12,height-12)
