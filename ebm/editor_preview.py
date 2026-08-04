@@ -18,6 +18,8 @@ _preview = None
 _canvas = None
 _last_ts = None
 _paused = False
+_failure_replay = None
+_replay_started = None
 _proxies = []
 
 
@@ -183,6 +185,38 @@ def set_paused(paused):
     return _paused
 
 
+def replay_failure(detail_json):
+    """Overlay one validator trajectory without replacing the live preview."""
+    global _failure_replay, _replay_started
+    import json
+    detail = json.loads(str(detail_json))
+    trajectory = detail.get("trajectory") or []
+    if not trajectory:
+        return False
+    _failure_replay = detail
+    _replay_started = float(window.performance.now())
+    return True
+
+
+def _replay_position(now):
+    global _replay_started
+    if not _failure_replay or not _failure_replay.get("trajectory"):
+        return None
+    points = _failure_replay["trajectory"]
+    duration = max(0.05, float(points[-1][0]))
+    elapsed = ((now - (_replay_started or now)) / 1000) % (duration + 0.7)
+    if elapsed > duration:
+        return points[-1][1], points[-1][2], True
+    previous = points[0]
+    for point in points[1:]:
+        if elapsed <= point[0]:
+            span = max(1e-6, point[0] - previous[0])
+            mix = (elapsed - previous[0]) / span
+            return previous[1] + (point[1] - previous[1]) * mix, previous[2] + (point[2] - previous[2]) * mix, False
+        previous = point
+    return points[-1][1], points[-1][2], True
+
+
 def draw(canvas, preview):
     ctx = canvas.getContext("2d")
     width, height = canvas.width, canvas.height
@@ -218,4 +252,15 @@ def draw(canvas, preview):
     for ball in preview.balls:
         p=ball.body.position;ctx.beginPath();ctx.arc(sx(p.x),sy(p.y),8*scale,0,math.tau)
         ctx.fillStyle="#1672d4";ctx.fill();ctx.strokeStyle="#0c3f8f";ctx.lineWidth=1.5;ctx.stroke()
+    replay = _replay_position(float(window.performance.now()))
+    if replay is not None and preview.mode == "single":
+        x, y, finished = replay
+        points = _failure_replay["trajectory"]
+        ctx.beginPath();ctx.moveTo(sx(points[0][1]),sy(points[0][2]))
+        for point in points[1:]:ctx.lineTo(sx(point[1]),sy(point[2]))
+        ctx.strokeStyle="rgba(190,24,24,.48)";ctx.lineWidth=max(2,2*scale);ctx.stroke()
+        ctx.beginPath();ctx.arc(sx(x),sy(y),9*scale,0,math.tau)
+        ctx.fillStyle="#dc2626";ctx.fill();ctx.strokeStyle="#7f1d1d";ctx.lineWidth=2;ctx.stroke()
+        ctx.fillStyle="#7f1d1d";ctx.font="bold 12px system-ui"
+        ctx.fillText(f"Replay: ball #{_failure_replay['id']} · {_failure_replay['entry']} → {_failure_replay['exit']}",12,18)
     ctx.fillStyle="rgba(54,45,35,.78)";ctx.font="12px system-ui";ctx.fillText(f"{len(preview.balls)} balls · click to emit",12,height-12)

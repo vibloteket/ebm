@@ -48,6 +48,14 @@ def test_refresh_rebuilds_and_draws_once_while_paused():
     assert "_preview.step" not in refresh_source
 
 
+def test_failure_replay_draws_validator_trajectory_overlay():
+    source = Path("ebm/editor_preview.py").read_text()
+    assert "def replay_failure" in source
+    assert 'detail.get("trajectory")' in source
+    assert 'ctx.strokeStyle="rgba(190,24,24,.48)"' in source
+    assert 'ctx.fillStyle="#dc2626"' in source
+
+
 def test_resuming_resets_frame_timestamp_to_avoid_catch_up():
     source = Path("ebm/editor_preview.py").read_text()
     tree = ast.parse(source)

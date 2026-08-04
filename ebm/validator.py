@@ -32,6 +32,8 @@ class ValidationBall:
     body: Any
     shape: Any
     spawned_at: float
+    trajectory: list[list[float]] = field(default_factory=list)
+    next_sample_at: float = 0.0
 
 
 @dataclass
@@ -126,6 +128,7 @@ def validate_tile_flow(
         tile.update(builder, dt)
         space.step(dt)
         t += dt
+        _record_trajectories(active, t)
         _classify_active(space, active, result, t)
         result.active = len(active)
         result.peak_active = max(result.peak_active, result.active)
@@ -151,6 +154,19 @@ def validate_tile_flow(
 def validate_tile_port_spec(tile_factory: Callable[[], Any], **kwargs) -> ValidationResult:
     kwargs.pop("duration", None)
     return validate_tile_flow(tile_factory, **kwargs)
+
+
+def _record_trajectories(active: list[ValidationBall], t: float) -> None:
+    """Keep compact 20 FPS tracks so failed cases can be replayed in the editor."""
+    for ball in active:
+        if t + 1e-9 < ball.next_sample_at:
+            continue
+        ball.trajectory.append([
+            round(t - ball.spawned_at, 3),
+            round(float(ball.body.position.x), 2),
+            round(float(ball.body.position.y), 2),
+        ])
+        ball.next_sample_at = t + 0.05
 
 
 def _classify_active(space, active: list[ValidationBall], result: ValidationResult, t: float) -> None:
@@ -210,7 +226,10 @@ def _spawn_ball(space, ball_id, entry, t, dx, dy, dvx, dvy) -> ValidationBall:
     shape.collision_type = BALL_COLLISION_TYPE
     shape.filter = ball_shape_filter()
     space.add(body, shape)
-    return ValidationBall(ball_id, entry, body, shape, t)
+    ball = ValidationBall(ball_id, entry, body, shape, t)
+    ball.trajectory.append([0.0, round(x, 2), round(y, 2)])
+    ball.next_sample_at = t + 0.05
+    return ball
 
 
 def _entry_base_velocity(entry: Port) -> tuple[float, float]:
@@ -245,17 +264,47 @@ def _bounds_label(x, y) -> str:
     return "bounds"
 
 
+def _failure_message(status, label, x, y, vx, vy):
+    if status == "lost":
+        return "Ball state was removed or became non-finite."
+    if label == "top": return "Ball escaped back through the T0 input."
+    if label == "bottom": return "Ball crossed the bottom outside the B0 exit aperture."
+    if label == "left": return "Ball crossed the left edge outside the L1 exit aperture."
+    if label == "right": return "Ball crossed the right edge outside the R1 exit aperture."
+    if label == "bad-exit-spec:B0":
+        return f"B0 requires downward velocity vy ≥ 40; this ball had vy={vy:.1f}."
+    if label == "bad-exit-spec:L1":
+        problems = []
+        if vx > -40: problems.append(f"vx={vx:.1f} (must be ≤ -40)")
+        if abs(vy) > 200: problems.append(f"|vy|={abs(vy):.1f} (must be ≤ 200)")
+        return "L1 exit velocity was outside contract: " + ", ".join(problems or [f"vx={vx:.1f}, vy={vy:.1f}"])
+    if label == "bad-exit-spec:R1":
+        problems = []
+        if vx < 40: problems.append(f"vx={vx:.1f} (must be ≥ 40)")
+        if abs(vy) > 200: problems.append(f"|vy|={abs(vy):.1f} (must be ≤ 200)")
+        return "R1 exit velocity was outside contract: " + ", ".join(problems or [f"vx={vx:.1f}, vy={vy:.1f}"])
+    return "Ball left outside the tile flow contract."
+
+
 def _detail(ball, status, label, t):
-    return {
+    x, y = float(ball.body.position.x), float(ball.body.position.y)
+    vx, vy = float(ball.body.velocity.x), float(ball.body.velocity.y)
+    detail = {
         "id": ball.id,
         "entry": ball.entry.name,
         "status": status,
         "exit": label,
         "spawned_at": round(ball.spawned_at, 3),
         "finished_at": round(t, 3),
-        "position": [round(float(ball.body.position.x), 2), round(float(ball.body.position.y), 2)],
-        "velocity": [round(float(ball.body.velocity.x), 2), round(float(ball.body.velocity.y), 2)],
+        "position": [round(x, 2), round(y, 2)],
+        "velocity": [round(vx, 2), round(vy, 2)],
     }
+    if status in ("invalid", "lost"):
+        if not ball.trajectory or ball.trajectory[-1][1:] != [round(x, 2), round(y, 2)]:
+            ball.trajectory.append([round(t - ball.spawned_at, 3), round(x, 2), round(y, 2)])
+        detail["message"] = _failure_message(status, label, x, y, vx, vy)
+        detail["trajectory"] = ball.trajectory
+    return detail
 
 
 def _remove_ball(space, ball):

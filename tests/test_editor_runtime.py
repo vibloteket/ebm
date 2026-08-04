@@ -44,3 +44,18 @@ def test_compile_check_does_not_emit_output_from_hidden_instance():
     console.clear()
     assert json.loads(EditorRuntime().compile(source))["ok"]
     assert json.loads(console.drain()) == []
+
+
+def test_validation_failures_include_explanation_and_replay_trajectory():
+    source = SOURCE.replace(
+        'builder.visual_segment((20, 20), (180, 180), 3)',
+        'builder.static_segment((0, 100), (200, 100), elasticity=1.0)',
+    )
+    runtime = EditorRuntime()
+    assert json.loads(runtime.compile(source))["ok"]
+    result = json.loads(runtime.validate())["result"]
+    failures = [detail for detail in result["details"] if detail["status"] in ("invalid", "lost")]
+    assert failures
+    assert all(detail["message"] for detail in failures)
+    assert all(len(detail["trajectory"]) >= 2 for detail in failures)
+    assert all(len(point) == 3 for detail in failures for point in detail["trajectory"])
