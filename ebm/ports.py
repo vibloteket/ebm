@@ -2,8 +2,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+import math
 
 TILE_SIZE = 200
+MAX_EXIT_ANGLE_DEGREES = 30.0
+# Representative speeds span the complete shared contract: almost stationary,
+# ordinary flow, and the world's global speed cap.
+ENTRY_TEST_SPEEDS = (1.0, 150.0, 300.0)
+ENTRY_TEST_ANGLES = (-MAX_EXIT_ANGLE_DEGREES, 0.0, MAX_EXIT_ANGLE_DEGREES)
 
 
 @dataclass(frozen=True)
@@ -142,6 +148,34 @@ for _p1, _p2 in MIRROR_PORT.items():
     assert s1.vy_min == s2.vy_min, f"vy_min mismatch for {_p1}/{_p2}"
     assert s1.entry_vx_range == s2.entry_vx_range, f"entry_vx_range mismatch for {_p1}/{_p2}"
     assert s1.entry_vy_range == s2.entry_vy_range, f"entry_vy_range mismatch for {_p1}/{_p2}"
+
+
+def entry_velocity(port: Port, speed: float, angle_degrees: float) -> tuple[float, float]:
+    """Return an inward velocity mirrored from the matching output cone."""
+    angle = math.radians(max(-MAX_EXIT_ANGLE_DEGREES, min(MAX_EXIT_ANGLE_DEGREES, angle_degrees)))
+    outward_normal = {
+        Port.T0: (0.0, 1.0),
+        Port.L0: (1.0, 0.0),
+        Port.R0: (-1.0, 0.0),
+    }[port]
+    nx, ny = outward_normal
+    # Rotate the inward normal by the signed angle.
+    cosine, sine = math.cos(angle), math.sin(angle)
+    return speed * (nx * cosine - ny * sine), speed * (nx * sine + ny * cosine)
+
+
+def entry_flow_samples(port: Port) -> list[tuple[float, float, float, float]]:
+    """Sample position, speed, and angle from the output-symmetric contract."""
+    spec = PORT_SPECS[port]
+    along_offsets = (-spec.x_range, 0.0, spec.x_range) if port == Port.T0 else (-spec.y_range, 0.0, spec.y_range)
+    samples = []
+    for offset in along_offsets:
+        for speed in ENTRY_TEST_SPEEDS:
+            for angle in ENTRY_TEST_ANGLES:
+                vx, vy = entry_velocity(port, speed, angle)
+                dx, dy = (offset, 0.0) if port == Port.T0 else (0.0, offset)
+                samples.append((dx, dy, vx, vy))
+    return samples
 
 
 UNIFORM_INPUTS = (Port.T0, Port.L0, Port.R0)

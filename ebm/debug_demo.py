@@ -7,10 +7,10 @@ from js import window
 from pyodide.ffi import create_proxy
 
 from .ball_physics import configure_ball_body, limit_space_ball_speeds
-from .ports import Port, PORT_SPECS, TILE_SIZE
+from .ports import MAX_EXIT_ANGLE_DEGREES, Port, PORT_SPECS, TILE_SIZE, entry_velocity
 from .tile_api import BALL_COLLISION_TYPE, BALL_ELASTICITY, BALL_FRICTION, TileBuilder, TileResourceRegistry, VisualSegment, ball_shape_filter
 from .tile_catalog import default_tile
-from .validator import _entry_base_velocity, validate_tile_flow
+from .validator import validate_tile_flow
 
 
 class _FlowContract:
@@ -89,9 +89,8 @@ class DebugEngine:
             # Sample within the port spec ranges.
             dx = self.rng.uniform(-spec.x_range, spec.x_range)
             dy = self.rng.uniform(-spec.y_range, spec.y_range)
-            dvx = self.rng.uniform(-spec.entry_vx_range, spec.entry_vx_range)
-            dvy = self.rng.uniform(-spec.entry_vy_range, spec.entry_vy_range)
-            base_vx, base_vy = _entry_base_velocity(port)
+            speed = self.rng.uniform(1, 300)
+            angle = self.rng.uniform(-MAX_EXIT_ANGLE_DEGREES, MAX_EXIT_ANGLE_DEGREES)
 
             if port == Port.T0:
                 px = spec.x_center + dx
@@ -113,7 +112,7 @@ class DebugEngine:
                 py = spec.y_center + dy
 
             pos = (px, py)
-            vel = (base_vx + dvx, base_vy + dvy)
+            vel = entry_velocity(port, speed, angle)
         else:
             x, y = port.point
             if port == Port.T0:

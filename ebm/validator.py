@@ -5,7 +5,7 @@ import math
 from typing import Any, Callable
 
 from .ball_physics import configure_ball_body, limit_space_ball_speeds
-from .ports import OUTPUT_PORTS, PORT_SPECS, Port
+from .ports import MAX_EXIT_ANGLE_DEGREES, OUTPUT_PORTS, PORT_SPECS, Port, entry_flow_samples
 from .tile_api import (
     BALL_COLLISION_TYPE,
     BALL_ELASTICITY,
@@ -22,7 +22,6 @@ VALIDATION_BALLS = 120
 MAX_ACTIVE_BALLS = 20
 SPAWN_INTERVAL = 0.4
 BOUNDS_EPSILON = 0.25
-MAX_EXIT_ANGLE_DEGREES = 30.0
 MAX_EXIT_ANGLE_COSINE = math.cos(math.radians(MAX_EXIT_ANGLE_DEGREES))
 
 
@@ -112,7 +111,7 @@ def validate_tile_flow(
     tile.build(builder)
     result = ValidationResult(name, balls, max_active)
     active: list[ValidationBall] = []
-    combinations = {port: PORT_SPECS[port].sample_values()[1] for port in (Port.T0, Port.L0, Port.R0)}
+    combinations = {port: entry_flow_samples(port) for port in (Port.T0, Port.L0, Port.R0)}
     t = 0.0
     next_spawn = 0.0
 
@@ -121,8 +120,8 @@ def validate_tile_flow(
             index = result.balls_spawned
             entry = (Port.T0, Port.L0, Port.R0)[index % 3]
             samples = combinations[entry]
-            dx, dy, dvx, dvy = samples[(index // 3) % len(samples)]
-            active.append(_spawn_ball(space, index + 1, entry, t, dx, dy, dvx, dvy))
+            dx, dy, vx, vy = samples[(index // 3) % len(samples)]
+            active.append(_spawn_ball(space, index + 1, entry, t, dx, dy, vx, vy))
             result.balls_spawned += 1
             next_spawn += spawn_interval
 
@@ -236,11 +235,10 @@ def _edge_label(port):
     return "right"
 
 
-def _spawn_ball(space, ball_id, entry, t, dx, dy, dvx, dvy) -> ValidationBall:
+def _spawn_ball(space, ball_id, entry, t, dx, dy, vx, vy) -> ValidationBall:
     import pymunk
 
     spec = PORT_SPECS[entry]
-    base_vx, base_vy = _entry_base_velocity(entry)
     if entry == Port.T0:
         position = spec.x_center + dx, spec.y_center + BALL_RADIUS + dy
     elif entry == Port.L0:
@@ -252,7 +250,7 @@ def _spawn_ball(space, ball_id, entry, t, dx, dy, dvx, dvy) -> ValidationBall:
     body = pymunk.Body(BALL_MASS, pymunk.moment_for_circle(BALL_MASS, 0, BALL_RADIUS))
     configure_ball_body(body)
     body.position = x, y
-    body.velocity = base_vx + dvx, base_vy + dvy
+    body.velocity = vx, vy
     shape = pymunk.Circle(body, BALL_RADIUS)
     shape.friction = BALL_FRICTION
     shape.elasticity = BALL_ELASTICITY
@@ -263,12 +261,6 @@ def _spawn_ball(space, ball_id, entry, t, dx, dy, dvx, dvy) -> ValidationBall:
     ball.trajectory.append([0.0, round(x, 2), round(y, 2)])
     ball.next_sample_at = t + 0.05
     return ball
-
-
-def _entry_base_velocity(entry: Port) -> tuple[float, float]:
-    if entry == Port.T0: return 0, 70
-    if entry == Port.L0: return 110, 0
-    return -110, 0
 
 
 def _failure_message(status, label, x, y, vx, vy):

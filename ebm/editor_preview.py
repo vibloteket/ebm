@@ -10,9 +10,8 @@ from . import editor_runtime
 from .ball_physics import configure_ball_body, limit_space_ball_speeds
 from .editor_console import console_muted, console_phase
 from .debug_demo import Ball, _draw_port_overlays
-from .ports import Port, PORT_SPECS, TILE_SIZE
+from .ports import MAX_EXIT_ANGLE_DEGREES, Port, PORT_SPECS, TILE_SIZE, entry_velocity
 from .tile_api import BALL_COLLISION_TYPE, BALL_ELASTICITY, BALL_FRICTION, TileBuilder, TileResourceRegistry, VisualSegment, ball_shape_filter
-from .validator import _entry_base_velocity
 
 
 _preview = None
@@ -112,9 +111,9 @@ class EditorPreview:
         spec = PORT_SPECS[port]
         dx = self.rng.uniform(-spec.x_range, spec.x_range)
         dy = self.rng.uniform(-spec.y_range, spec.y_range)
-        dvx = self.rng.uniform(-spec.entry_vx_range, spec.entry_vx_range)
-        dvy = self.rng.uniform(-spec.entry_vy_range, spec.entry_vy_range)
-        vx, vy = _entry_base_velocity(port)
+        speed = self.rng.uniform(1, 300)
+        angle = self.rng.uniform(-MAX_EXIT_ANGLE_DEGREES, MAX_EXIT_ANGLE_DEGREES)
+        vx, vy = entry_velocity(port, speed, angle)
         if port == Port.T0:
             pos = (ox + spec.x_center + dx, oy + 8.5 + dy)
         elif port == Port.L0:
@@ -124,7 +123,7 @@ class EditorPreview:
         body = pymunk.Body(1, pymunk.moment_for_circle(1, 0, 8))
         configure_ball_body(body)
         body.position = pos
-        body.velocity = (vx + dvx, vy + dvy)
+        body.velocity = (vx, vy)
         shape = pymunk.Circle(body, 8)
         shape.friction = BALL_FRICTION; shape.elasticity = BALL_ELASTICITY
         shape.collision_type = BALL_COLLISION_TYPE; shape.filter = ball_shape_filter()
