@@ -7,6 +7,7 @@ from js import window
 from pyodide.ffi import create_proxy
 
 from . import editor_runtime
+from .ball_physics import configure_ball_body, limit_space_ball_speeds
 from .editor_console import console_muted, console_phase
 from .debug_demo import Ball, _draw_port_overlays
 from .ports import Port, PORT_SPECS, TILE_SIZE
@@ -86,6 +87,7 @@ class EditorPreview:
                 with output_context:
                     tile.update(builder, 1 / 60)
             self.space.step(1 / 60)
+            limit_space_ball_speeds(self.balls)
         edge = self.grid_size * TILE_SIZE
         for ball in list(self.balls):
             x, y = ball.body.position
@@ -120,6 +122,7 @@ class EditorPreview:
         else:
             pos = (ox + TILE_SIZE - 8.5 + dx, oy + spec.y_center + dy)
         body = pymunk.Body(1, pymunk.moment_for_circle(1, 0, 8))
+        configure_ball_body(body)
         body.position = pos
         body.velocity = (vx + dvx, vy + dvy)
         shape = pymunk.Circle(body, 8)

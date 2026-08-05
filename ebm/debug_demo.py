@@ -6,6 +6,7 @@ import random
 from js import window
 from pyodide.ffi import create_proxy
 
+from .ball_physics import configure_ball_body, limit_space_ball_speeds
 from .ports import Port, PORT_SPECS, TILE_SIZE
 from .tile_api import BALL_COLLISION_TYPE, BALL_ELASTICITY, BALL_FRICTION, TileBuilder, TileResourceRegistry, VisualSegment, ball_shape_filter
 from .tile_catalog import default_tile
@@ -68,6 +69,7 @@ class DebugEngine:
         for _ in range(max(1, int(dt / (1 / 60)))):
             self.tile.update(self.builder, 1 / 60)
             self.space.step(1 / 60)
+            limit_space_ball_speeds(self.balls)
 
         for ball in list(self.balls):
             x, y = ball.body.position
@@ -131,6 +133,7 @@ class DebugEngine:
         radius = 8
         moment = pymunk.moment_for_circle(mass, 0, radius)
         body = pymunk.Body(mass, moment)
+        configure_ball_body(body)
         body.position = pos
         body.velocity = vel
         body.sketch_seed = self.rng.randint(1, 999_999)

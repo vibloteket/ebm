@@ -6,6 +6,7 @@ import random
 import time
 from typing import Any
 
+from .ball_physics import configure_ball_body, limit_space_ball_speeds
 from .ports import Port, TILE_SIZE
 from .tile_api import BALL_COLLISION_TYPE, BALL_ELASTICITY, BALL_FRICTION, TileBuilder, TileResourceRegistry, ball_shape_filter
 from .tile_catalog import default_tile
@@ -116,6 +117,7 @@ class Engine:
         self._accumulator += min(dt, 0.1)
         while self._accumulator >= PHYSICS_DT:
             self.space.step(PHYSICS_DT)
+            limit_space_ball_speeds(self.balls)
             self._accumulator -= PHYSICS_DT
             physics_steps += 1
         self._profile_add("physics", started, physics_steps)
@@ -264,6 +266,7 @@ class Engine:
 
         moment = pymunk.moment_for_circle(BALL_MASS, 0, BALL_RADIUS)
         body = pymunk.Body(BALL_MASS, moment)
+        configure_ball_body(body)
         body.position = (x, y)
         body.velocity = velocity if velocity is not None else (self._rng.uniform(-40, 40), self._rng.uniform(-10, 40))
         body.sketch_seed = self._rng.randint(1, 999_999)

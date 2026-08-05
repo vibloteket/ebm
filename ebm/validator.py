@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 import math
 from typing import Any, Callable
 
+from .ball_physics import configure_ball_body, limit_space_ball_speeds
 from .ports import OUTPUT_PORTS, PORT_SPECS, Port
 from .tile_api import (
     BALL_COLLISION_TYPE,
@@ -20,8 +21,6 @@ DEFAULT_DT = 1 / 120
 VALIDATION_BALLS = 120
 MAX_ACTIVE_BALLS = 20
 SPAWN_INTERVAL = 0.4
-EXIT_TOLERANCE = 28
-EXIT_SPEED = 20
 BOUNDS_EPSILON = 0.25
 
 
@@ -127,6 +126,7 @@ def validate_tile_flow(
 
         tile.update(builder, dt)
         space.step(dt)
+        limit_space_ball_speeds(active)
         t += dt
         _record_trajectories(active, t)
         _classify_active(space, active, result, t)
@@ -192,16 +192,41 @@ def _classify_ball(space, ball: ValidationBall) -> tuple[str, str | None] | None
         return "lost", "removed"
     x, y = float(ball.body.position.x), float(ball.body.position.y)
     vx, vy = float(ball.body.velocity.x), float(ball.body.velocity.y)
-    if not all(math.isfinite(value) for value in (x, y, vx, vy)):
+    radius = float(ball.shape.radius)
+    if not all(math.isfinite(value) for value in (x, y, vx, vy, radius)):
         return "lost", "non-finite-state"
-    for port in (Port.B0, Port.L1, Port.R1):
-        if _in_exit_aperture(port, x, y, vx, vy):
-            if _satisfies_exit_spec(port, PORT_SPECS[port], x, y, vx, vy):
-                return "exited", port.name
-            return "invalid", f"bad-exit-spec:{port.name}"
-    if not _ball_fully_inside_tile(x, y):
-        return "invalid", _bounds_label(x, y)
+
+    # A boundary contact is not an exit: edge geometry may still redirect the
+    # ball. Classify only after the ball's complete shape has crossed an edge.
+    if y - radius >= 200 - BOUNDS_EPSILON:
+        return _classify_exit(Port.B0, x, y, vx, vy)
+    if x + radius <= BOUNDS_EPSILON:
+        return _classify_exit(Port.L1, x, y, vx, vy)
+    if x - radius >= 200 - BOUNDS_EPSILON:
+        return _classify_exit(Port.R1, x, y, vx, vy)
+    if y + radius <= BOUNDS_EPSILON:
+        return "invalid", "top"
     return None
+
+
+def _classify_exit(port, x, y, vx, vy):
+    spec = PORT_SPECS[port]
+    along = x if port == Port.B0 else y
+    center = spec.x_center if port == Port.B0 else spec.y_center
+    allowed = spec.x_range if port == Port.B0 else spec.y_range
+    if abs(along - center) > allowed + BOUNDS_EPSILON:
+        return "invalid", _edge_label(port)
+    transverse = abs(vx) if port == Port.B0 else abs(vy)
+    transverse_limit = spec.exit_vx_range if port == Port.B0 else spec.exit_vy_range
+    if transverse > transverse_limit + BOUNDS_EPSILON:
+        return "invalid", f"bad-exit-spec:{port.name}"
+    return "exited", port.name
+
+
+def _edge_label(port):
+    if port == Port.B0: return "bottom"
+    if port == Port.L1: return "left"
+    return "right"
 
 
 def _spawn_ball(space, ball_id, entry, t, dx, dy, dvx, dvy) -> ValidationBall:
@@ -218,6 +243,7 @@ def _spawn_ball(space, ball_id, entry, t, dx, dy, dvx, dvy) -> ValidationBall:
     x = max(BALL_RADIUS + .5, min(200 - BALL_RADIUS - .5, position[0]))
     y = max(BALL_RADIUS + .5, min(200 - BALL_RADIUS - .5, position[1]))
     body = pymunk.Body(BALL_MASS, pymunk.moment_for_circle(BALL_MASS, 0, BALL_RADIUS))
+    configure_ball_body(body)
     body.position = x, y
     body.velocity = base_vx + dvx, base_vy + dvy
     shape = pymunk.Circle(body, BALL_RADIUS)
@@ -238,32 +264,6 @@ def _entry_base_velocity(entry: Port) -> tuple[float, float]:
     return -110, 0
 
 
-def _in_exit_aperture(port, x, y, vx, vy) -> bool:
-    if not _ball_fully_inside_tile(x, y): return False
-    if port == Port.B0: return abs(x - 100) <= EXIT_TOLERANCE and y >= 200 - BALL_RADIUS - 2 and vy >= EXIT_SPEED
-    if port == Port.L1: return x <= BALL_RADIUS + 2 and abs(y - 150) <= EXIT_TOLERANCE and vx <= -EXIT_SPEED
-    return x >= 200 - BALL_RADIUS - 2 and abs(y - 50) <= EXIT_TOLERANCE and vx >= EXIT_SPEED
-
-
-def _satisfies_exit_spec(port, spec, x, y, vx, vy) -> bool:
-    if abs(x - spec.x_center) > spec.x_range + EXIT_TOLERANCE or abs(y - spec.y_center) > spec.y_range + EXIT_TOLERANCE: return False
-    if port == Port.B0: return vy >= spec.vy_min
-    if port == Port.L1: return vx <= -spec.vx_min and abs(vy) <= spec.exit_vy_range
-    return vx >= spec.vx_min and abs(vy) <= spec.exit_vy_range
-
-
-def _ball_fully_inside_tile(x, y) -> bool:
-    return BALL_RADIUS - BOUNDS_EPSILON <= x <= 200 - BALL_RADIUS + BOUNDS_EPSILON and BALL_RADIUS - BOUNDS_EPSILON <= y <= 200 - BALL_RADIUS + BOUNDS_EPSILON
-
-
-def _bounds_label(x, y) -> str:
-    if y < BALL_RADIUS - BOUNDS_EPSILON: return "top"
-    if y > 200 - BALL_RADIUS + BOUNDS_EPSILON: return "bottom"
-    if x < BALL_RADIUS - BOUNDS_EPSILON: return "left"
-    if x > 200 - BALL_RADIUS + BOUNDS_EPSILON: return "right"
-    return "bounds"
-
-
 def _failure_message(status, label, x, y, vx, vy):
     if status == "lost":
         return "Ball state was removed or became non-finite."
@@ -272,17 +272,11 @@ def _failure_message(status, label, x, y, vx, vy):
     if label == "left": return "Ball crossed the left edge outside the L1 exit aperture."
     if label == "right": return "Ball crossed the right edge outside the R1 exit aperture."
     if label == "bad-exit-spec:B0":
-        return f"B0 requires downward velocity vy ≥ 40; this ball had vy={vy:.1f}."
+        return f"B0 transverse speed was too high: |vx|={abs(vx):.1f} (must be ≤ 60)."
     if label == "bad-exit-spec:L1":
-        problems = []
-        if vx > -40: problems.append(f"vx={vx:.1f} (must be ≤ -40)")
-        if abs(vy) > 200: problems.append(f"|vy|={abs(vy):.1f} (must be ≤ 200)")
-        return "L1 exit velocity was outside contract: " + ", ".join(problems or [f"vx={vx:.1f}, vy={vy:.1f}"])
+        return f"L1 transverse speed was too high: |vy|={abs(vy):.1f} (must be ≤ 200)."
     if label == "bad-exit-spec:R1":
-        problems = []
-        if vx < 40: problems.append(f"vx={vx:.1f} (must be ≥ 40)")
-        if abs(vy) > 200: problems.append(f"|vy|={abs(vy):.1f} (must be ≤ 200)")
-        return "R1 exit velocity was outside contract: " + ", ".join(problems or [f"vx={vx:.1f}, vy={vy:.1f}"])
+        return f"R1 transverse speed was too high: |vy|={abs(vy):.1f} (must be ≤ 200)."
     return "Ball left outside the tile flow contract."
 
 
@@ -298,6 +292,7 @@ def _detail(ball, status, label, t):
         "finished_at": round(t, 3),
         "position": [round(x, 2), round(y, 2)],
         "velocity": [round(vx, 2), round(vy, 2)],
+        "radius": round(float(ball.shape.radius), 2),
     }
     if status in ("invalid", "lost"):
         if not ball.trajectory or ball.trajectory[-1][1:] != [round(x, 2), round(y, 2)]:

@@ -2,6 +2,7 @@ const APP_VERSION = "prototype-0.51-renderer-switch";
 const PYMUNK_WHEEL = "./vendor/pymunk-7.2.0-cp312-cp312-pyodide_2024_0_wasm32.whl";
 const PY_FILES = [
   "__init__.py",
+  "ball_physics.py",
   "ports.py",
   "random_utils.py",
   "tile_base.py",
