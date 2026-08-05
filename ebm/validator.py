@@ -22,6 +22,8 @@ VALIDATION_BALLS = 120
 MAX_ACTIVE_BALLS = 20
 SPAWN_INTERVAL = 0.4
 BOUNDS_EPSILON = 0.25
+MAX_EXIT_ANGLE_DEGREES = 30.0
+MAX_EXIT_ANGLE_COSINE = math.cos(math.radians(MAX_EXIT_ANGLE_DEGREES))
 
 
 @dataclass
@@ -216,10 +218,15 @@ def _classify_exit(port, x, y, vx, vy):
     allowed = spec.x_range if port == Port.B0 else spec.y_range
     if abs(along - center) > allowed + BOUNDS_EPSILON:
         return "invalid", _edge_label(port)
-    transverse = abs(vx) if port == Port.B0 else abs(vy)
-    transverse_limit = spec.exit_vx_range if port == Port.B0 else spec.exit_vy_range
-    if transverse > transverse_limit + BOUNDS_EPSILON:
-        return "invalid", f"bad-exit-spec:{port.name}"
+    outward = vy if port == Port.B0 else (-vx if port == Port.L1 else vx)
+    speed = math.hypot(vx, vy)
+    # Full passage proves progress, but the instantaneous velocity must still
+    # point outward and stay within 30° of the port normal so the next tile can
+    # receive it. A stationary full-passage edge case is accepted.
+    if speed > BOUNDS_EPSILON and (
+        outward <= 0 or outward / speed + 1e-12 < MAX_EXIT_ANGLE_COSINE
+    ):
+        return "invalid", f"bad-exit-angle:{port.name}"
     return "exited", port.name
 
 
@@ -271,12 +278,11 @@ def _failure_message(status, label, x, y, vx, vy):
     if label == "bottom": return "Ball crossed the bottom outside the B0 exit aperture."
     if label == "left": return "Ball crossed the left edge outside the L1 exit aperture."
     if label == "right": return "Ball crossed the right edge outside the R1 exit aperture."
-    if label == "bad-exit-spec:B0":
-        return f"B0 transverse speed was too high: |vx|={abs(vx):.1f} (must be ≤ 60)."
-    if label == "bad-exit-spec:L1":
-        return f"L1 transverse speed was too high: |vy|={abs(vy):.1f} (must be ≤ 200)."
-    if label == "bad-exit-spec:R1":
-        return f"R1 transverse speed was too high: |vy|={abs(vy):.1f} (must be ≤ 200)."
+    if label and label.startswith("bad-exit-angle:"):
+        port = label.rsplit(":", 1)[1]
+        outward = vy if port == "B0" else (-vx if port == "L1" else vx)
+        angle = math.degrees(math.acos(max(-1.0, min(1.0, outward / max(math.hypot(vx, vy), 1e-12)))))
+        return f"{port} exit angle was {angle:.1f}° from its outward direction (must be ≤ {MAX_EXIT_ANGLE_DEGREES:.0f}°)."
     return "Ball left outside the tile flow contract."
 
 

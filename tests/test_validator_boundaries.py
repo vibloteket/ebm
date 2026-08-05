@@ -27,11 +27,26 @@ def test_side_exit_waits_until_whole_ball_crosses():
     assert _classify_ball(space, ball) == ("exited", "L1")
 
 
-def test_b0_has_no_minimum_downward_speed_but_checks_transverse_speed():
-    space, ball = _ball(100, 208.5, vx=59, vy=1, radius=8)
+def test_b0_checks_angle_instead_of_fixed_transverse_speed():
+    # High transverse speed is fine when the complete vector is within 30°.
+    space, ball = _ball(100, 208.5, vx=140, vy=260, radius=8)
     assert _classify_ball(space, ball) == ("exited", "B0")
-    ball.body.velocity = 61, 1
-    assert _classify_ball(space, ball) == ("invalid", "bad-exit-spec:B0")
+    ball.body.velocity = 160, 240
+    assert _classify_ball(space, ball) == ("invalid", "bad-exit-angle:B0")
+
+
+def test_side_exit_requires_outward_direction_within_30_degrees():
+    space, ball = _ball(-8.5, 150, vx=-260, vy=140, radius=8)
+    assert _classify_ball(space, ball) == ("exited", "L1")
+    ball.body.velocity = -240, 160
+    assert _classify_ball(space, ball) == ("invalid", "bad-exit-angle:L1")
+    ball.body.velocity = 100, 0
+    assert _classify_ball(space, ball) == ("invalid", "bad-exit-angle:L1")
+
+
+def test_slow_outward_exit_has_no_minimum_speed():
+    space, ball = _ball(100, 208.5, vx=0, vy=.1, radius=8)
+    assert _classify_ball(space, ball) == ("exited", "B0")
 
 
 def test_exit_boundary_uses_actual_ball_radius():
