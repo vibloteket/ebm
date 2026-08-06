@@ -23,7 +23,7 @@ TILE_CLASS = MyTile</code></pre>`;
     ["class","Tile class",`<p>${escapeHtml(reference.tileBase.description)}</p>${skeleton}<h4>Properties</h4>${propertyTable(reference.tileBase.properties)}<h4>Lifecycle</h4>${methods(reference.tileBase.methods)}`],
     ["builder","TileBuilder",`<p>${escapeHtml(reference.tileBuilder.description)}</p>${methods(reference.tileBuilder.methods)}`],
     ["ports","Ports & coordinates",`${coordinateMap(reference)}<p>Balls may leave through any valid output. Validation requires every sampled input state to exit successfully and all three outputs to receive balls.</p>`],
-    ["events","Handles & events",`<p>Builder methods return ownership-checked handles. A tile can only inspect or remove its own resources. Resources are cleaned up automatically when the instance is destroyed.</p><h4>ContactEvent</h4>${propertyTable(reference.contactEvent.properties)}`],
+    ["events","Handles & events",`<p>Builder methods return ownership-checked handles. Change an existing shape directly through its handle. Resources are cleaned up automatically when the instance is destroyed.</p>${(reference.handles||[]).map(handle=>`<h4>${escapeHtml(handle.name)}</h4><p>${escapeHtml(handle.description)}</p>${methods(handle.methods)}`).join("")}<h4>ContactEvent</h4>${propertyTable(reference.contactEvent.properties)}`],
     ["recipes","Recipes",reference.recipes.map(recipe=>`<article class="api-card"><h4>${escapeHtml(recipe.title)}</h4><p>${escapeHtml(recipe.description)}</p><pre><code>${escapeHtml(recipe.code)}</code></pre></article>`).join("")],
     ["scope","What API v1 can build",`<ul>${reference.limitations.map(item=>`<li>${escapeHtml(item)}</li>`).join("")}</ul>`],
   ];

@@ -24,9 +24,9 @@ def test_all_visible_shapes_share_mutable_fill_and_stroke_colors():
     visual = tile.visual_segment((10, 20), (190, 20))
     assert isinstance(visual, VisualHandle)
 
-    tile.set_fill_color(segment, (10, 20, 30, 40))
-    tile.set_stroke_color(circle, (50, 60, 70, 80))
-    tile.set_fill_color(visual, (90, 100, 110, 120))
+    segment.set_fill_color((10, 20, 30, 40))
+    circle.set_stroke_color((50, 60, 70, 80))
+    visual.set_fill_color((90, 100, 110, 120))
 
     styles = {type(obj).__name__: style for obj, style in tile.visual_items}
     assert styles["Segment"].fill_color == (10, 20, 30, 40)
@@ -39,8 +39,8 @@ def test_all_visible_shapes_share_mutable_fill_and_stroke_colors():
 def test_setting_same_color_does_not_invalidate_render_cache():
     _, tile = builder()
     circle = tile.static_circle((100, 100), 20)
-    tile.set_fill_color(circle, DEFAULT_CIRCLE_FILL)
-    tile.set_stroke_color(circle, DEFAULT_CIRCLE_STROKE)
+    circle.set_fill_color(DEFAULT_CIRCLE_FILL)
+    circle.set_stroke_color(DEFAULT_CIRCLE_STROKE)
     assert tile.visual_revision == 0
 
 
@@ -54,13 +54,15 @@ def test_colors_require_four_integer_components_from_zero_to_255():
         tile.visual_segment((10, 10), (190, 10), fill_color=(1.0, 2, 3, 4))
 
 
-def test_color_mutation_enforces_resource_ownership():
-    import pymunk
-
-    space = pymunk.Space()
-    registry = TileResourceRegistry.for_space(space)
-    left = TileBuilder(registry, 1, (0, 0))
-    right = TileBuilder(registry, 2, (0, 0))
-    shape = left.static_circle((100, 100), 20)
+def test_handle_rejects_mutation_after_owner_cleanup():
+    registry, tile = builder()
+    shape = tile.static_circle((100, 100), 20)
+    registry.destroy_owner(1)
     with pytest.raises(PermissionError):
-        right.set_fill_color(shape, (1, 2, 3, 4))
+        shape.set_fill_color((1, 2, 3, 4))
+
+
+def test_builder_has_no_duplicate_color_setters():
+    _, tile = builder()
+    assert not hasattr(tile, "set_fill_color")
+    assert not hasattr(tile, "set_stroke_color")

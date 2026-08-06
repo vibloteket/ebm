@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Callable
 from weakref import WeakKeyDictionary
 
@@ -34,23 +34,41 @@ def ball_shape_filter():
 
 
 @dataclass(frozen=True)
-class ShapeHandle:
+class ResourceHandle:
     id: int
+    _owner: int = field(repr=False, compare=False)
+    _registry: Any = field(repr=False, compare=False)
 
 
 @dataclass(frozen=True)
-class BodyHandle:
-    id: int
+class StyledHandle(ResourceHandle):
+    def set_fill_color(self, color):
+        """Set this object's fill RGBA tuple (four integers from 0 to 255)."""
+        self._registry.set_style(self._owner, self, fill_color=color)
+
+    def set_stroke_color(self, color):
+        """Set this object's outline RGBA tuple (four integers from 0 to 255)."""
+        self._registry.set_style(self._owner, self, stroke_color=color)
 
 
 @dataclass(frozen=True)
-class ConstraintHandle:
-    id: int
+class ShapeHandle(StyledHandle):
+    pass
 
 
 @dataclass(frozen=True)
-class VisualHandle:
-    id: int
+class BodyHandle(ResourceHandle):
+    pass
+
+
+@dataclass(frozen=True)
+class ConstraintHandle(ResourceHandle):
+    pass
+
+
+@dataclass(frozen=True)
+class VisualHandle(StyledHandle):
+    pass
 
 
 @dataclass
@@ -115,7 +133,7 @@ class TileResourceRegistry:
         self.space.on_collision(BALL_COLLISION_TYPE, TILE_SENSOR_COLLISION_TYPE, pre_solve=pre_solve)
 
     def add(self, owner: int, obj: Any, handle_type):
-        handle = handle_type(self._next)
+        handle = handle_type(self._next, owner, self)
         self._next += 1
         self._objects[handle.id] = obj
         self._owner[handle.id] = owner
@@ -150,7 +168,7 @@ class TileResourceRegistry:
             self._visual_revisions[owner] = self._visual_revisions.get(owner, 0) + 1
 
     def add_visual(self, owner: int, visual: Any, fill_color: Color, stroke_color: Color):
-        handle = VisualHandle(self._next)
+        handle = VisualHandle(self._next, owner, self)
         self._next += 1
         self._objects[handle.id] = visual
         self._owner[handle.id] = owner
@@ -257,14 +275,6 @@ class TileBuilder:
         local_a=(float(a[0]),float(a[1]));local_b=(float(b[0]),float(b[1]))
         self._point(local_a);self._point(local_b)
         return self._registry.add_visual(self._owner,VisualSegment(local_a,local_b,float(radius)),fill_color,stroke_color)
-
-    def set_fill_color(self, handle, color):
-        """Set any visible shape's fill RGBA tuple (four integers from 0 to 255)."""
-        self._registry.set_style(self._owner, handle, fill_color=color)
-
-    def set_stroke_color(self, handle, color):
-        """Set any visible shape's outline RGBA tuple (four integers from 0 to 255)."""
-        self._registry.set_style(self._owner, handle, stroke_color=color)
 
     def body_position(self, body: BodyHandle):
         """Return the current world-space position of an owned BodyHandle."""

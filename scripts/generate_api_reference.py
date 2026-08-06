@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from ebm.ports import Port, TILE_SIZE  # noqa: E402
-from ebm.tile_api import ContactEvent, TileBuilder  # noqa: E402
+from ebm.tile_api import ContactEvent, ShapeHandle, TileBuilder, VisualHandle  # noqa: E402
 from ebm.tile_base import TileBase  # noqa: E402
 
 
@@ -50,9 +50,21 @@ def build_reference() -> dict:
             "description": inspect.getdoc(TileBuilder),
             "methods": method_reference(TileBuilder, (
                 "static_segment", "static_circle", "sensor_box", "on_ball_contact",
-                "visual_segment", "set_fill_color", "set_stroke_color", "body_position", "remove",
+                "visual_segment", "body_position", "remove",
             )),
         },
+        "handles": [
+            {
+                "name": "ShapeHandle",
+                "description": "Ownership-safe handle returned by physical shape builders.",
+                "methods": method_reference(ShapeHandle, ("set_fill_color", "set_stroke_color")),
+            },
+            {
+                "name": "VisualHandle",
+                "description": "Ownership-safe handle returned by visual-only builders.",
+                "methods": method_reference(VisualHandle, ("set_fill_color", "set_stroke_color")),
+            },
+        ],
         "contactEvent": {
             "description": inspect.getdoc(ContactEvent),
             "properties": [
