@@ -86,6 +86,7 @@ class EditorPreview:
                 with output_context:
                     tile.update(builder, 1 / 60)
             self.space.step(1 / 60)
+            self.registry.advance(1 / 60)
             limit_space_ball_speeds(self.balls)
         edge = self.grid_size * TILE_SIZE
         for ball in list(self.balls):
@@ -126,6 +127,7 @@ class EditorPreview:
         body.velocity = (vx, vy)
         shape = pymunk.Circle(body, 8)
         shape.friction = BALL_FRICTION; shape.elasticity = BALL_ELASTICITY
+        shape.ebm_fill_color = (22, 114, 212, 255); shape.ebm_stroke_color = (12, 63, 143, 255)
         shape.collision_type = BALL_COLLISION_TYPE; shape.filter = ball_shape_filter()
         self.space.add(body, shape)
         self.balls.append(Ball(body, shape))
@@ -276,8 +278,10 @@ def draw(canvas, preview):
     if preview.mode == "single":
         _draw_port_overlays(ctx, sx, sy, scale)
     for ball in preview.balls:
+        if preview.registry.ball_is_paused(ball.body): continue
         p=ball.body.position;ctx.beginPath();ctx.arc(sx(p.x),sy(p.y),8*scale,0,math.tau)
-        ctx.fillStyle="#1672d4";ctx.fill();ctx.strokeStyle="#0c3f8f";ctx.lineWidth=1.5;ctx.stroke()
+        ctx.fillStyle=_canvas_color(getattr(ball.shape,"ebm_fill_color",(22,114,212,255)));ctx.fill()
+        ctx.strokeStyle=_canvas_color(getattr(ball.shape,"ebm_stroke_color",(12,63,143,255)));ctx.lineWidth=1.5;ctx.stroke()
     replay = _replay_position(float(window.performance.now())) if _view == "validation" else None
     if replay is not None and preview.mode == "single":
         x, y, finished = replay

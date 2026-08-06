@@ -69,6 +69,7 @@ class DebugEngine:
         for _ in range(max(1, int(dt / (1 / 60)))):
             self.tile.update(self.builder, 1 / 60)
             self.space.step(1 / 60)
+            self.registry.advance(1 / 60)
             limit_space_ball_speeds(self.balls)
 
         for ball in list(self.balls):
@@ -139,6 +140,8 @@ class DebugEngine:
         shape = pymunk.Circle(body, radius)
         shape.friction = BALL_FRICTION
         shape.elasticity = BALL_ELASTICITY
+        shape.ebm_fill_color = (22, 114, 212, 255)
+        shape.ebm_stroke_color = (12, 63, 143, 255)
         shape.collision_type = BALL_COLLISION_TYPE
         shape.filter = ball_shape_filter()
         self.space.add(body, shape)
@@ -281,9 +284,11 @@ def draw(canvas, debug: DebugEngine) -> None:
             ctx.lineWidth=max(3,shape.radius*2*scale);ctx.stroke()
 
     for ball in debug.balls:
+        if debug.registry.ball_is_paused(ball.body): continue
         p=ball.body.local_to_world(ball.shape.offset)
         ctx.beginPath();ctx.arc(sx(p.x),sy(p.y),ball.shape.radius*scale,0,math.tau)
-        ctx.fillStyle="#1672d4";ctx.fill();ctx.strokeStyle="#0c3f8f";ctx.lineWidth=2;ctx.stroke()
+        ctx.fillStyle=_canvas_color(getattr(ball.shape,"ebm_fill_color",(22,114,212,255)));ctx.fill()
+        ctx.strokeStyle=_canvas_color(getattr(ball.shape,"ebm_stroke_color",(12,63,143,255)));ctx.lineWidth=2;ctx.stroke()
 
     ctx.fillStyle="rgba(54,45,35,.78)";ctx.font="12px system-ui, sans-serif"
     ctx.fillText(f"balls: {len(debug.balls)} | click tile to spawn",14,height-18)

@@ -302,10 +302,14 @@ def draw_dynamic(canvas, engine: Engine):
     # shape on every dynamic frame; full-screen 0.5× views contain thousands.
     for ball_item in engine.balls:
         shape, body = ball_item.shape, ball_item.body
+        if engine.registry.ball_is_paused(body): continue
         p = body.local_to_world(shape.offset)
-        if _renderer == "basic":
+        fill = _css_color(getattr(shape,"ebm_fill_color",(22,114,212,255)))
+        stroke = _css_color(getattr(shape,"ebm_stroke_color",(12,63,143,255)))
+        styled = (getattr(shape,"ebm_fill_color",(22,114,212,255)), getattr(shape,"ebm_stroke_color",(12,63,143,255))) != ((22,114,212,255),(12,63,143,255))
+        if _renderer == "basic" or styled:
             ctx.beginPath();ctx.arc(p.x-vx,p.y-vy,shape.radius,0,__import__("math").tau)
-            ctx.fillStyle="#1672d4";ctx.fill();ctx.strokeStyle="#0c3f8f";ctx.lineWidth=2;ctx.stroke()
+            ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=stroke;ctx.lineWidth=2;ctx.stroke()
         else:
             pigment.ball(ctx, p.x-vx, p.y-vy, shape.radius, getattr(body,"sketch_seed",_seed(p.x,p.y)))
 

@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from ebm.ports import Port, TILE_SIZE  # noqa: E402
-from ebm.tile_api import ContactEvent, ShapeHandle, TileBuilder, VisualHandle  # noqa: E402
+from ebm.tile_api import BallHandle, BodyHandle, ContactEvent, ShapeHandle, TileBuilder, VisualHandle  # noqa: E402
 from ebm.tile_base import TileBase  # noqa: E402
 
 
@@ -57,19 +57,29 @@ def build_reference() -> dict:
             {
                 "name": "ShapeHandle",
                 "description": "Ownership-safe handle returned by physical shape builders.",
-                "methods": method_reference(ShapeHandle, ("set_fill_color", "set_stroke_color")),
+                "methods": method_reference(ShapeHandle, ("set_fill_color", "set_stroke_color", "set_friction", "set_elasticity", "pause", "resume")),
             },
             {
                 "name": "VisualHandle",
                 "description": "Ownership-safe handle returned by visual-only builders.",
-                "methods": method_reference(VisualHandle, ("set_fill_color", "set_stroke_color")),
+                "methods": method_reference(VisualHandle, ("set_fill_color", "set_stroke_color", "pause", "resume")),
+            },
+            {
+                "name": "BodyHandle",
+                "description": "Ownership-safe handle for a physical body.",
+                "methods": method_reference(BodyHandle, ("set_position", "set_velocity", "pause", "resume")),
+            },
+            {
+                "name": "BallHandle",
+                "description": "Tile-bound handle to a contacting ball. Style and material changes reset after handoff.",
+                "methods": method_reference(BallHandle, ("set_fill_color", "set_stroke_color", "set_friction", "set_elasticity", "set_position", "set_velocity", "pause", "resume")),
             },
         ],
         "contactEvent": {
             "description": inspect.getdoc(ContactEvent),
             "properties": [
                 {"name": "own_shape", "type": "ShapeHandle", "description": "The tile-owned shape that received the contact."},
-                {"name": "ball_body", "type": "pymunk.Body", "description": "The contacting ball body. Its position and velocity can be inspected or changed."},
+                {"name": "ball", "type": "BallHandle", "description": "The tile-bound contacting ball handle."},
                 {"name": "point", "type": "tuple[float, float] | None", "description": "Reserved contact point; currently None in API v1."},
                 {"name": "normal", "type": "tuple[float, float] | None", "description": "Reserved contact normal; currently None in API v1."},
             ],
@@ -89,11 +99,11 @@ def build_reference() -> dict:
             {
                 "title": "Ball contact sensor",
                 "description": "Detect balls without adding visible or colliding geometry.",
-                "code": "sensor = builder.sensor_box(40, 40, 160, 160)\n\ndef on_ball(event):\n    print(event.ball_body.position)\n\nbuilder.on_ball_contact(sensor, on_ball)",
+                "code": "sensor = builder.sensor_box(40, 40, 160, 160)\n\ndef on_ball(event):\n    event.ball.set_fill_color((255, 40, 40, 255))\n\nbuilder.on_ball_contact(sensor, on_ball)",
             },
         ],
         "limitations": [
-            "API v2 supports static segments and circles, sensors, contact callbacks, visual segments, and mutable RGBA fill/stroke colors.",
+            "API v2 supports static segments and circles, sensors, contact callbacks, visual segments, mutable materials/colors, and pause/resume handles.",
             "Dynamic bodies, attached shapes, joints, motors, springs, forces, and impulses are not available yet.",
             "Tile code receives a TileBuilder, never direct access to the shared Pymunk Space.",
             "Build points are limited to the 200 × 200 tile plus the documented 10-unit build margin.",

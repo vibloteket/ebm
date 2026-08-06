@@ -127,6 +127,7 @@ def validate_tile_flow(
 
         tile.update(builder, dt)
         space.step(dt)
+        registry.advance(dt)
         limit_space_ball_speeds(active)
         t += dt
         _record_trajectories(active, t)
@@ -189,6 +190,9 @@ def _classify_active(space, active: list[ValidationBall], result: ValidationResu
 
 
 def _classify_ball(space, ball: ValidationBall) -> tuple[str, str | None] | None:
+    registry = TileResourceRegistry.for_space(space)
+    if registry.ball_is_paused(ball.body):
+        return None
     if ball.body not in space.bodies or ball.shape not in space.shapes:
         return "lost", "removed"
     x, y = float(ball.body.position.x), float(ball.body.position.y)

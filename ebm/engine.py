@@ -117,6 +117,7 @@ class Engine:
         self._accumulator += min(dt, 0.1)
         while self._accumulator >= PHYSICS_DT:
             self.space.step(PHYSICS_DT)
+            self.registry.advance(PHYSICS_DT)
             limit_space_ball_speeds(self.balls)
             self._accumulator -= PHYSICS_DT
             physics_steps += 1
@@ -273,7 +274,8 @@ class Engine:
         shape = pymunk.Circle(body, BALL_RADIUS)
         shape.friction = BALL_FRICTION
         shape.elasticity = BALL_ELASTICITY
-        shape.color = (80, 190, 255, 1)
+        shape.ebm_fill_color = (22, 114, 212, 255)
+        shape.ebm_stroke_color = (12, 63, 143, 255)
         shape.collision_type = BALL_COLLISION_TYPE
         shape.filter = ball_shape_filter()
         self.space.add(body, shape)
