@@ -12,6 +12,19 @@ BALL_FRICTION = 0.45
 BALL_ELASTICITY = 0.8
 TILE_SENSOR_COLLISION_TYPE = 2
 BALL_CATEGORY = 1 << 0
+Color = tuple[int, int, int, int]
+DEFAULT_SEGMENT_FILL: Color = (49, 90, 168, 255)
+DEFAULT_SEGMENT_STROKE: Color = (0, 0, 0, 0)
+DEFAULT_CIRCLE_FILL: Color = (220, 118, 37, 255)
+DEFAULT_CIRCLE_STROKE: Color = (140, 67, 24, 255)
+
+
+def _validate_color(color) -> Color:
+    if not isinstance(color, (tuple, list)) or len(color) != 4:
+        raise ValueError("color must be an RGBA tuple of four integers")
+    if any(not isinstance(value, int) or isinstance(value, bool) or not 0 <= value <= 255 for value in color):
+        raise ValueError("RGBA color components must be integers from 0 to 255")
+    return tuple(color)
 
 
 def ball_shape_filter():
@@ -33,6 +46,17 @@ class BodyHandle:
 @dataclass(frozen=True)
 class ConstraintHandle:
     id: int
+
+
+@dataclass(frozen=True)
+class VisualHandle:
+    id: int
+
+
+@dataclass
+class VisualStyle:
+    fill_color: Color
+    stroke_color: Color
 
 
 @dataclass(frozen=True)
@@ -62,7 +86,9 @@ class TileResourceRegistry:
         self._owner: dict[int, int] = {}
         self._shape_handles: dict[Any, ShapeHandle] = {}
         self._callbacks: dict[Any, tuple[Callable[[ContactEvent], Any], bool]] = {}
-        self._visuals: dict[int, list[Any]] = {}
+        self._visuals: dict[int, list[int]] = {}
+        self._styles: dict[int, VisualStyle] = {}
+        self._visual_revisions: dict[int, int] = {}
         self._install_dispatcher()
 
     @classmethod
@@ -108,9 +134,42 @@ class TileResourceRegistry:
         shape.collision_type = TILE_SENSOR_COLLISION_TYPE
         self._callbacks[shape] = (callback, collide)
 
-    def add_visual(self, owner: int, visual: Any):
-        self._visuals.setdefault(owner, []).append(visual)
-        return visual
+    def set_style(self, owner: int, handle, *, fill_color=None, stroke_color=None):
+        self.resolve(owner, handle)
+        style = self._styles.get(handle.id)
+        if style is None:
+            raise TypeError("resource has no visual style")
+        changed = False
+        if fill_color is not None:
+            value = _validate_color(fill_color)
+            if style.fill_color != value: style.fill_color = value; changed = True
+        if stroke_color is not None:
+            value = _validate_color(stroke_color)
+            if style.stroke_color != value: style.stroke_color = value; changed = True
+        if changed:
+            self._visual_revisions[owner] = self._visual_revisions.get(owner, 0) + 1
+
+    def add_visual(self, owner: int, visual: Any, fill_color: Color, stroke_color: Color):
+        handle = VisualHandle(self._next)
+        self._next += 1
+        self._objects[handle.id] = visual
+        self._owner[handle.id] = owner
+        self._styles[handle.id] = VisualStyle(_validate_color(fill_color), _validate_color(stroke_color))
+        self._visuals.setdefault(owner, []).append(handle.id)
+        return handle
+
+    def set_object_style(self, handle, fill_color: Color, stroke_color: Color):
+        self._styles[handle.id] = VisualStyle(_validate_color(fill_color), _validate_color(stroke_color))
+
+    def visual_items(self, owner: int):
+        result = []
+        for key, value in self._owner.items():
+            if value == owner and key in self._styles:
+                result.append((self._objects[key], self._styles[key]))
+        return result
+
+    def visual_revision(self, owner: int):
+        return self._visual_revisions.get(owner, 0)
 
     def destroy_owner(self, owner: int):
         import pymunk
@@ -128,13 +187,15 @@ class TileResourceRegistry:
                 pass
             self._objects.pop(key, None)
             self._owner.pop(key, None)
+            self._styles.pop(key, None)
         self._visuals.pop(owner, None)
+        self._visual_revisions.pop(owner, None)
 
     def owned_objects(self, owner: int):
         return [self._objects[key] for key, value in self._owner.items() if value == owner]
 
     def owned_visuals(self, owner: int):
-        return list(self._visuals.get(owner, ()))
+        return [self._objects[key] for key in self._visuals.get(owner, ()) if key in self._objects]
 
 
 class TileBuilder:
@@ -151,7 +212,7 @@ class TileBuilder:
             raise ValueError(f"point outside tile build bounds: {(x, y)}")
         return self.origin[0] + x, self.origin[1] + y
 
-    def static_segment(self, a, b, radius=1, *, friction=.8, elasticity=.2, surface_velocity=(0, 0)):
+    def static_segment(self, a, b, radius=1, *, friction=.8, elasticity=.2, surface_velocity=(0, 0), fill_color=DEFAULT_SEGMENT_FILL, stroke_color=DEFAULT_SEGMENT_STROKE):
         """Build a fixed physical rail from local point a to b; return its ShapeHandle."""
         import pymunk
 
@@ -160,9 +221,11 @@ class TileBuilder:
         shape = pymunk.Segment(self._registry.space.static_body, self._point(a), self._point(b), radius)
         shape.friction, shape.elasticity = friction, elasticity
         shape.surface_velocity = surface_velocity
-        return self._registry.add(self._owner, shape, ShapeHandle)
+        handle = self._registry.add(self._owner, shape, ShapeHandle)
+        self._registry.set_object_style(handle, fill_color, stroke_color)
+        return handle
 
-    def static_circle(self, center, radius, *, friction=.4, elasticity=.75):
+    def static_circle(self, center, radius, *, friction=.4, elasticity=.75, fill_color=DEFAULT_CIRCLE_FILL, stroke_color=DEFAULT_CIRCLE_STROKE):
         """Build a fixed physical circle in local coordinates; return its ShapeHandle."""
         import pymunk
 
@@ -171,7 +234,9 @@ class TileBuilder:
         body = pymunk.Body(body_type=pymunk.Body.STATIC); body.position = self._point(center)
         body_handle = self._registry.add(self._owner, body, BodyHandle)
         shape = pymunk.Circle(body, radius); shape.friction, shape.elasticity = friction, elasticity
-        return self._registry.add(self._owner, shape, ShapeHandle)
+        handle = self._registry.add(self._owner, shape, ShapeHandle)
+        self._registry.set_object_style(handle, fill_color, stroke_color)
+        return handle
 
     def sensor_box(self, left, top, right, bottom):
         """Build an invisible, non-colliding rectangular sensor; return its ShapeHandle."""
@@ -185,13 +250,21 @@ class TileBuilder:
         """Call callback(ContactEvent) while a ball contacts an owned shape."""
         self._registry.on_contact(self._owner, shape, callback, collide=collide)
 
-    def visual_segment(self, a, b, radius=3):
-        """Build a non-physical line used only by renderers; return a VisualSegment."""
+    def visual_segment(self, a, b, radius=3, *, fill_color=DEFAULT_SEGMENT_FILL, stroke_color=DEFAULT_SEGMENT_STROKE):
+        """Build a styled non-physical line; return its VisualHandle."""
         # Visual-only primitives are owned and bounds-checked but never added to
         # Pymunk, so reference graphics cannot interfere with ball routing.
         local_a=(float(a[0]),float(a[1]));local_b=(float(b[0]),float(b[1]))
         self._point(local_a);self._point(local_b)
-        return self._registry.add_visual(self._owner,VisualSegment(local_a,local_b,float(radius)))
+        return self._registry.add_visual(self._owner,VisualSegment(local_a,local_b,float(radius)),fill_color,stroke_color)
+
+    def set_fill_color(self, handle, color):
+        """Set any visible shape's fill RGBA tuple (four integers from 0 to 255)."""
+        self._registry.set_style(self._owner, handle, fill_color=color)
+
+    def set_stroke_color(self, handle, color):
+        """Set any visible shape's outline RGBA tuple (four integers from 0 to 255)."""
+        self._registry.set_style(self._owner, handle, stroke_color=color)
 
     def body_position(self, body: BodyHandle):
         """Return the current world-space position of an owned BodyHandle."""
@@ -205,3 +278,12 @@ class TileBuilder:
     @property
     def visual_objects(self):
         return self._registry.owned_objects(self._owner) + self._registry.owned_visuals(self._owner)
+
+    @property
+    def visual_items(self):
+        """Internal renderer view of (object, mutable style) pairs."""
+        return self._registry.visual_items(self._owner)
+
+    @property
+    def visual_revision(self):
+        return self._registry.visual_revision(self._owner)

@@ -50,7 +50,7 @@ def build_reference() -> dict:
             "description": inspect.getdoc(TileBuilder),
             "methods": method_reference(TileBuilder, (
                 "static_segment", "static_circle", "sensor_box", "on_ball_contact",
-                "visual_segment", "body_position", "remove",
+                "visual_segment", "set_fill_color", "set_stroke_color", "body_position", "remove",
             )),
         },
         "contactEvent": {
@@ -81,7 +81,7 @@ def build_reference() -> dict:
             },
         ],
         "limitations": [
-            "API v2 supports static segments and circles, sensors, contact callbacks, and visual segments.",
+            "API v2 supports static segments and circles, sensors, contact callbacks, visual segments, and mutable RGBA fill/stroke colors.",
             "Dynamic bodies, attached shapes, joints, motors, springs, forces, and impulses are not available yet.",
             "Tile code receives a TileBuilder, never direct access to the shared Pymunk Space.",
             "Build points are limited to the 200 × 200 tile plus the documented 10-unit build margin.",

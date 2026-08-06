@@ -22,6 +22,7 @@ _static_dirty = True
 _last_dynamic_draw = 0.0
 _frame_samples: list[float] = []
 _tile_cache = {}
+_visual_signature = None
 _renderer = "basic"
 _TILE_PAD = 14
 _TILE_SCALE = 2
@@ -168,11 +169,13 @@ def start(static_canvas, dynamic_canvas):
 
     frame_proxy = None
     def frame(ts):
-        global _last_ts, _static_dirty, _last_dynamic_draw
+        global _last_ts, _static_dirty, _last_dynamic_draw, _visual_signature
         if _engine is None: return
         _render_profile["raf_frames"] += 1
         dt = 1/60 if _last_ts is None else max(0.0, min(.05, (ts-_last_ts)/1000))
         _last_ts = ts; _engine.step_frame(dt)
+        signature=tuple((active.owner_id,active.builder.visual_revision) for active in _engine.active_tiles.values())
+        if signature != _visual_signature: _visual_signature=signature; _static_dirty=True
         if _static_dirty:
             started=time.perf_counter(); draw_static(static_canvas, _engine)
             elapsed=(time.perf_counter()-started)*1000
@@ -218,7 +221,14 @@ def _cached_tile(active):
     # while retaining almost all of the benefit of caching by contract.
     row=int(active.builder.origin[1]//TILE_SIZE);col=int(active.builder.origin[0]//TILE_SIZE)
     variant = (row*31 + col*17) % 3
-    key = (_renderer, active.tile.id, variant)
+    revision = active.builder.visual_revision
+    instance = active.owner_id if revision else 0
+    key = (_renderer, active.tile.id, variant, instance, revision)
+    if revision:
+        # Dynamic styles are instance-specific. Drop older revisions so a tile
+        # that animates its color cannot grow the cache forever.
+        for old_key in [candidate for candidate in _tile_cache if candidate[3] == instance and candidate != key]:
+            _tile_cache.pop(old_key, None)
     cached = _tile_cache.get(key)
     if cached is not None:
         _render_profile["cache_hits"] += 1
@@ -228,43 +238,54 @@ def _cached_tile(active):
     size = TILE_SIZE + _TILE_PAD*2
     ox, oy = active.builder.origin
     segments, circles, polygons = [], [], []
-    for shape in active.builder.visual_objects:
+    for shape, style in active.builder.visual_items:
+        fill = _css_color(style.fill_color); stroke = _css_color(style.stroke_color)
         if isinstance(shape, VisualSegment):
-            segments.append([shape.a[0]+_TILE_PAD,shape.a[1]+_TILE_PAD,shape.b[0]+_TILE_PAD,shape.b[1]+_TILE_PAD,shape.radius])
+            segments.append([shape.a[0]+_TILE_PAD,shape.a[1]+_TILE_PAD,shape.b[0]+_TILE_PAD,shape.b[1]+_TILE_PAD,shape.radius,fill,stroke])
             continue
         if not hasattr(shape, "body") or shape.body.body_type != 2 or getattr(shape, "ebm_hidden", False): continue
         name = type(shape).__name__
         if name == "Segment":
             a, b = shape.body.local_to_world(shape.a), shape.body.local_to_world(shape.b)
-            segments.append([a.x-ox+_TILE_PAD,a.y-oy+_TILE_PAD,b.x-ox+_TILE_PAD,b.y-oy+_TILE_PAD,shape.radius])
+            segments.append([a.x-ox+_TILE_PAD,a.y-oy+_TILE_PAD,b.x-ox+_TILE_PAD,b.y-oy+_TILE_PAD,shape.radius,fill,stroke])
         elif name == "Circle":
-            p=shape.body.local_to_world(shape.offset);circles.append([p.x-ox+_TILE_PAD,p.y-oy+_TILE_PAD,shape.radius])
+            p=shape.body.local_to_world(shape.offset);circles.append([p.x-ox+_TILE_PAD,p.y-oy+_TILE_PAD,shape.radius,fill,stroke])
         elif name == "Poly":
             vertices=[shape.body.local_to_world(v) for v in shape.get_vertices()]
             polygons.append([(v.x-ox+_TILE_PAD,v.y-oy+_TILE_PAD) for v in vertices])
 
     if _renderer == "basic":
         canvas=document.createElement("canvas");canvas.width=size;canvas.height=size
-        ctx=canvas.getContext("2d");ctx.lineCap="round";ctx.strokeStyle="#315aa8"
-        for x1,y1,x2,y2,radius in segments:
-            ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.lineWidth=max(3,radius*2);ctx.stroke()
-        ctx.fillStyle="#dc7625";ctx.strokeStyle="#8c4318";ctx.lineWidth=2
-        for x,y,radius in circles:
-            ctx.beginPath();ctx.arc(x,y,radius,0,__import__("math").tau);ctx.fill();ctx.stroke()
+        ctx=canvas.getContext("2d");ctx.lineCap="round"
+        for x1,y1,x2,y2,radius,fill,stroke in segments:
+            if not stroke.endswith(",0)"):ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.strokeStyle=stroke;ctx.lineWidth=max(3,radius*2+2);ctx.stroke()
+            ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.strokeStyle=fill;ctx.lineWidth=max(3,radius*2);ctx.stroke()
+        for x,y,radius,fill,stroke in circles:
+            ctx.beginPath();ctx.arc(x,y,radius,0,__import__("math").tau);ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=stroke;ctx.lineWidth=2;ctx.stroke()
     else:
         # Bake blue rails and orange bumpers separately, then composite once.
-        rail_canvas=window.renderV3Tile(to_js(segments),to_js([]),1.7+variant*2.3,size,1,to_js([.075,.19,.49]))
-        bumper_canvas=window.renderV3Tile(to_js([]),to_js(circles),4.2+variant*2.3,size,1,to_js([.86,.31,.055]))
+        rail_canvas=None; bumper_canvas=None
         canvas=document.createElement("canvas");canvas.width=size;canvas.height=size
         composite=canvas.getContext("2d")
-        if rail_canvas is not None: composite.drawImage(rail_canvas,0,0,size,size)
-        if bumper_canvas is not None: composite.drawImage(bumper_canvas,0,0,size,size)
-        if rail_canvas is None and bumper_canvas is None: canvas=None
-        if canvas is None:
+        for index,segment in enumerate(segments):
+            if _visible(segment[6]):
+                outline=segment[:5];outline[4]+=1
+                item=window.renderV3Tile(to_js([outline]),to_js([]),1.6+variant*2.3+index*.17,size,1,to_js(_gl_color(segment[6])))
+                if item is not None: composite.drawImage(item,0,0,size,size)
+            item=window.renderV3Tile(to_js([segment[:5]]),to_js([]),1.7+variant*2.3+index*.17,size,1,to_js(_gl_color(segment[5])))
+            if item is not None: composite.drawImage(item,0,0,size,size)
+        for index,circle in enumerate(circles):
+            if _visible(circle[4]):
+                outline=[circle[0],circle[1],circle[2]+2]
+                item=window.renderV3Tile(to_js([]),to_js([outline]),4.1+variant*2.3+index*.17,size,1,to_js(_gl_color(circle[4])))
+                if item is not None: composite.drawImage(item,0,0,size,size)
+            item=window.renderV3Tile(to_js([]),to_js([circle[:3]]),4.2+variant*2.3+index*.17,size,1,to_js(_gl_color(circle[3])))
+            if item is not None: composite.drawImage(item,0,0,size,size)
+        if composite is None:
             canvas=document.createElement("canvas");canvas.width=size;canvas.height=size
             ctx=canvas.getContext("2d")
-            for x1,y1,x2,y2,radius in segments:pigment.segment(ctx,x1,y1,x2,y2,radius,_seed(x1,y1,x2,y2,radius,variant))
-            for x,y,radius in circles:pigment.circle(ctx,x,y,radius,_seed(x,y,radius,variant))
+            for x1,y1,x2,y2,radius,fill,stroke in segments:pigment.segment(ctx,x1,y1,x2,y2,radius,_seed(x1,y1,x2,y2,radius,variant),fill)
+            for x,y,radius,fill,stroke in circles:pigment.circle(ctx,x,y,radius,_seed(x,y,radius,variant),fill,stroke)
     # Polygons are uncommon in the current fillers; retain the Canvas material
     # overlay until the shader gains polygon SDF support.
     if polygons:
@@ -287,6 +308,20 @@ def draw_dynamic(canvas, engine: Engine):
             ctx.fillStyle="#1672d4";ctx.fill();ctx.strokeStyle="#0c3f8f";ctx.lineWidth=2;ctx.stroke()
         else:
             pigment.ball(ctx, p.x-vx, p.y-vy, shape.radius, getattr(body,"sketch_seed",_seed(p.x,p.y)))
+
+
+def _css_color(color) -> str:
+    r,g,b,a=color
+    return f"rgba({r},{g},{b},{a/255:.4f})"
+
+
+def _gl_color(css: str):
+    values=css.removeprefix("rgba(").removesuffix(")").split(",")
+    return [float(values[0])/255,float(values[1])/255,float(values[2])/255,float(values[3])]
+
+
+def _visible(css: str):
+    return float(css.removeprefix("rgba(").removesuffix(")").split(",")[3]) > 0
 
 
 def _seed(*values) -> int:

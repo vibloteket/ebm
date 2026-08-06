@@ -235,6 +235,11 @@ def _replay_position(now):
     return points[-1][1], points[-1][2], True
 
 
+def _canvas_color(color):
+    r,g,b,a=color
+    return f"rgba({r},{g},{b},{a/255:.4f})"
+
+
 def draw(canvas, preview):
     ctx = canvas.getContext("2d")
     width, height = canvas.width, canvas.height
@@ -248,23 +253,26 @@ def draw(canvas, preview):
         ctx.fillStyle="rgba(255,255,255,.2)";ctx.fillRect(sx(bx),sy(by),TILE_SIZE*scale,TILE_SIZE*scale)
         ctx.strokeStyle="rgba(91,78,52,.35)";ctx.lineWidth=1;ctx.strokeRect(sx(bx),sy(by),TILE_SIZE*scale,TILE_SIZE*scale)
         ctx.strokeStyle="#315aa8";ctx.lineCap="round"
-        for shape in builder.visual_objects:
+        for shape, style in builder.visual_items:
+            fill=_canvas_color(style.fill_color);stroke=_canvas_color(style.stroke_color)
             if isinstance(shape,VisualSegment):
-                ctx.beginPath();ctx.moveTo(sx(bx+shape.a[0]),sy(by+shape.a[1]));ctx.lineTo(sx(bx+shape.b[0]),sy(by+shape.b[1]));ctx.lineWidth=max(2,shape.radius*2*scale);ctx.stroke()
+                if style.stroke_color[3]:ctx.beginPath();ctx.moveTo(sx(bx+shape.a[0]),sy(by+shape.a[1]));ctx.lineTo(sx(bx+shape.b[0]),sy(by+shape.b[1]));ctx.strokeStyle=stroke;ctx.lineWidth=max(2,(shape.radius*2+2)*scale);ctx.stroke()
+                ctx.beginPath();ctx.moveTo(sx(bx+shape.a[0]),sy(by+shape.a[1]));ctx.lineTo(sx(bx+shape.b[0]),sy(by+shape.b[1]));ctx.strokeStyle=fill;ctx.lineWidth=max(2,shape.radius*2*scale);ctx.stroke()
             elif getattr(shape,"ebm_hidden",False):
                 continue
             elif type(shape).__name__ == "Segment":
                 a,b=shape.body.local_to_world(shape.a),shape.body.local_to_world(shape.b)
-                ctx.beginPath();ctx.moveTo(sx(a.x),sy(a.y));ctx.lineTo(sx(b.x),sy(b.y));ctx.lineWidth=max(2,shape.radius*2*scale);ctx.stroke()
+                if style.stroke_color[3]:ctx.beginPath();ctx.moveTo(sx(a.x),sy(a.y));ctx.lineTo(sx(b.x),sy(b.y));ctx.strokeStyle=stroke;ctx.lineWidth=max(2,(shape.radius*2+2)*scale);ctx.stroke()
+                ctx.beginPath();ctx.moveTo(sx(a.x),sy(a.y));ctx.lineTo(sx(b.x),sy(b.y));ctx.strokeStyle=fill;ctx.lineWidth=max(2,shape.radius*2*scale);ctx.stroke()
             elif type(shape).__name__ == "Circle":
                 p=shape.body.local_to_world(shape.offset)
-                ctx.beginPath();ctx.arc(sx(p.x),sy(p.y),shape.radius*scale,0,math.tau);ctx.fillStyle="rgba(49,90,168,.28)";ctx.fill();ctx.lineWidth=2;ctx.stroke()
+                ctx.beginPath();ctx.arc(sx(p.x),sy(p.y),shape.radius*scale,0,math.tau);ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=stroke;ctx.lineWidth=2;ctx.stroke()
             elif type(shape).__name__ == "Poly":
                 points=[shape.body.local_to_world(vertex) for vertex in shape.get_vertices()]
                 if points:
                     ctx.beginPath();ctx.moveTo(sx(points[0].x),sy(points[0].y))
                     for point in points[1:]:ctx.lineTo(sx(point.x),sy(point.y))
-                    ctx.closePath();ctx.fillStyle="rgba(49,90,168,.28)";ctx.fill();ctx.lineWidth=2;ctx.stroke()
+                    ctx.closePath();ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=stroke;ctx.lineWidth=2;ctx.stroke()
     if preview.mode == "single":
         _draw_port_overlays(ctx, sx, sy, scale)
     for ball in preview.balls:

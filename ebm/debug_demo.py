@@ -273,9 +273,11 @@ def draw(canvas, debug: DebugEngine) -> None:
     # Plain diagnostic rendering: solid route lines and balls.
     ctx.lineCap = "round"
     ctx.strokeStyle = "#315aa8"
-    for shape in debug.builder.visual_objects:
+    for shape, style in debug.builder.visual_items:
+        fill=_canvas_color(style.fill_color);stroke=_canvas_color(style.stroke_color)
         if isinstance(shape, VisualSegment):
-            ctx.beginPath();ctx.moveTo(sx(shape.a[0]),sy(shape.a[1]));ctx.lineTo(sx(shape.b[0]),sy(shape.b[1]))
+            if style.stroke_color[3]:ctx.beginPath();ctx.moveTo(sx(shape.a[0]),sy(shape.a[1]));ctx.lineTo(sx(shape.b[0]),sy(shape.b[1]));ctx.strokeStyle=stroke;ctx.lineWidth=max(3,(shape.radius*2+2)*scale);ctx.stroke()
+            ctx.beginPath();ctx.moveTo(sx(shape.a[0]),sy(shape.a[1]));ctx.lineTo(sx(shape.b[0]),sy(shape.b[1]));ctx.strokeStyle=fill
             ctx.lineWidth=max(3,shape.radius*2*scale);ctx.stroke()
 
     for ball in debug.balls:
@@ -288,6 +290,11 @@ def draw(canvas, debug: DebugEngine) -> None:
 
 
 BALL_RADIUS = 8
+
+
+def _canvas_color(color):
+    r,g,b,a=color
+    return f"rgba({r},{g},{b},{a/255:.4f})"
 
 
 def _draw_port_overlays(ctx, sx, sy, scale) -> None:
