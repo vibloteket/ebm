@@ -247,7 +247,10 @@ def draw(canvas, preview):
     width, height = canvas.width, canvas.height
     ctx.fillStyle = "#f4e8c8"; ctx.fillRect(0, 0, width, height)
     world = preview.grid_size * TILE_SIZE
-    scale = max(.3, min((width-36)/world, (height-44)/world))
+    # Always fit the complete grid inside the canvas. A 3 × 3 grid needs a
+    # scale below .3 on narrow mobile previews; clamping it to .3 clipped the
+    # first and last rows instead of preserving the intended margins.
+    scale = max(.01, min((width-36)/world, (height-44)/world))
     ox, oy = (width-world*scale)/2, (height-world*scale)/2
     sx=lambda x:ox+x*scale; sy=lambda y:oy+y*scale
     for _, _, builder in preview.owners:

@@ -57,6 +57,12 @@ def test_validation_view_stops_live_simulation_and_canvas_tracks_layout_size():
     assert "new ResizeObserver(syncPreviewSize).observe(els.preview)" in web_source
 
 
+def test_repeat_preview_can_scale_below_point_three_to_fit_mobile_canvas():
+    source = Path("ebm/editor_preview.py").read_text()
+    assert "scale = max(.01, min((width-36)/world, (height-44)/world))" in source
+    assert "scale = max(.3," not in source
+
+
 def test_failure_replay_draws_validator_trajectory_overlay():
     source = Path("ebm/editor_preview.py").read_text()
     assert "def replay_failure" in source
