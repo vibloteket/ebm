@@ -89,24 +89,24 @@ def build_reference() -> dict:
             {
                 "title": "Sloping rail",
                 "description": "A physical segment that guides balls using friction and restitution.",
-                "code": "builder.static_segment(\n    (20, 70), (180, 130),\n    radius=4, friction=0.8, elasticity=0.2,\n)",
+                "code": "builder.static_segment(\n    (40, 140), (360, 260),\n    radius=8, friction=0.8, elasticity=0.2,\n)",
             },
             {
                 "title": "Powered channel",
                 "description": "A rail whose surface actively carries contacting balls.",
-                "code": "builder.static_segment(\n    (20, 100), (180, 100),\n    radius=4, surface_velocity=(80, 0),\n)",
+                "code": "builder.static_segment(\n    (40, 200), (360, 200),\n    radius=8, surface_velocity=(160, 0),\n)",
             },
             {
                 "title": "Ball contact sensor",
                 "description": "Detect balls without adding visible or colliding geometry.",
-                "code": "sensor = builder.sensor_box(40, 40, 160, 160)\n\ndef on_ball(event):\n    event.ball.set_fill_color((255, 40, 40, 255))\n\nbuilder.on_ball_contact(sensor, on_ball)",
+                "code": "sensor = builder.sensor_box(80, 80, 320, 320)\n\ndef on_ball(event):\n    event.ball.set_fill_color((255, 40, 40, 255))\n\nbuilder.on_ball_contact(sensor, on_ball)",
             },
         ],
         "limitations": [
             "API v2 supports static segments and circles, sensors, contact callbacks, visual segments, mutable materials/colors, and pause/resume handles.",
             "Dynamic bodies, attached shapes, joints, motors, springs, forces, and impulses are not available yet.",
             "Tile code receives a TileBuilder, never direct access to the shared Pymunk Space.",
-            "Build points are limited to the 200 × 200 tile plus the documented 10-unit build margin.",
+            "Build points are limited to the 400 × 400 tile plus the documented 20-unit build margin.",
         ],
     }
 

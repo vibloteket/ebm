@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 
-MAX_BALL_SPEED = 300.0
+MAX_BALL_SPEED = 600.0
 
 
 def limit_ball_speed(body, _gravity=None, _damping=None, _dt=None) -> None:

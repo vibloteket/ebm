@@ -7,7 +7,7 @@ import time
 from typing import Any
 
 from .ball_physics import configure_ball_body, limit_space_ball_speeds
-from .ports import Port, TILE_SIZE
+from .ports import BALL_RADIUS, Port, TILE_SIZE
 from .tile_api import BALL_COLLISION_TYPE, BALL_ELASTICITY, BALL_FRICTION, TileBuilder, TileResourceRegistry, ball_shape_filter
 from .tile_catalog import default_tile
 from .tile_output import suppress_tile_output
@@ -16,7 +16,6 @@ BOUNDARY_SPAWN_INTERVAL = 1.2
 # One retained tile around the viewport is enough for seamless panning. At
 # 0.5×, two tiles added hundreds of unnecessary Pymunk shapes and updates.
 BUFFER_TILES = 1
-BALL_RADIUS = 8
 BALL_MASS = 1
 PHYSICS_DT = 1 / 60
 
@@ -56,7 +55,7 @@ class Engine:
         import pymunk
 
         self.space = pymunk.Space()
-        self.space.gravity = (0, 900)
+        self.space.gravity = (0, 1800)
         self.viewport = Viewport(-width / (2 * 0.5), -height / (3 * 0.5), width, height, zoom=0.5)
         self.registry = TileResourceRegistry.for_space(self.space)
         self.active_tiles: dict[tuple[int, int], ActiveTile] = {}
@@ -208,10 +207,10 @@ class Engine:
         ox, oy = col * TILE_SIZE, row * TILE_SIZE
         inset = BALL_RADIUS + 1
         if port == Port.T0:
-            return ox + 100, oy + inset, (0, 70)
+            return ox + 200, oy + inset, (0, 140)
         if port == Port.L0:
-            return ox + inset, oy + 50, (90, 0)
-        return ox + TILE_SIZE - inset, oy + 150, (-90, 0)
+            return ox + inset, oy + 100, (180, 0)
+        return ox + TILE_SIZE - inset, oy + 300, (-180, 0)
 
     def _boundary_inputs(self) -> set[tuple[int, int, Port]]:
         coords = set(self.active_tiles)
@@ -269,7 +268,7 @@ class Engine:
         body = pymunk.Body(BALL_MASS, moment)
         configure_ball_body(body)
         body.position = (x, y)
-        body.velocity = velocity if velocity is not None else (self._rng.uniform(-40, 40), self._rng.uniform(-10, 40))
+        body.velocity = velocity if velocity is not None else (self._rng.uniform(-80, 80), self._rng.uniform(-20, 80))
         body.sketch_seed = self._rng.randint(1, 999_999)
         shape = pymunk.Circle(body, BALL_RADIUS)
         shape.friction = BALL_FRICTION

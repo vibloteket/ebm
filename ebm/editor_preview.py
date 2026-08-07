@@ -10,7 +10,7 @@ from . import editor_runtime
 from .ball_physics import configure_ball_body, limit_space_ball_speeds
 from .editor_console import console_muted, console_phase
 from .debug_demo import Ball, _draw_port_overlays
-from .ports import MAX_EXIT_ANGLE_DEGREES, Port, PORT_SPECS, TILE_SIZE, entry_velocity
+from .ports import BALL_RADIUS, MAX_EXIT_ANGLE_DEGREES, Port, PORT_SPECS, TILE_SIZE, entry_velocity
 from .tile_api import BALL_COLLISION_TYPE, BALL_ELASTICITY, BALL_FRICTION, TileBuilder, TileResourceRegistry, VisualSegment, ball_shape_filter
 
 
@@ -28,7 +28,7 @@ class EditorPreview:
     def __init__(self, mode="single"):
         import pymunk
         self.space = pymunk.Space()
-        self.space.gravity = (0, 900)
+        self.space.gravity = (0, 1800)
         self.registry = TileResourceRegistry.for_space(self.space)
         self.balls = []
         self.rng = random.Random(17)
@@ -91,7 +91,7 @@ class EditorPreview:
         edge = self.grid_size * TILE_SIZE
         for ball in list(self.balls):
             x, y = ball.body.position
-            if x < -100 or x > edge + 100 or y < -100 or y > edge + 150:
+            if x < -200 or x > edge + 200 or y < -200 or y > edge + 300:
                 self.remove_ball(ball)
 
     def _boundary_inputs(self):
@@ -112,20 +112,20 @@ class EditorPreview:
         spec = PORT_SPECS[port]
         dx = self.rng.uniform(-spec.x_range, spec.x_range)
         dy = self.rng.uniform(-spec.y_range, spec.y_range)
-        speed = self.rng.uniform(1, 300)
+        speed = self.rng.uniform(1, 600)
         angle = self.rng.uniform(-MAX_EXIT_ANGLE_DEGREES, MAX_EXIT_ANGLE_DEGREES)
         vx, vy = entry_velocity(port, speed, angle)
         if port == Port.T0:
-            pos = (ox + spec.x_center + dx, oy + 8.5 + dy)
+            pos = (ox + spec.x_center + dx, oy + BALL_RADIUS + 0.5 + dy)
         elif port == Port.L0:
-            pos = (ox + 8.5 + dx, oy + spec.y_center + dy)
+            pos = (ox + BALL_RADIUS + 0.5 + dx, oy + spec.y_center + dy)
         else:
-            pos = (ox + TILE_SIZE - 8.5 + dx, oy + spec.y_center + dy)
-        body = pymunk.Body(1, pymunk.moment_for_circle(1, 0, 8))
+            pos = (ox + TILE_SIZE - BALL_RADIUS - 0.5 + dx, oy + spec.y_center + dy)
+        body = pymunk.Body(1, pymunk.moment_for_circle(1, 0, BALL_RADIUS))
         configure_ball_body(body)
         body.position = pos
         body.velocity = (vx, vy)
-        shape = pymunk.Circle(body, 8)
+        shape = pymunk.Circle(body, BALL_RADIUS)
         shape.friction = BALL_FRICTION; shape.elasticity = BALL_ELASTICITY
         shape.ebm_fill_color = (22, 114, 212, 255); shape.ebm_stroke_color = (12, 63, 143, 255)
         shape.collision_type = BALL_COLLISION_TYPE; shape.filter = ball_shape_filter()
@@ -279,7 +279,7 @@ def draw(canvas, preview):
         _draw_port_overlays(ctx, sx, sy, scale)
     for ball in preview.balls:
         if preview.registry.ball_is_paused(ball.body): continue
-        p=ball.body.position;ctx.beginPath();ctx.arc(sx(p.x),sy(p.y),8*scale,0,math.tau)
+        p=ball.body.position;ctx.beginPath();ctx.arc(sx(p.x),sy(p.y),BALL_RADIUS*scale,0,math.tau)
         ctx.fillStyle=_canvas_color(getattr(ball.shape,"ebm_fill_color",(22,114,212,255)));ctx.fill()
         ctx.strokeStyle=_canvas_color(getattr(ball.shape,"ebm_stroke_color",(12,63,143,255)));ctx.lineWidth=1.5;ctx.stroke()
     replay = _replay_position(float(window.performance.now())) if _view == "validation" else None

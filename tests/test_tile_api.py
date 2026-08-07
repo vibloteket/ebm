@@ -6,14 +6,14 @@ from ebm.tile_api import ShapeHandle, TileBuilder, TileResourceRegistry
 def make_builders():
     import pymunk
     space=pymunk.Space();registry=TileResourceRegistry.for_space(space)
-    return space,registry,TileBuilder(registry,1,(0,0)),TileBuilder(registry,2,(200,0))
+    return space,registry,TileBuilder(registry,1,(0,0)),TileBuilder(registry,2,(400,0))
 
 
 def test_builder_exposes_no_space_and_enforces_bounds():
     _,_,tile,_=make_builders()
     assert not hasattr(tile,"space")
-    with pytest.raises(ValueError):tile.static_segment((-11,0),(10,10),3)
-    with pytest.raises(ValueError):tile.static_circle((5,5),20)
+    with pytest.raises(ValueError):tile.static_segment((-21,0),(10,10),3)
+    with pytest.raises(ValueError):tile.static_circle((5,5),30)
 
 
 def test_resource_ownership_is_enforced():

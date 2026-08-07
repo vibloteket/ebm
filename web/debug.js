@@ -1,4 +1,4 @@
-const APP_VERSION = "debug-0.51-basic-default-routes";
+const APP_VERSION = "debug-0.52-tile-400";
 const PYMUNK_WHEEL = "./vendor/pymunk-7.2.0-cp312-cp312-pyodide_2024_0_wasm32.whl";
 const PY_FILES = [
   "__init__.py",

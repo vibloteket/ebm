@@ -4,7 +4,7 @@ Endless Ball Machine (EBM) is a browser-based, community-built ball machine insp
 
 - **Repo name:** `endless-ball-machine`
 - **Python package / CLI shorthand:** `ebm`
-- **Core idea:** an endless grid of 200×200 physics tiles, with procedural filler tiles everywhere no contributed tile exists.
+- **Core idea:** an endless grid of 400×400 physics tiles, with procedural filler tiles everywhere no contributed tile exists.
 
 ## Goals
 
@@ -36,7 +36,7 @@ Use one active `pymunk.Space`, not one space per tile. Tiles contribute geometry
 
 ```python
 space = pymunk.Space()
-space.gravity = (0, 900)
+space.gravity = (0, 1800)
 ```
 
 There is no explicit ball handoff between tiles. The physics world itself is the interface.
@@ -102,10 +102,10 @@ Use **tile**, not cell. The project is an endless grid of tiles.
 
 ### Tile size
 
-Each tile is exactly `200×200` world pixels.
+Each tile is exactly `400×400` world pixels.
 
 ```python
-TILE_SIZE = 200
+TILE_SIZE = 400
 ```
 
 ### Ghost ports
@@ -113,31 +113,31 @@ TILE_SIZE = 200
 Every tile has six fixed ghost ports. They are just documented coordinates, not rendered connectors and not physical funnels. The v1 port model follows the original-BBM-like pattern: one top input, one bottom output, and side ports that are input on the upper side and output on the lower side.
 
 ```text
-                  T0 input (100, 0)
+                  T0 input (200, 0)
                          ↓
         ┌────────────────●────────────────┐
         │                                 │
 L0 in → ●                                 ● → R1 out
  (0,50)│                                 │  (200,50)
-        │             200 × 200           │
+        │             400 × 400           │
 L1 out← ●                                 ● ← R0 in
 (0,150)│                                 │  (200,150)
         └────────────────●────────────────┘
                          ↓
-                 B0 output (100, 200)
+                 B0 output (200, 400)
 ```
 
 Input ports:
 
-- `T0` at `(100, 0)`
-- `L0` at `(0, 50)`
-- `R0` at `(200, 150)`
+- `T0` at `(200, 0)`
+- `L0` at `(0, 100)`
+- `R0` at `(400, 300)`
 
 Output ports:
 
-- `B0` at `(100, 200)`
-- `L1` at `(0, 150)`
-- `R1` at `(200, 50)`
+- `B0` at `(200, 400)`
+- `L1` at `(0, 300)`
+- `R1` at `(400, 100)`
 
 Mirror relationships across tile boundaries:
 
@@ -248,7 +248,7 @@ Short version for contributors:
 
 1. One tile = one `.py` file in `tiles/`.
 2. Define a `Tile` class.
-3. All geometry must stay inside the tile's 200×200 bounds.
+3. All geometry must stay inside the tile's 400×400 bounds.
 4. Declare `entries` and `exits`; the lists must have the same length.
 5. A normal stream of balls entering at declared entries should eventually leave near declared exits.
 6. Multi-ball mechanisms are allowed and encouraged; do not permanently trap balls.
@@ -646,7 +646,7 @@ Success criterion: tile PRs are safe and reviewable.
 ## Key constants
 
 ```python
-TILE_SIZE = 200
+TILE_SIZE = 400
 WORLD_SEED = 42
 TARGET_BALLS = 40
 BUFFER_TILES = 2
@@ -658,7 +658,7 @@ MAX_SHAPES_PER_TILE = 30
 MAX_BODIES_PER_TILE = 12
 MAX_CONSTRAINTS_PER_TILE = 12
 PHYSICS_DT = 1 / 60
-BALL_RADIUS = 8
+BALL_RADIUS = 15
 BALL_MASS = 1
 BALL_ELASTICITY = 0.6
 ```

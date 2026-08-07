@@ -27,7 +27,7 @@ def test_editor_compiles_route_free_source():
 
 
 def test_editor_reports_source_line_for_build_failure():
-    result = json.loads(EditorRuntime().compile(SOURCE.replace("(180, 180)", "(280, 180)")))
+    result = json.loads(EditorRuntime().compile(SOURCE.replace("(180, 180)", "(480, 180)")))
     assert not result["ok"]
     assert result["type"] == "ValueError"
     assert result["line"] == 10
@@ -49,7 +49,7 @@ def test_compile_check_does_not_emit_output_from_hidden_instance():
 def test_validation_failures_include_explanation_and_replay_trajectory():
     source = SOURCE.replace(
         'builder.visual_segment((20, 20), (180, 180), 3)',
-        'builder.static_segment((0, 100), (200, 100), elasticity=1.0)',
+        'builder.static_segment((0, 200), (400, 200), elasticity=1.0)',
     )
     runtime = EditorRuntime()
     assert json.loads(runtime.compile(source))["ok"]

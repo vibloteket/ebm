@@ -86,7 +86,7 @@ def test_ball_uses_shared_api_and_restores_at_handoff():
     assert ball.position == pytest.approx((120, 80))
     assert ball.velocity == pytest.approx((10, 20))
 
-    body.position = (220, 80)
+    body.position = (420, 80)
     registry.advance(0)
     assert shape.friction == pytest.approx(BALL_FRICTION)
     assert shape.elasticity == pytest.approx(BALL_ELASTICITY)

@@ -4,11 +4,14 @@ from dataclasses import dataclass
 from enum import Enum
 import math
 
-TILE_SIZE = 200
+TILE_SIZE = 400
+BALL_RADIUS = 15
+PORT_APERTURE = 120
+PORT_CENTER_RANGE = (PORT_APERTURE - 2 * BALL_RADIUS) / 2
 MAX_EXIT_ANGLE_DEGREES = 30.0
 # Representative speeds span the complete shared contract: almost stationary,
 # ordinary flow, and the world's global speed cap.
-ENTRY_TEST_SPEEDS = (1.0, 150.0, 300.0)
+ENTRY_TEST_SPEEDS = (1.0, 300.0, 600.0)
 ENTRY_TEST_ANGLES = (-MAX_EXIT_ANGLE_DEGREES, 0.0, MAX_EXIT_ANGLE_DEGREES)
 
 
@@ -64,14 +67,14 @@ class PortSpec:
 
 class Port(Enum):
     # Input ports
-    T0 = (100, 0)
-    L0 = (0, 50)
-    R0 = (200, 150)
+    T0 = (200, 0)
+    L0 = (0, 100)
+    R0 = (400, 300)
 
     # Output ports
-    B0 = (100, 200)
-    L1 = (0, 150)
-    R1 = (200, 50)
+    B0 = (200, 400)
+    L1 = (0, 300)
+    R1 = (400, 100)
 
     @property
     def point(self) -> tuple[float, float]:
@@ -96,46 +99,46 @@ MIRROR_PORT = {
 # guarantees and what the tile below expects.
 PORT_SPECS: dict[Port, PortSpec] = {
     Port.T0: PortSpec(
-        x_center=100, y_center=0,
-        x_range=25, y_range=4,
-        vy_min=40, vx_min=0,
-        entry_vx_range=40, entry_vy_range=25,
-        exit_vx_range=60, exit_vy_range=999,
+        x_center=200, y_center=0,
+        x_range=PORT_CENTER_RANGE, y_range=8,
+        vy_min=80, vx_min=0,
+        entry_vx_range=80, entry_vy_range=50,
+        exit_vx_range=120, exit_vy_range=1998,
     ),
     Port.B0: PortSpec(
-        x_center=100, y_center=200,
-        x_range=25, y_range=4,
-        vy_min=40, vx_min=0,
-        entry_vx_range=40, entry_vy_range=25,
-        exit_vx_range=60, exit_vy_range=999,
+        x_center=200, y_center=400,
+        x_range=PORT_CENTER_RANGE, y_range=8,
+        vy_min=80, vx_min=0,
+        entry_vx_range=80, entry_vy_range=50,
+        exit_vx_range=120, exit_vy_range=1998,
     ),
     Port.L0: PortSpec(
-        x_center=0, y_center=50,
-        x_range=4, y_range=20,
-        vy_min=0, vx_min=40,
-        entry_vx_range=25, entry_vy_range=30,
-        exit_vx_range=40, exit_vy_range=200,
+        x_center=0, y_center=100,
+        x_range=8, y_range=PORT_CENTER_RANGE,
+        vy_min=0, vx_min=80,
+        entry_vx_range=50, entry_vy_range=60,
+        exit_vx_range=80, exit_vy_range=400,
     ),
     Port.R1: PortSpec(
-        x_center=200, y_center=50,
-        x_range=4, y_range=20,
-        vy_min=0, vx_min=40,
-        entry_vx_range=25, entry_vy_range=30,
-        exit_vx_range=40, exit_vy_range=200,
+        x_center=400, y_center=100,
+        x_range=8, y_range=PORT_CENTER_RANGE,
+        vy_min=0, vx_min=80,
+        entry_vx_range=50, entry_vy_range=60,
+        exit_vx_range=80, exit_vy_range=400,
     ),
     Port.R0: PortSpec(
-        x_center=200, y_center=150,
-        x_range=4, y_range=20,
-        vy_min=0, vx_min=40,
-        entry_vx_range=25, entry_vy_range=30,
-        exit_vx_range=40, exit_vy_range=200,
+        x_center=400, y_center=300,
+        x_range=8, y_range=PORT_CENTER_RANGE,
+        vy_min=0, vx_min=80,
+        entry_vx_range=50, entry_vy_range=60,
+        exit_vx_range=80, exit_vy_range=400,
     ),
     Port.L1: PortSpec(
-        x_center=0, y_center=150,
-        x_range=4, y_range=20,
-        vy_min=0, vx_min=40,
-        entry_vx_range=25, entry_vy_range=30,
-        exit_vx_range=40, exit_vy_range=200,
+        x_center=0, y_center=300,
+        x_range=8, y_range=PORT_CENTER_RANGE,
+        vy_min=0, vx_min=80,
+        entry_vx_range=50, entry_vy_range=60,
+        exit_vx_range=80, exit_vy_range=400,
     ),
 }
 

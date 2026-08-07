@@ -5,7 +5,7 @@ import math
 from typing import Any, Callable
 
 from .ball_physics import configure_ball_body, limit_space_ball_speeds
-from .ports import MAX_EXIT_ANGLE_DEGREES, OUTPUT_PORTS, PORT_SPECS, Port, entry_flow_samples
+from .ports import BALL_RADIUS, MAX_EXIT_ANGLE_DEGREES, OUTPUT_PORTS, PORT_SPECS, TILE_SIZE, Port, entry_flow_samples
 from .tile_api import (
     BALL_COLLISION_TYPE,
     BALL_ELASTICITY,
@@ -15,7 +15,6 @@ from .tile_api import (
     ball_shape_filter,
 )
 
-BALL_RADIUS = 8
 BALL_MASS = 1
 DEFAULT_DT = 1 / 120
 VALIDATION_BALLS = 120
@@ -104,7 +103,7 @@ def validate_tile_flow(
     import pymunk
 
     space = pymunk.Space()
-    space.gravity = (0, 900)
+    space.gravity = (0, 1800)
     tile = tile_factory()
     registry = TileResourceRegistry.for_space(space)
     builder = TileBuilder(registry, 1, (0, 0))
@@ -203,11 +202,11 @@ def _classify_ball(space, ball: ValidationBall) -> tuple[str, str | None] | None
 
     # A boundary contact is not an exit: edge geometry may still redirect the
     # ball. Classify only after the ball's complete shape has crossed an edge.
-    if y - radius >= 200 - BOUNDS_EPSILON:
+    if y - radius >= TILE_SIZE - BOUNDS_EPSILON:
         return _classify_exit(Port.B0, x, y, vx, vy)
     if x + radius <= BOUNDS_EPSILON:
         return _classify_exit(Port.L1, x, y, vx, vy)
-    if x - radius >= 200 - BOUNDS_EPSILON:
+    if x - radius >= TILE_SIZE - BOUNDS_EPSILON:
         return _classify_exit(Port.R1, x, y, vx, vy)
     if y + radius <= BOUNDS_EPSILON:
         return "invalid", "top"
@@ -249,8 +248,8 @@ def _spawn_ball(space, ball_id, entry, t, dx, dy, vx, vy) -> ValidationBall:
         position = spec.x_center + BALL_RADIUS + dx, spec.y_center + dy
     else:
         position = spec.x_center - BALL_RADIUS + dx, spec.y_center + dy
-    x = max(BALL_RADIUS + .5, min(200 - BALL_RADIUS - .5, position[0]))
-    y = max(BALL_RADIUS + .5, min(200 - BALL_RADIUS - .5, position[1]))
+    x = max(BALL_RADIUS + .5, min(TILE_SIZE - BALL_RADIUS - .5, position[0]))
+    y = max(BALL_RADIUS + .5, min(TILE_SIZE - BALL_RADIUS - .5, position[1]))
     body = pymunk.Body(BALL_MASS, pymunk.moment_for_circle(BALL_MASS, 0, BALL_RADIUS))
     configure_ball_body(body)
     body.position = x, y

@@ -6,7 +6,7 @@ from weakref import WeakKeyDictionary
 
 from .ports import TILE_SIZE
 
-BUILD_MARGIN = 10.0
+BUILD_MARGIN = 20.0
 BALL_COLLISION_TYPE = 1
 BALL_FRICTION = 0.45
 BALL_ELASTICITY = 0.8
@@ -498,7 +498,7 @@ class TileBuilder:
             raise ValueError(f"point outside tile build bounds: {(x, y)}")
         return self.origin[0] + x, self.origin[1] + y
 
-    def static_segment(self, a, b, radius=1, *, friction=.8, elasticity=.2, surface_velocity=(0, 0), fill_color=DEFAULT_SEGMENT_FILL, stroke_color=DEFAULT_SEGMENT_STROKE):
+    def static_segment(self, a, b, radius=2, *, friction=.8, elasticity=.2, surface_velocity=(0, 0), fill_color=DEFAULT_SEGMENT_FILL, stroke_color=DEFAULT_SEGMENT_STROKE):
         """Build a fixed physical rail from local point a to b; return its ShapeHandle."""
         import pymunk
 
@@ -536,7 +536,7 @@ class TileBuilder:
         """Call callback(ContactEvent) while a ball contacts an owned shape."""
         self._registry.on_contact(self._owner, shape, callback, collide=collide)
 
-    def visual_segment(self, a, b, radius=3, *, fill_color=DEFAULT_SEGMENT_FILL, stroke_color=DEFAULT_SEGMENT_STROKE):
+    def visual_segment(self, a, b, radius=6, *, fill_color=DEFAULT_SEGMENT_FILL, stroke_color=DEFAULT_SEGMENT_STROKE):
         """Build a styled non-physical line; return its VisualHandle."""
         # Visual-only primitives are owned and bounds-checked but never added to
         # Pymunk, so reference graphics cannot interfere with ball routing.

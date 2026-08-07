@@ -94,11 +94,11 @@ Every mutation verifies ownership. A tile can modify or remove its own resources
 All tile-authored geometry uses local coordinates in the nominal range:
 
 ```text
-(0, 0) -------- (200, 0)
+(0, 0) -------- (400, 0)
   |                 |
   |      tile       |
   |                 |
-(0, 200) ------ (200, 200)
+(0, 400) ------ (400, 400)
 ```
 
 The engine translates local coordinates to world coordinates.

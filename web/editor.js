@@ -14,7 +14,7 @@ class MyTile(TileBase):
 
     def build(self, builder):
         # Add physical and visual components here.
-        # Coordinates are local to this 200 × 200 tile.
+        # Coordinates are local to this 400 × 400 tile.
         pass
 
 

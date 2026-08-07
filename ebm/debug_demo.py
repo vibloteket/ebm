@@ -7,7 +7,7 @@ from js import window
 from pyodide.ffi import create_proxy
 
 from .ball_physics import configure_ball_body, limit_space_ball_speeds
-from .ports import MAX_EXIT_ANGLE_DEGREES, Port, PORT_SPECS, TILE_SIZE, entry_velocity
+from .ports import BALL_RADIUS, MAX_EXIT_ANGLE_DEGREES, Port, PORT_SPECS, TILE_SIZE, entry_velocity
 from .tile_api import BALL_COLLISION_TYPE, BALL_ELASTICITY, BALL_FRICTION, TileBuilder, TileResourceRegistry, VisualSegment, ball_shape_filter
 from .tile_catalog import default_tile
 from .validator import validate_tile_flow
@@ -32,7 +32,7 @@ class DebugEngine:
         import pymunk
 
         self.space = pymunk.Space()
-        self.space.gravity = (0, 900)
+        self.space.gravity = (0, 1800)
         self.balls = []
         self.rng = random.Random(7)
         self.spawn_timer = 0.0
@@ -84,30 +84,29 @@ class DebugEngine:
     def spawn_at_port(self, port: Port) -> None:
         import pymunk
 
-        BALL_RADIUS = 8
         spec = PORT_SPECS.get(port)
         if spec is not None:
             # Sample within the port spec ranges.
             dx = self.rng.uniform(-spec.x_range, spec.x_range)
             dy = self.rng.uniform(-spec.y_range, spec.y_range)
-            speed = self.rng.uniform(1, 300)
+            speed = self.rng.uniform(1, 600)
             angle = self.rng.uniform(-MAX_EXIT_ANGLE_DEGREES, MAX_EXIT_ANGLE_DEGREES)
 
             if port == Port.T0:
                 px = spec.x_center + dx
                 py = spec.y_center + BALL_RADIUS + dy
-                px = max(BALL_RADIUS + 0.5, min(200 - BALL_RADIUS - 0.5, px))
-                py = max(BALL_RADIUS + 0.5, min(200 - BALL_RADIUS - 0.5, py))
+                px = max(BALL_RADIUS + 0.5, min(TILE_SIZE - BALL_RADIUS - 0.5, px))
+                py = max(BALL_RADIUS + 0.5, min(TILE_SIZE - BALL_RADIUS - 0.5, py))
             elif port == Port.L0:
                 px = spec.x_center + BALL_RADIUS + dx
                 py = spec.y_center + dy
-                px = max(BALL_RADIUS + 0.5, min(200 - BALL_RADIUS - 0.5, px))
-                py = max(BALL_RADIUS + 0.5, min(200 - BALL_RADIUS - 0.5, py))
+                px = max(BALL_RADIUS + 0.5, min(TILE_SIZE - BALL_RADIUS - 0.5, px))
+                py = max(BALL_RADIUS + 0.5, min(TILE_SIZE - BALL_RADIUS - 0.5, py))
             elif port == Port.R0:
                 px = spec.x_center - BALL_RADIUS + dx
                 py = spec.y_center + dy
-                px = max(BALL_RADIUS + 0.5, min(200 - BALL_RADIUS - 0.5, px))
-                py = max(BALL_RADIUS + 0.5, min(200 - BALL_RADIUS - 0.5, py))
+                px = max(BALL_RADIUS + 0.5, min(TILE_SIZE - BALL_RADIUS - 0.5, px))
+                py = max(BALL_RADIUS + 0.5, min(TILE_SIZE - BALL_RADIUS - 0.5, py))
             else:
                 px = spec.x_center + dx
                 py = spec.y_center + dy
@@ -117,20 +116,20 @@ class DebugEngine:
         else:
             x, y = port.point
             if port == Port.T0:
-                pos = (x + self.rng.uniform(-5, 5), y + 8)
-                vel = (self.rng.uniform(-8, 8), 35)
+                pos = (x + self.rng.uniform(-10, 10), y + BALL_RADIUS)
+                vel = (self.rng.uniform(-16, 16), 70)
             elif port == Port.L0:
-                pos = (x + 8, y + self.rng.uniform(-5, 5))
-                vel = (80, 10)
+                pos = (x + BALL_RADIUS, y + self.rng.uniform(-10, 10))
+                vel = (160, 20)
             elif port == Port.R0:
-                pos = (x - 8, y + self.rng.uniform(-5, 5))
-                vel = (-80, 10)
+                pos = (x - BALL_RADIUS, y + self.rng.uniform(-10, 10))
+                vel = (-160, 20)
             else:
                 pos = (x, y)
                 vel = (0, 0)
 
         mass = 1
-        radius = 8
+        radius = BALL_RADIUS
         moment = pymunk.moment_for_circle(mass, 0, radius)
         body = pymunk.Body(mass, moment)
         configure_ball_body(body)
@@ -294,7 +293,6 @@ def draw(canvas, debug: DebugEngine) -> None:
     ctx.fillText(f"balls: {len(debug.balls)} | click tile to spawn",14,height-18)
 
 
-BALL_RADIUS = 8
 
 
 def _canvas_color(color):
