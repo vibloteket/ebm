@@ -116,3 +116,28 @@ def test_ball_position_must_keep_complete_ball_inside_tile():
     body, shape = add_ball(pymunk, space)
     ball = contact_ball(registry, 1, body, shape)
     with pytest.raises(ValueError): ball.set_position((4, 100))
+
+
+def test_boundary_ball_can_be_paused_but_must_move_inside_before_resume():
+    pymunk, space, registry, _ = setup_world()
+    body, shape = add_ball(pymunk, space, position=(4, 100))
+    ball = contact_ball(registry, 1, body, shape)
+
+    ball.pause()
+    assert ball.paused
+    with pytest.raises(ValueError, match="complete ball"):
+        ball.resume()
+
+    ball.set_position((100, 300))
+    ball.set_velocity((0, 200))
+    ball.resume()
+    assert not ball.paused
+    assert ball.position == pytest.approx((100, 300))
+
+
+def test_ball_wholly_outside_tile_cannot_be_paused():
+    pymunk, space, registry, _ = setup_world()
+    body, shape = add_ball(pymunk, space, position=(-9, 100))
+    ball = contact_ball(registry, 1, body, shape)
+    with pytest.raises(ValueError, match="overlap the tile"):
+        ball.pause()

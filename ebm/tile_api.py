@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import sys
+import traceback
 from typing import Any, Callable
 from weakref import WeakKeyDictionary
 
@@ -232,7 +234,21 @@ class TileResourceRegistry:
             handle = self._shape_handles[owned]
             ball_handle = self._claim_ball(handle._owner, ball.body, ball)
             event = self._contact_event(handle, ball_handle, arbiter, phase)
-            result = callback(event)
+            try:
+                result = callback(event)
+            except Exception as error:
+                # Never let an authoring error escape through CFFI as
+                # "Exception ignored". Report it once through the normal
+                # captured stderr stream and disable this registration.
+                self._callbacks.pop(owned, None)
+                arbiter.process_collision = False
+                print(
+                    f"Tile contact callback error during {phase}: "
+                    f"{type(error).__name__}: {error}",
+                    file=sys.stderr,
+                )
+                traceback.print_exception(error, file=sys.stderr)
+                return
             if phase in {"begin", "pre_solve"} and result is not None:
                 arbiter.process_collision = bool(result)
 
@@ -478,8 +494,13 @@ class TileResourceRegistry:
         record = self._ball_record(handle)
         if record["paused"]:
             raise RuntimeError("ball is already paused")
-        # Pausing at a boundary could let two tiles claim the same logical ball.
-        self._ball_point(handle, self.ball_position(handle))
+        # Contact can begin while an incoming ball still straddles a port edge.
+        # Ownership already prevents another tile from claiming it, so allow
+        # capture as long as some part of the ball overlaps this tile.
+        x, y = self.ball_position(handle)
+        radius = float(record["shape"].radius)
+        if not (-radius < x < TILE_SIZE + radius and -radius < y < TILE_SIZE + radius):
+            raise ValueError("ball must overlap the tile before it can be paused")
         self.space.remove(record["shape"], record["body"])
         record["paused"] = True; record["resume"] = None
 
@@ -487,6 +508,8 @@ class TileResourceRegistry:
         record = self._ball_record(handle)
         if not record["paused"] or record["resume"] is not None:
             raise RuntimeError("ball is not paused or already scheduled to resume")
+        # A captured boundary ball must be moved wholly inside before release.
+        self._ball_point(handle, self.ball_position(handle))
         delay = self._number(delay, "delay", minimum=0)
         if delay: record["resume"] = delay
         else: self._restore_ball(record)

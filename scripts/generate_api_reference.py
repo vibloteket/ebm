@@ -130,6 +130,16 @@ def build_reference() -> dict:
                 "description": "Detect balls without adding visible or colliding geometry.",
                 "code": "sensor = builder.sensor_box(80, 80, 320, 320)\n\ndef on_ball(event):\n    event.ball.set_fill_color((255, 40, 40, 255))\n\nbuilder.on_ball_contact(sensor, begin=on_ball)",
             },
+            {
+                "title": "Immediate teleport",
+                "description": "Move a contacting ball and reject the old physical collision.",
+                "code": "portal = builder.static_segment((140, 30), (260, 30), 4)\n\ndef teleport(event):\n    event.ball.set_position((100, 300))\n    event.ball.set_velocity((0, 200))\n    return False\n\nbuilder.on_ball_contact(portal, begin=teleport)",
+            },
+            {
+                "title": "Delayed teleport",
+                "description": "Capture an incoming ball, move it wholly inside the tile, then resume it later.",
+                "code": "portal = builder.static_segment((140, 30), (260, 30), 4)\n\ndef teleport(event):\n    ball = event.ball\n    ball.pause()\n    ball.set_position((100, 300))\n    ball.set_velocity((0, 200))\n    ball.resume(delay=1.0)\n    return False\n\nbuilder.on_ball_contact(portal, begin=teleport)",
+            },
         ],
         "capabilities": {
             "available": [

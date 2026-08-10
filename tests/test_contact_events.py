@@ -90,3 +90,17 @@ def test_contact_registration_requires_a_phase():
     _, builder, shape, _ = world(sensor=True)
     with pytest.raises(ValueError, match="at least one"):
         builder.on_ball_contact(shape)
+
+
+def test_callback_errors_are_reported_without_escaping_cffi(capsys):
+    space, builder, shape, _ = world(sensor=True)
+
+    def broken(_event):
+        raise ValueError("bad portal")
+
+    builder.on_ball_contact(shape, begin=broken)
+    step(space)
+    error = capsys.readouterr().err
+    assert "Tile contact callback error during begin" in error
+    assert "ValueError: bad portal" in error
+    assert "Exception ignored from cffi callback" not in error
