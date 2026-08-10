@@ -7,7 +7,7 @@ class TileBase:
     """Contributor-facing flow tile interface."""
 
     id = "unknown.untitled"
-    api_version = 2
+    api_version = 1
     author = "unknown"
     title = "Untitled"
 

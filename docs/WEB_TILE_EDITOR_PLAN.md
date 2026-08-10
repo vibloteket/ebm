@@ -1,4 +1,4 @@
-> **Superseded for tile routing by `FLOW_TILE_API.md` (API v2).** RoutePermutation is no longer part of the tile API.
+> **Superseded for tile routing by `FLOW_TILE_API.md` (API v1).** RoutePermutation is no longer part of the tile API.
 
 # Web Tile Editor Plan
 

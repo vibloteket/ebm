@@ -10,7 +10,7 @@ class TestTile(TileBase):
     id = "test.editor"
     title = "Editor test"
     author = "Tests"
-    api_version = 2
+    api_version = 1
 
     def build(self, builder):
         builder.visual_segment((20, 20), (180, 180), 3)

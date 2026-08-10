@@ -34,7 +34,7 @@ def _load_registration(module_name: str, *, builtin: bool = True) -> TileRegistr
         raise TypeError(f"{module_name} must export a TileBase subclass as TILE_CLASS")
     if not tile_class.id or tile_class.id == TileBase.id:
         raise ValueError(f"{module_name} must declare a unique tile id")
-    if tile_class.api_version != 2:
+    if tile_class.api_version != 1:
         raise ValueError(f"{tile_class.id} uses unsupported API version {tile_class.api_version}")
     return TileRegistration(module_name, tile_class, builtin)
 

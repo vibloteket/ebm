@@ -52,7 +52,7 @@ def build_reference() -> dict:
                 {"name": "id", "type": "str", "required": True, "description": "Stable, globally unique tile ID, for example vb.water-wheel."},
                 {"name": "title", "type": "str", "required": True, "description": "Human-readable name shown in the editor and catalog."},
                 {"name": "author", "type": "str", "required": True, "description": "Name of the tile author or project."},
-                {"name": "api_version", "type": "int", "required": True, "description": "Tile API version. The current supported value is 2."},
+                {"name": "api_version", "type": "int", "required": True, "description": "Tile API version. The current supported value is 1."},
             ],
             "methods": method_reference(TileBase, ("build", "update")),
         },
@@ -90,8 +90,10 @@ def build_reference() -> dict:
             "properties": [
                 {"name": "own_shape", "type": "ShapeHandle", "description": "The tile-owned shape that received the contact."},
                 {"name": "ball", "type": "BallHandle", "description": "The tile-bound contacting ball handle."},
-                {"name": "point", "type": "tuple[float, float] | None", "description": "Reserved contact point; currently None in API v2."},
-                {"name": "normal", "type": "tuple[float, float] | None", "description": "Reserved contact normal; currently None in API v2."},
+                {"name": "point", "type": "Point | None", "description": "Tile-local contact point, when Pymunk reports one."},
+                {"name": "normal", "type": "Vector | None", "description": "Contact normal from the ball toward the tile-owned shape."},
+                {"name": "impulse", "type": "Vector | None", "description": "Total collision impulse; available during post_solve."},
+                {"name": "kinetic_energy", "type": "float | None", "description": "Energy lost in the collision; available during post_solve."},
             ],
         },
         "ports": [{"name": port.name, "point": list(port.point), "kind": "input" if port.name in {"T0", "L0", "R0"} else "output"} for port in Port],
@@ -126,21 +128,13 @@ def build_reference() -> dict:
             {
                 "title": "Ball contact sensor",
                 "description": "Detect balls without adding visible or colliding geometry.",
-                "code": "sensor = builder.sensor_box(80, 80, 320, 320)\n\ndef on_ball(event):\n    event.ball.set_fill_color((255, 40, 40, 255))\n\nbuilder.on_ball_contact(sensor, on_ball)",
+                "code": "sensor = builder.sensor_box(80, 80, 320, 320)\n\ndef on_ball(event):\n    event.ball.set_fill_color((255, 40, 40, 255))\n\nbuilder.on_ball_contact(sensor, begin=on_ball)",
             },
-        ],
-        # Kept for compatibility with cached pre-guide browser code. New code
-        # renders the structured capabilities object below.
-        "limitations": [
-            "API v2 supports static segments and circles, sensors, contact callbacks, visual segments, mutable materials/colors, and pause/resume handles.",
-            "Dynamic bodies, attached shapes, joints, motors, springs, forces, and impulses are not available yet.",
-            "Tile code receives a TileBuilder, never direct access to the shared Pymunk Space.",
-            "Build points are limited to the 400 × 400 tile plus the documented 20-unit build margin.",
         ],
         "capabilities": {
             "available": [
                 "Static segments and circles",
-                "Sensor boxes and ball-contact callbacks",
+                "Sensor boxes and Pymunk-style begin, pre_solve, post_solve, and separate callbacks",
                 "Visual-only segments",
                 "Surface velocity for powered rails",
                 "Mutable colors and physical materials",

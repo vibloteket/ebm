@@ -7,7 +7,7 @@ class BucketTile(TileBase):
     id = "test.bucket"
     title = "Bucket"
     author = "Tests"
-    api_version = 2
+    api_version = 1
 
     def build(self, builder):
         # A closed physical box keeps all balls alive and inside forever.

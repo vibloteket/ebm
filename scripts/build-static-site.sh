@@ -47,7 +47,7 @@ root, out = map(Path, sys.argv[1:])
 sys.path.insert(0, str(root))
 from ebm.tile_catalog import all_tiles
 
-manifest = {"apiVersion": 2, "tiles": []}
+manifest = {"apiVersion": 1, "tiles": []}
 source_dir = out / "tiles" / "sources"
 source_dir.mkdir(parents=True, exist_ok=True)
 for registration in all_tiles():

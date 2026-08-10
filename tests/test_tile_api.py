@@ -24,7 +24,7 @@ def test_resource_ownership_is_enforced():
 
 def test_owner_cleanup_removes_all_resources_and_callbacks():
     space,registry,tile,_=make_builders();baseline=(len(space.bodies),len(space.shapes),len(space.constraints))
-    tile.static_circle((100,100),20);sensor=tile.sensor_box(10,10,190,190);tile.on_ball_contact(sensor,lambda event:None)
+    tile.static_circle((100,100),20);sensor=tile.sensor_box(10,10,190,190);tile.on_ball_contact(sensor, begin=lambda event:None)
     assert len(space.shapes)>baseline[1]
     registry.destroy_owner(1)
     assert (len(space.bodies),len(space.shapes),len(space.constraints))==baseline

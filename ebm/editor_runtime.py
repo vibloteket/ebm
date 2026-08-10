@@ -52,7 +52,7 @@ class EditorRuntime:
     def _check_tile_class(tile_class):
         if not isinstance(tile_class, type) or not issubclass(tile_class, TileBase):
             raise TypeError("Source must export a TileBase subclass as TILE_CLASS")
-        if tile_class.api_version != 2:
+        if tile_class.api_version != 1:
             raise ValueError(f"Unsupported api_version: {tile_class.api_version}")
         if not isinstance(tile_class.id, str) or not tile_class.id.strip() or tile_class.id == TileBase.id:
             raise ValueError("Tile must declare a stable id")

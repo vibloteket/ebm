@@ -10,7 +10,7 @@ class MyTile(TileBase):
     id = "local.my-tile"
     title = "My Tile"
     author = "Your name"
-    api_version = 2
+    api_version = 1
 
     def build(self, builder):
         # Add physical and visual components here.
@@ -25,7 +25,7 @@ const els=Object.fromEntries(ids.map(id=>[id.replaceAll("-","_"),document.getEle
 let pyodide,manifest,currentTile,originalSource="",mode="single",view="simulation",paused=false,saveTimer,consoleTimer,consoleLines=[],codeEditor;
 const getSource=()=>codeEditor.getValue();
 const setSource=value=>codeEditor.setValue(value);
-const draftKey=id=>`ebm.editor.draft.${id}`;
+const draftKey=id=>`ebm.editor.v1.draft.${id}`;
 const escapeHtml=s=>String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");
 const setStatus=(text,type="pending",detail="")=>{els.status.className=`status ${type}`;els.status.innerHTML=`<strong>${escapeHtml(text)}</strong>${detail?`<pre>${escapeHtml(detail)}</pre>`:""}`};
 function renderConsole(){els.console_count.textContent=consoleLines.length;els.console_output.innerHTML=consoleLines.length?consoleLines.map(entry=>`<div class="console-line ${entry.stream}"><span class="console-phase">[${escapeHtml(entry.phase)}]</span><span class="console-stream">${escapeHtml(entry.stream)}</span><span class="console-text">${escapeHtml(entry.text)}</span></div>`).join(""):'<div class="console-empty">Output from print() will appear here.</div>';els.console_output.scrollTop=els.console_output.scrollHeight}
@@ -35,8 +35,8 @@ async function writePackage(){for(const dir of ["/ebm","/ebm/tiles","/ebm/tiles/
 function metadataFromSource(source){const value=name=>source.match(new RegExp(`^\\s*${name}\\s*=\\s*[\"']([^\"']*)[\"']`,`m`))?.[1]||"";return{title:value("title"),id:value("id"),author:value("author")}}
 function replaceMetadata(name,value){const safe=value.replaceAll("\\","\\\\").replaceAll('"','\\"');const pattern=new RegExp(`^(\\s*${name}\\s*=\\s*)[\"'][^\"']*[\"']`,`m`),source=getSource();if(pattern.test(source))setSource(source.replace(pattern,`$1"${safe}"`));saveDraft()}
 function updateMetadata(source,origin){const meta=metadataFromSource(source);els.tile_title.value=meta.title;els.tile_id.value=meta.id;els.tile_author.value=meta.author;els.tile_origin.textContent=origin}
-async function loadTile(id){saveDraft();if(id===NEW_ID){currentTile={id:NEW_ID,title:"New tile",author:"Local",apiVersion:2};originalSource=NEW_SOURCE}else{currentTile=manifest.tiles.find(tile=>tile.id===id);originalSource=await fetchText(`./${currentTile.source}`)}const draft=localStorage.getItem(draftKey(id));setSource(draft??originalSource);els.draft_state.textContent=draft===null?(id===NEW_ID?"New skeleton":"Original"):"Modified locally";updateMetadata(getSource(),id===NEW_ID?"New local tile":`Based on ${currentTile.title} · API ${currentTile.apiVersion}`);await runSource()}
-async function runSource(){setStatus("Building tile…");els.validation_results.innerHTML="";codeEditor.setErrorLine(null);try{const result=JSON.parse(pyodide.globals.get("compile_source")(getSource()));if(!result.ok){codeEditor.setErrorLine(result.line);setStatus(`${result.type||"Build error"}${result.line?` at line ${result.line}`:""}`,"fail",result.message);return}updateMetadata(getSource(),currentTile.id===NEW_ID?"New local tile":`Based on ${currentTile.title} · API ${currentTile.apiVersion}`);pyodide.globals.get("refresh_preview")(mode);setStatus(`Running ${result.title}`,"ok",`${result.id} · flow API v2`)}catch(error){setStatus("Runtime error","fail",error.stack||String(error))}finally{drainConsole()}}
+async function loadTile(id){saveDraft();if(id===NEW_ID){currentTile={id:NEW_ID,title:"New tile",author:"Local",apiVersion:1};originalSource=NEW_SOURCE}else{currentTile=manifest.tiles.find(tile=>tile.id===id);originalSource=await fetchText(`./${currentTile.source}`)}const draft=localStorage.getItem(draftKey(id));setSource(draft??originalSource);els.draft_state.textContent=draft===null?(id===NEW_ID?"New skeleton":"Original"):"Modified locally";updateMetadata(getSource(),id===NEW_ID?"New local tile":`Based on ${currentTile.title} · API ${currentTile.apiVersion}`);await runSource()}
+async function runSource(){setStatus("Building tile…");els.validation_results.innerHTML="";codeEditor.setErrorLine(null);try{const result=JSON.parse(pyodide.globals.get("compile_source")(getSource()));if(!result.ok){codeEditor.setErrorLine(result.line);setStatus(`${result.type||"Build error"}${result.line?` at line ${result.line}`:""}`,"fail",result.message);return}updateMetadata(getSource(),currentTile.id===NEW_ID?"New local tile":`Based on ${currentTile.title} · API ${currentTile.apiVersion}`);pyodide.globals.get("refresh_preview")(mode);setStatus(`Running ${result.title}`,"ok",`${result.id} · flow API v1`)}catch(error){setStatus("Runtime error","fail",error.stack||String(error))}finally{drainConsole()}}
 function syncPreviewSize(){
   const canvas=els.preview,width=Math.max(300,Math.round(canvas.clientWidth)),height=Math.max(260,Math.round(canvas.clientHeight));
   if(canvas.width!==width)canvas.width=width;if(canvas.height!==height)canvas.height=height;

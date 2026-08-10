@@ -167,10 +167,26 @@ class BallHandle:
 
 @dataclass(frozen=True)
 class ContactEvent:
+    """Safe tile-facing view of one ball/shape contact phase."""
+
     own_shape: ShapeHandle
     ball: BallHandle
-    point: Point | None = None
-    normal: Vector | None = None
+    point: Point | None
+    normal: Vector | None
+    impulse: Vector | None = None
+    kinetic_energy: float | None = None
+
+
+type ContactCallback = Callable[[ContactEvent], None]
+type CollisionCallback = Callable[[ContactEvent], bool | None]
+
+
+@dataclass(frozen=True)
+class ContactCallbacks:
+    begin: CollisionCallback | None = None
+    pre_solve: CollisionCallback | None = None
+    post_solve: ContactCallback | None = None
+    separate: ContactCallback | None = None
 
 
 class TileResourceRegistry:
@@ -184,7 +200,7 @@ class TileResourceRegistry:
         self._objects: dict[int, Any] = {}
         self._owner: dict[int, int] = {}
         self._shape_handles: dict[Any, ShapeHandle] = {}
-        self._callbacks: dict[Any, tuple[Callable[[ContactEvent], Any], bool]] = {}
+        self._callbacks: dict[Any, ContactCallbacks] = {}
         self._visuals: dict[int, list[int]] = {}
         self._styles: dict[int, VisualStyle] = {}
         self._visual_revisions: dict[int, int] = {}
@@ -203,20 +219,50 @@ class TileResourceRegistry:
         return registry
 
     def _install_dispatcher(self):
-        def pre_solve(arbiter, _space, _data):
+        def dispatch(phase: str, arbiter) -> None:
             ball, owned = arbiter.shapes
             if ball.collision_type != BALL_COLLISION_TYPE:
                 ball, owned = owned, ball
             registration = self._callbacks.get(owned)
             if registration is None or ball.collision_type != BALL_COLLISION_TYPE:
-                return True
-            callback, default_collide = registration
+                return
+            callback = getattr(registration, phase)
+            if callback is None:
+                return
             handle = self._shape_handles[owned]
             ball_handle = self._claim_ball(handle._owner, ball.body, ball)
-            result = callback(ContactEvent(handle, ball_handle))
-            return default_collide if result is None else bool(result)
+            event = self._contact_event(handle, ball_handle, arbiter, phase)
+            result = callback(event)
+            if phase in {"begin", "pre_solve"} and result is not None:
+                arbiter.process_collision = bool(result)
 
-        self.space.on_collision(BALL_COLLISION_TYPE, TILE_SENSOR_COLLISION_TYPE, pre_solve=pre_solve)
+        self.space.on_collision(
+            BALL_COLLISION_TYPE,
+            TILE_SENSOR_COLLISION_TYPE,
+            begin=lambda arbiter, _space, _data: dispatch("begin", arbiter),
+            pre_solve=lambda arbiter, _space, _data: dispatch("pre_solve", arbiter),
+            post_solve=lambda arbiter, _space, _data: dispatch("post_solve", arbiter),
+            separate=lambda arbiter, _space, _data: dispatch("separate", arbiter),
+        )
+
+    def _contact_event(self, handle: ShapeHandle, ball: BallHandle, arbiter, phase: str) -> ContactEvent:
+        ox, oy = self._origins[handle._owner]
+        point = None
+        if phase != "separate":
+            contact_set = arbiter.contact_point_set
+            if contact_set.points:
+                contact = contact_set.points[0]
+                point = (
+                    (float(contact.point_a.x) + float(contact.point_b.x)) / 2 - ox,
+                    (float(contact.point_a.y) + float(contact.point_b.y)) / 2 - oy,
+                )
+        normal = (float(arbiter.normal.x), float(arbiter.normal.y))
+        impulse = None
+        kinetic_energy = None
+        if phase == "post_solve":
+            impulse = (float(arbiter.total_impulse.x), float(arbiter.total_impulse.y))
+            kinetic_energy = float(arbiter.total_ke)
+        return ContactEvent(handle, ball, point, normal, impulse, kinetic_energy)
 
     def register_owner(self, owner: int, origin: tuple[float, float]) -> None:
         self._origins[owner] = tuple(map(float, origin))
@@ -236,10 +282,10 @@ class TileResourceRegistry:
             raise PermissionError("tile does not own this resource")
         return self._objects[handle.id]
 
-    def on_contact(self, owner: int, handle: ShapeHandle, callback, *, collide: bool = False):
+    def on_contact(self, owner: int, handle: ShapeHandle, callbacks: ContactCallbacks) -> None:
         shape = self.resolve(owner, handle)
         shape.collision_type = TILE_SENSOR_COLLISION_TYPE
-        self._callbacks[shape] = (callback, collide)
+        self._callbacks[shape] = callbacks
 
     @staticmethod
     def _number(value, name: str, *, minimum=None, maximum=None) -> float:
@@ -534,9 +580,20 @@ class TileBuilder:
         shape=pymunk.Poly(self._registry.space.static_body,points);shape.sensor=True;shape.ebm_hidden=True
         return self._registry.add(self._owner,shape,ShapeHandle)
 
-    def on_ball_contact(self, shape: ShapeHandle, callback: Callable[[ContactEvent], None], *, collide: bool = False) -> None:
-        """Call callback(ContactEvent) while a ball contacts an owned shape."""
-        self._registry.on_contact(self._owner, shape, callback, collide=collide)
+    def on_ball_contact(
+        self,
+        shape: ShapeHandle,
+        *,
+        begin: CollisionCallback | None = None,
+        pre_solve: CollisionCallback | None = None,
+        post_solve: ContactCallback | None = None,
+        separate: ContactCallback | None = None,
+    ) -> None:
+        """Register Pymunk-style contact phases for balls touching an owned shape."""
+        callbacks = ContactCallbacks(begin, pre_solve, post_solve, separate)
+        if not any((begin, pre_solve, post_solve, separate)):
+            raise ValueError("at least one contact callback is required")
+        self._registry.on_contact(self._owner, shape, callbacks)
 
     def visual_segment(self, a: Point, b: Point, radius: float = 6, *, fill_color: Color = DEFAULT_SEGMENT_FILL, stroke_color: Color = DEFAULT_SEGMENT_STROKE) -> VisualHandle:
         """Build a styled non-physical line; return its VisualHandle."""

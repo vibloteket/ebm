@@ -49,7 +49,18 @@ TILE_CLASS = MyTile</code></pre>`;
     ])}<p class="api-note">These values describe the current validator. The durable contract is to accept varied input, conserve every ball, produce valid exits, and keep retention bounded.</p>`],
     ["class","Tile class",`<p>${escapeHtml(reference.tileBase.description)}</p><h4>Properties</h4>${propertyTable(reference.tileBase.properties)}<h4>Lifecycle</h4>${methods(reference.tileBase.methods)}`],
     ["builder","TileBuilder",`<p>${escapeHtml(reference.tileBuilder.description)}</p>${methods(reference.tileBuilder.methods)}`],
-    ["events","Handles & events",`<p>Builder methods return ownership-checked handles. Change an existing object through its handle; resources are cleaned up automatically when the tile instance is destroyed.</p>${(reference.handles||[]).map(handle=>`<h4>${escapeHtml(handle.name)}</h4><p>${escapeHtml(handle.description)}</p>${methods(handle.methods)}`).join("")}<h4>ContactEvent</h4>${propertyTable(reference.contactEvent.properties)}`],
+    ["events","Handles & contact events",`<p>Builder methods return ownership-checked handles. Change an existing object through its handle; resources are cleaned up automatically when the tile instance is destroyed.</p>${(reference.handles||[]).map(handle=>`<h4>${escapeHtml(handle.name)}</h4><p>${escapeHtml(handle.description)}</p>${methods(handle.methods)}`).join("")}<h4>Contact phases</h4><p><code>on_ball_contact()</code> uses Pymunk's phase names. Register any combination as named callbacks:</p><pre><code>builder.on_ball_contact(
+    shape,
+    begin=on_begin,
+    pre_solve=on_pre_solve,
+    post_solve=on_post_solve,
+    separate=on_separate,
+)</code></pre>${propertyTable([
+      {name:"begin",type:"CollisionCallback | None",description:"Runs once when contact begins. Returning False disables collision processing for this contact."},
+      {name:"pre_solve",type:"CollisionCallback | None",description:"Runs before each collision solve. Returning False disables that solve."},
+      {name:"post_solve",type:"ContactCallback | None",description:"Runs after each physical solve and includes impulse and kinetic energy."},
+      {name:"separate",type:"ContactCallback | None",description:"Runs once when the shapes stop touching."},
+    ])}<p>The shape keeps its natural behavior: segments and circles collide; sensor boxes remain non-colliding. Registering callbacks does not change that.</p><h4>ContactEvent</h4><p>${escapeHtml(reference.contactEvent.description)}</p>${propertyTable(reference.contactEvent.properties)}`],
     ["recipes","Recipes",reference.recipes.map(recipe=>`<article class="api-card"><h4>${escapeHtml(recipe.title)}</h4><p>${escapeHtml(recipe.description)}</p><pre><code>${escapeHtml(recipe.code)}</code></pre></article>`).join("")],
     ["scope",`API v${reference.apiVersion} capabilities`,`<h4>Available</h4>${list(reference.capabilities.available)}<h4>Not available yet</h4>${list(reference.capabilities.unavailable)}<p>Tile code uses ownership-checked handles so one tile cannot accidentally modify another tile or the shared machine simulation.</p>`],
   ];

@@ -9,7 +9,7 @@ class PoweredChannelTile(TileBase):
     id = "ebm.powered-channel"
     title = "Physical Channel"
     author = "EBM"
-    api_version = 2
+    api_version = 1
 
     def build(self, builder) -> None:
         sensor = builder.sensor_box(15, 15, 385, 385)
@@ -27,7 +27,7 @@ class PoweredChannelTile(TileBase):
                 self.next_output = (self.next_output + 1) % len(outputs)
             _steer(ball, output)
 
-        builder.on_ball_contact(sensor, distribute)
+        builder.on_ball_contact(sensor, pre_solve=distribute)
         for entry, output in zip((Port.T0, Port.L0, Port.R0), outputs):
             builder.visual_segment(_inside(entry), _inside(output), 6)
 
