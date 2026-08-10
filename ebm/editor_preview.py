@@ -242,6 +242,24 @@ def _canvas_color(color):
     return f"rgba({r},{g},{b},{a/255:.4f})"
 
 
+def _draw_sensor_overlay(ctx, shape, sx, sy, scale):
+    """Draw editor-only sensor geometry without changing production rendering."""
+    if type(shape).__name__ != "Poly":
+        return
+    points = [shape.body.local_to_world(vertex) for vertex in shape.get_vertices()]
+    if not points:
+        return
+    ctx.save()
+    ctx.beginPath(); ctx.moveTo(sx(points[0].x), sy(points[0].y))
+    for point in points[1:]:
+        ctx.lineTo(sx(point.x), sy(point.y))
+    ctx.closePath()
+    ctx.fillStyle = "rgba(71,85,105,.13)"; ctx.fill()
+    ctx.strokeStyle = "rgba(71,85,105,.62)"; ctx.lineWidth = max(1, 1.5 * scale)
+    ctx.setLineDash([max(3, 8 * scale), max(2, 5 * scale)]); ctx.stroke()
+    ctx.restore()
+
+
 def draw(canvas, preview):
     ctx = canvas.getContext("2d")
     width, height = canvas.width, canvas.height
@@ -258,6 +276,10 @@ def draw(canvas, preview):
         ctx.fillStyle="rgba(255,255,255,.2)";ctx.fillRect(sx(bx),sy(by),TILE_SIZE*scale,TILE_SIZE*scale)
         ctx.strokeStyle="rgba(91,78,52,.35)";ctx.lineWidth=1;ctx.strokeRect(sx(bx),sy(by),TILE_SIZE*scale,TILE_SIZE*scale)
         ctx.strokeStyle="#315aa8";ctx.lineCap="round"
+        if preview.mode == "single":
+            for shape in builder.visual_objects:
+                if getattr(shape, "ebm_hidden", False):
+                    _draw_sensor_overlay(ctx, shape, sx, sy, scale)
         for shape, style in builder.visual_items:
             fill=_canvas_color(style.fill_color);stroke=_canvas_color(style.stroke_color)
             if isinstance(shape,VisualSegment):

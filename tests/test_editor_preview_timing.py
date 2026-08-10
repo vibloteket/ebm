@@ -35,6 +35,15 @@ def test_editor_preview_draws_physical_builder_shapes():
     assert 'getattr(shape,"ebm_hidden",False)' in source
 
 
+def test_editor_preview_draws_sensors_only_in_single_mode():
+    source = Path("ebm/editor_preview.py").read_text()
+    assert "def _draw_sensor_overlay" in source
+    assert 'if preview.mode == "single":\n            for shape in builder.visual_objects:' in source
+    assert "_draw_sensor_overlay(ctx, shape, sx, sy, scale)" in source
+    assert 'ctx.fillStyle = "rgba(71,85,105,.13)"' in source
+    assert "ctx.setLineDash" in source
+
+
 def test_refresh_rebuilds_and_draws_once_while_paused():
     source = Path("ebm/editor_preview.py").read_text()
     tree = ast.parse(source)
