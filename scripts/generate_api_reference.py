@@ -11,9 +11,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from ebm.ports import Port, TILE_SIZE  # noqa: E402
-from ebm.tile_api import BallHandle, BodyHandle, ContactEvent, ShapeHandle, TileBuilder, VisualHandle  # noqa: E402
+from ebm.ports import BALL_RADIUS, PORT_APERTURE, PORT_CENTER_RANGE, Port, TILE_SIZE  # noqa: E402
+from ebm.tile_api import BUILD_MARGIN, BallHandle, BodyHandle, ContactEvent, ShapeHandle, TileBuilder, VisualHandle  # noqa: E402
 from ebm.tile_base import TileBase  # noqa: E402
+from ebm.validator import MAX_ACTIVE_BALLS, VALIDATION_BALLS  # noqa: E402
 
 
 def public_signature(member) -> str:
@@ -80,11 +81,21 @@ def build_reference() -> dict:
             "properties": [
                 {"name": "own_shape", "type": "ShapeHandle", "description": "The tile-owned shape that received the contact."},
                 {"name": "ball", "type": "BallHandle", "description": "The tile-bound contacting ball handle."},
-                {"name": "point", "type": "tuple[float, float] | None", "description": "Reserved contact point; currently None in API v1."},
-                {"name": "normal", "type": "tuple[float, float] | None", "description": "Reserved contact normal; currently None in API v1."},
+                {"name": "point", "type": "tuple[float, float] | None", "description": "Reserved contact point; currently None in API v2."},
+                {"name": "normal", "type": "tuple[float, float] | None", "description": "Reserved contact normal; currently None in API v2."},
             ],
         },
         "ports": [{"name": port.name, "point": list(port.point), "kind": "input" if port.name in {"T0", "L0", "R0"} else "output"} for port in Port],
+        "portRules": {
+            "aperture": PORT_APERTURE,
+            "ballRadius": BALL_RADIUS,
+            "centerRange": PORT_CENTER_RANGE,
+            "buildMargin": BUILD_MARGIN,
+        },
+        "validation": {
+            "balls": VALIDATION_BALLS,
+            "maxActive": MAX_ACTIVE_BALLS,
+        },
         "recipes": [
             {
                 "title": "Sloping rail",
@@ -102,12 +113,24 @@ def build_reference() -> dict:
                 "code": "sensor = builder.sensor_box(80, 80, 320, 320)\n\ndef on_ball(event):\n    event.ball.set_fill_color((255, 40, 40, 255))\n\nbuilder.on_ball_contact(sensor, on_ball)",
             },
         ],
-        "limitations": [
-            "API v2 supports static segments and circles, sensors, contact callbacks, visual segments, mutable materials/colors, and pause/resume handles.",
-            "Dynamic bodies, attached shapes, joints, motors, springs, forces, and impulses are not available yet.",
-            "Tile code receives a TileBuilder, never direct access to the shared Pymunk Space.",
-            "Build points are limited to the 400 × 400 tile plus the documented 20-unit build margin.",
-        ],
+        "capabilities": {
+            "available": [
+                "Static segments and circles",
+                "Sensor boxes and ball-contact callbacks",
+                "Visual-only segments",
+                "Surface velocity for powered rails",
+                "Mutable colors and physical materials",
+                "Position and velocity changes through ownership-checked handles",
+                "Pause, resume, and owned-resource removal",
+                "Optional per-frame update(builder, dt)",
+            ],
+            "unavailable": [
+                "User-created dynamic bodies and attached shapes",
+                "Joints, motors, and springs",
+                "Direct forces and impulses",
+                "Direct access to the shared Pymunk Space",
+            ],
+        },
     }
 
 

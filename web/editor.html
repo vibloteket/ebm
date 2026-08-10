@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Tile Editor — Endless Ball Machine</title>
-  <link rel="stylesheet" href="./editor.css?v=0.65">
+  <link rel="stylesheet" href="./editor.css?v=0.66">
   <script src="https://cdn.jsdelivr.net/pyodide/v0.27.2/full/pyodide.js"></script>
   <script data-goatcounter="https://ebm.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </head>
@@ -16,7 +16,7 @@
     <input id="import-file" type="file" accept=".py,text/x-python" hidden>
     <button id="reset-button" type="button">Reset</button>
     <button id="download-button" type="button">Download .py</button>
-    <button id="api-button" type="button" aria-controls="api-reference" aria-expanded="false">API Reference</button>
+    <button id="api-button" type="button" aria-controls="api-reference" aria-expanded="false">Help</button>
     <button id="run-button" type="button" class="primary">Run <kbd>⌘↵</kbd></button>
   </div>
 </header>
@@ -55,15 +55,15 @@
     <footer><span id="cursor-position">Ln 1, Col 1</span><span>Local autosave</span></footer>
   </section>
 </main>
-<aside id="api-reference" class="api-drawer" aria-hidden="true" aria-label="Tile API reference">
-  <header><div><span class="eyebrow">Contributor API</span><h2>Tile API Reference</h2></div><button id="api-close" type="button" aria-label="Close API reference">×</button></header>
-  <div class="api-search"><input id="api-search" type="search" placeholder="Search methods, properties, recipes…"><span id="api-version"></span></div>
+<aside id="api-reference" class="api-drawer" aria-hidden="true" aria-label="Tile authoring guide">
+  <header><div><span class="eyebrow">Contributor help</span><h2>Tile authoring guide</h2></div><button id="api-close" type="button" aria-label="Close tile authoring guide">×</button></header>
+  <div class="api-search"><input id="api-search" type="search" placeholder="Search rules, methods, recipes…"><span id="api-version"></span></div>
   <nav id="api-nav" aria-label="API sections"></nav>
-  <div id="api-content" class="api-content"><p>Loading API reference…</p></div>
+  <div id="api-content" class="api-content"><p>Loading tile help…</p></div>
 </aside>
 <div id="api-backdrop" class="api-backdrop"></div>
 <div id="loading"><div><h2>Starting Tile Editor</h2><p>Loading Pyodide and pymunk…</p></div></div>
 <script src="./vendor/codemirror/editor-codemirror.js?v=0.61"></script>
-<script type="module" src="./editor.js?v=0.65"></script>
+<script type="module" src="./editor.js?v=0.66"></script>
 </body>
 </html>
