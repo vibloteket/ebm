@@ -1,5 +1,5 @@
 const APP_VERSION = "debug-0.52-tile-400";
-const PYMUNK_WHEEL = "./vendor/pymunk-7.2.0-cp312-cp312-pyodide_2024_0_wasm32.whl";
+const PYMUNK_WHEEL = "./vendor/pymunk-7.3.0-cp314-cp314-pyemscripten_2026_0_wasm32.whl";
 const PY_FILES = [
   "__init__.py",
   "ball_physics.py",
@@ -15,9 +15,7 @@ const PY_FILES = [
   "tiles/builtin/reference_router.py",
   "tiles/contributed/__init__.py",
   "sketch.py",
-  "pigment.py",
-  "routes.py",
-  "engine.py",
+  "pigment.py",  "engine.py",
   "web_demo.py",
   "validator.py",
   "debug_demo.py",

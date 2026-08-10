@@ -3,9 +3,9 @@ name = "endless-ball-machine"
 version = "0.1.0"
 description = "Endless Ball Machine prototype"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.14,<3.15"
 dependencies = [
-  "pymunk>=7.0.0",
+  "pymunk>=7.3.0,<8",
 ]
 
 [project.optional-dependencies]

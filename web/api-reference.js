@@ -22,7 +22,7 @@ function render(reference){
 
 TILE_CLASS = MyTile</code></pre>`;
   const sections=[
-    ["start","Getting started",`<p>A tile is a self-contained ${reference.tileSize} × ${reference.tileSize} mechanism. Define its metadata, create geometry in <code>build()</code>, and optionally animate it in <code>update()</code>.</p>${skeleton}<p>Press <strong>Run</strong> to preview changes, then <strong>Validate flow</strong> to check the tile contract.</p>`],
+    ["start","Getting started",`<p>A tile is a self-contained ${reference.tileSize} × ${reference.tileSize} mechanism running on Python 3.14. Define its metadata, create geometry in <code>build()</code>, and optionally animate it in <code>update()</code>.</p>${skeleton}<p>Press <strong>Run</strong> to preview changes, then <strong>Validate flow</strong> to check the tile contract.</p><h4>Common types</h4>${propertyTable(reference.commonTypes)}`],
     ["ports","Ports & coordinates",`${coordinateMap(reference)}<p>Coordinates are local to the tile. <code>(0, 0)</code> is the upper-left corner; x increases to the right and y increases downward. Green ports are inputs and red ports are outputs.</p><h4>Port positions</h4>${propertyTable(reference.ports.map(port=>({name:port.name,type:port.kind,description:`(${port.point[0]}, ${port.point[1]})`})))}<h4>Flow rules</h4>${list([
       "A ball may enter through T0, L0, or R0 and leave through any valid output: B0, L1, or R1. There are no fixed input-to-output routes.",
       `Every port opening is ${rules.aperture} units wide. A ball has radius ${rules.ballRadius}, so its center may be at most ${rules.centerRange} units from the port center.`,

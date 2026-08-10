@@ -21,6 +21,13 @@ def test_api_reference_describes_current_contract():
     assert reference["tileSize"] == 400
     assert {port["name"] for port in reference["ports"]} == {"T0", "L0", "R0", "B0", "L1", "R1"}
     assert all(method["description"] for method in reference["tileBuilder"]["methods"])
+    signatures = {method["name"]: method["signature"] for method in reference["tileBuilder"]["methods"]}
+    assert "a: Point" in signatures["static_segment"]
+    assert "-> ShapeHandle" in signatures["static_segment"]
+    assert "callback: Callable[[ContactEvent], None]" in signatures["on_ball_contact"]
+    assert {item["name"] for item in reference["commonTypes"]} == {
+        "Point", "Vector", "Color", "ShapeHandle", "BallHandle",
+    }
     assert reference["portRules"] == {
         "aperture": 120,
         "ballRadius": 15,

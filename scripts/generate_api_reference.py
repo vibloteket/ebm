@@ -18,7 +18,8 @@ from ebm.validator import MAX_ACTIVE_BALLS, VALIDATION_BALLS  # noqa: E402
 
 
 def public_signature(member) -> str:
-    signature = str(inspect.signature(member))
+    signature = str(inspect.signature(member, eval_str=True))
+    signature = signature.replace("ebm.tile_api.", "").replace("NoneType", "None")
     return signature.replace("(self, ", "(").replace("(self)", "()")
 
 
@@ -37,6 +38,13 @@ def build_reference() -> dict:
     return {
         "apiVersion": TileBase.api_version,
         "tileSize": TILE_SIZE,
+        "commonTypes": [
+            {"name": "Point", "type": "tuple[float, float]", "description": "Tile-local (x, y) coordinates in tile units."},
+            {"name": "Vector", "type": "tuple[float, float]", "description": "Velocity (x, y) in tile units per second."},
+            {"name": "Color", "type": "tuple[int, int, int, int]", "description": "RGBA components, each an integer from 0 to 255."},
+            {"name": "ShapeHandle", "type": "handle", "description": "Ownership-safe reference to a physical shape or sensor."},
+            {"name": "BallHandle", "type": "handle", "description": "Tile-bound ball reference available during a contact callback."},
+        ],
         "tileBase": {
             "description": inspect.getdoc(TileBase),
             "properties": [

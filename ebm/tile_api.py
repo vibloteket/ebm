@@ -12,7 +12,9 @@ BALL_FRICTION = 0.45
 BALL_ELASTICITY = 0.8
 TILE_SENSOR_COLLISION_TYPE = 2
 BALL_CATEGORY = 1 << 0
-Color = tuple[int, int, int, int]
+type Point = tuple[float, float]
+type Vector = tuple[float, float]
+type Color = tuple[int, int, int, int]
 DEFAULT_SEGMENT_FILL: Color = (49, 90, 168, 255)
 DEFAULT_SEGMENT_STROKE: Color = (0, 0, 0, 0)
 DEFAULT_CIRCLE_FILL: Color = (220, 118, 37, 255)
@@ -52,11 +54,11 @@ class ResourceHandle:
 
 @dataclass(frozen=True)
 class StyledHandle(ResourceHandle):
-    def set_fill_color(self, color):
+    def set_fill_color(self, color: Color) -> None:
         """Set this object's fill RGBA tuple (four integers from 0 to 255)."""
         self._registry.set_style(self._owner, self, fill_color=color)
 
-    def set_stroke_color(self, color):
+    def set_stroke_color(self, color: Color) -> None:
         """Set this object's outline RGBA tuple (four integers from 0 to 255)."""
         self._registry.set_style(self._owner, self, stroke_color=color)
 
@@ -74,11 +76,11 @@ class ShapeHandle(StyledHandle):
 
 @dataclass(frozen=True)
 class BodyHandle(ResourceHandle):
-    def set_position(self, position) -> None:
+    def set_position(self, position: Point) -> None:
         """Move this body to a tile-local position."""
         self._registry.set_body_position(self._owner, self, position)
 
-    def set_velocity(self, velocity) -> None:
+    def set_velocity(self, velocity: Vector) -> None:
         """Set this body's world-space velocity vector."""
         self._registry.set_body_velocity(self._owner, self, velocity)
 
@@ -101,8 +103,8 @@ class VisualStyle:
 
 @dataclass(frozen=True)
 class VisualSegment:
-    a: tuple[float, float]
-    b: tuple[float, float]
+    a: Point
+    b: Point
     radius: float
 
 
@@ -116,12 +118,12 @@ class BallHandle:
     _generation: int = field(repr=False)
 
     @property
-    def position(self):
+    def position(self) -> Point:
         """Current tile-local position."""
         return self._registry.ball_position(self)
 
     @property
-    def velocity(self):
+    def velocity(self) -> Vector:
         """Current world-space velocity."""
         return self._registry.ball_velocity(self)
 
@@ -135,10 +137,10 @@ class BallHandle:
         """Whether the ball is outside physics and normal rendering."""
         return self._registry.ball_paused(self)
 
-    def set_fill_color(self, color) -> None:
+    def set_fill_color(self, color: Color) -> None:
         self._registry.set_ball_style(self, fill_color=color)
 
-    def set_stroke_color(self, color) -> None:
+    def set_stroke_color(self, color: Color) -> None:
         self._registry.set_ball_style(self, stroke_color=color)
 
     def set_friction(self, friction: float) -> None:
@@ -147,11 +149,11 @@ class BallHandle:
     def set_elasticity(self, elasticity: float) -> None:
         self._registry.set_ball_material(self, elasticity=elasticity)
 
-    def set_position(self, position) -> None:
+    def set_position(self, position: Point) -> None:
         """Move the ball to a tile-local position wholly inside this tile."""
         self._registry.set_ball_position(self, position)
 
-    def set_velocity(self, velocity) -> None:
+    def set_velocity(self, velocity: Vector) -> None:
         self._registry.set_ball_velocity(self, velocity)
 
     def pause(self) -> None:
@@ -167,8 +169,8 @@ class BallHandle:
 class ContactEvent:
     own_shape: ShapeHandle
     ball: BallHandle
-    point: tuple[float, float] | None = None
-    normal: tuple[float, float] | None = None
+    point: Point | None = None
+    normal: Vector | None = None
 
 
 class TileResourceRegistry:
@@ -486,7 +488,7 @@ class TileResourceRegistry:
 class TileBuilder:
     """Tile-local, ownership-checked construction API; exposes no Space."""
 
-    def __init__(self, registry: TileResourceRegistry, owner: int, origin: tuple[float, float]):
+    def __init__(self, registry: TileResourceRegistry, owner: int, origin: Point):
         self._registry = registry
         self._owner = owner
         self.origin = origin
@@ -498,7 +500,7 @@ class TileBuilder:
             raise ValueError(f"point outside tile build bounds: {(x, y)}")
         return self.origin[0] + x, self.origin[1] + y
 
-    def static_segment(self, a, b, radius=2, *, friction=.8, elasticity=.2, surface_velocity=(0, 0), fill_color=DEFAULT_SEGMENT_FILL, stroke_color=DEFAULT_SEGMENT_STROKE):
+    def static_segment(self, a: Point, b: Point, radius: float = 2, *, friction: float = .8, elasticity: float = .2, surface_velocity: Vector = (0, 0), fill_color: Color = DEFAULT_SEGMENT_FILL, stroke_color: Color = DEFAULT_SEGMENT_STROKE) -> ShapeHandle:
         """Build a fixed physical rail from local point a to b; return its ShapeHandle."""
         import pymunk
 
@@ -511,7 +513,7 @@ class TileBuilder:
         self._registry.set_object_style(handle, fill_color, stroke_color)
         return handle
 
-    def static_circle(self, center, radius, *, friction=.4, elasticity=.75, fill_color=DEFAULT_CIRCLE_FILL, stroke_color=DEFAULT_CIRCLE_STROKE):
+    def static_circle(self, center: Point, radius: float, *, friction: float = .4, elasticity: float = .75, fill_color: Color = DEFAULT_CIRCLE_FILL, stroke_color: Color = DEFAULT_CIRCLE_STROKE) -> ShapeHandle:
         """Build a fixed physical circle in local coordinates; return its ShapeHandle."""
         import pymunk
 
@@ -524,7 +526,7 @@ class TileBuilder:
         self._registry.set_object_style(handle, fill_color, stroke_color)
         return handle
 
-    def sensor_box(self, left, top, right, bottom):
+    def sensor_box(self, left: float, top: float, right: float, bottom: float) -> ShapeHandle:
         """Build an invisible, non-colliding rectangular sensor; return its ShapeHandle."""
         import pymunk
 
@@ -532,11 +534,11 @@ class TileBuilder:
         shape=pymunk.Poly(self._registry.space.static_body,points);shape.sensor=True;shape.ebm_hidden=True
         return self._registry.add(self._owner,shape,ShapeHandle)
 
-    def on_ball_contact(self, shape: ShapeHandle, callback, *, collide: bool = False):
+    def on_ball_contact(self, shape: ShapeHandle, callback: Callable[[ContactEvent], None], *, collide: bool = False) -> None:
         """Call callback(ContactEvent) while a ball contacts an owned shape."""
         self._registry.on_contact(self._owner, shape, callback, collide=collide)
 
-    def visual_segment(self, a, b, radius=6, *, fill_color=DEFAULT_SEGMENT_FILL, stroke_color=DEFAULT_SEGMENT_STROKE):
+    def visual_segment(self, a: Point, b: Point, radius: float = 6, *, fill_color: Color = DEFAULT_SEGMENT_FILL, stroke_color: Color = DEFAULT_SEGMENT_STROKE) -> VisualHandle:
         """Build a styled non-physical line; return its VisualHandle."""
         # Visual-only primitives are owned and bounds-checked but never added to
         # Pymunk, so reference graphics cannot interfere with ball routing.
@@ -544,11 +546,11 @@ class TileBuilder:
         self._point(local_a);self._point(local_b)
         return self._registry.add_visual(self._owner,VisualSegment(local_a,local_b,float(radius)),fill_color,stroke_color)
 
-    def body_position(self, body: BodyHandle):
+    def body_position(self, body: BodyHandle) -> Point:
         """Return the current world-space position of an owned BodyHandle."""
         return self._registry.resolve(self._owner, body).position
 
-    def remove(self, handle):
+    def remove(self, handle: ResourceHandle) -> None:
         """Remove an owned resource from the simulation before normal cleanup."""
         obj=self._registry.resolve(self._owner,handle)
         self._registry.space.remove(obj)
