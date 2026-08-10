@@ -1,5 +1,7 @@
 import inspect
 
+import pytest
+
 from ebm.tile_api import TileBuilder
 from scripts.generate_api_reference import build_reference
 
@@ -31,8 +33,15 @@ def test_api_reference_describes_current_contract():
     assert reference["portRules"] == {
         "aperture": 120,
         "ballRadius": 15,
+        "ballDiameter": 30,
         "centerRange": 45,
         "buildMargin": 20.0,
+    }
+    assert reference["flow"] == {
+        "entryTestSpeeds": [1.0, 300.0, 600.0],
+        "maxBallSpeed": 600.0,
+        "spawnInterval": 0.4,
+        "perInputInterval": pytest.approx(1.2),
     }
     assert reference["validation"] == {"balls": 120, "maxActive": 20}
     assert reference["capabilities"]["available"]

@@ -11,10 +11,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from ebm.ports import BALL_RADIUS, PORT_APERTURE, PORT_CENTER_RANGE, Port, TILE_SIZE  # noqa: E402
+from ebm.ball_physics import MAX_BALL_SPEED  # noqa: E402
+from ebm.ports import BALL_RADIUS, ENTRY_TEST_SPEEDS, PORT_APERTURE, PORT_CENTER_RANGE, Port, TILE_SIZE  # noqa: E402
 from ebm.tile_api import BUILD_MARGIN, BallHandle, BodyHandle, ContactEvent, ShapeHandle, TileBuilder, VisualHandle  # noqa: E402
 from ebm.tile_base import TileBase  # noqa: E402
-from ebm.validator import MAX_ACTIVE_BALLS, VALIDATION_BALLS  # noqa: E402
+from ebm.validator import MAX_ACTIVE_BALLS, SPAWN_INTERVAL, VALIDATION_BALLS  # noqa: E402
 
 
 def public_signature(member) -> str:
@@ -97,8 +98,15 @@ def build_reference() -> dict:
         "portRules": {
             "aperture": PORT_APERTURE,
             "ballRadius": BALL_RADIUS,
+            "ballDiameter": 2 * BALL_RADIUS,
             "centerRange": PORT_CENTER_RANGE,
             "buildMargin": BUILD_MARGIN,
+        },
+        "flow": {
+            "entryTestSpeeds": list(ENTRY_TEST_SPEEDS),
+            "maxBallSpeed": MAX_BALL_SPEED,
+            "spawnInterval": SPAWN_INTERVAL,
+            "perInputInterval": round(SPAWN_INTERVAL * 3, 10),
         },
         "validation": {
             "balls": VALIDATION_BALLS,
