@@ -1,4 +1,4 @@
-import {initializeApiReference} from "./api-reference.js";
+import {initializeApiReference} from "./api-reference.js?v=0.67";
 
 const PYMUNK_WHEEL="./vendor/pymunk-7.2.0-cp312-cp312-pyodide_2024_0_wasm32.whl";
 const PY_FILES=["__init__.py","ball_physics.py","ports.py","random_utils.py","tile_base.py","tile_api.py","tile_catalog.py","editor_console.py","tiles/__init__.py","tiles/builtin/__init__.py","tiles/builtin/powered_channel.py","tiles/builtin/reference_router.py","tiles/contributed/__init__.py","routes.py","validator.py","debug_demo.py","editor_runtime.py","editor_preview.py"];

@@ -30,4 +30,5 @@ def test_api_reference_describes_current_contract():
     assert reference["validation"] == {"balls": 120, "maxActive": 20}
     assert reference["capabilities"]["available"]
     assert reference["capabilities"]["unavailable"]
+    assert reference["limitations"]  # Compatibility with cached pre-guide JavaScript.
     assert all("API v1" not in prop["description"] for prop in reference["contactEvent"]["properties"])
