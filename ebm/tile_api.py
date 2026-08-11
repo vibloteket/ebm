@@ -840,10 +840,6 @@ class TileBuilder:
         self._point(local_a);self._point(local_b)
         return self._registry.add_visual(self._owner,VisualSegment(local_a,local_b,float(radius)),fill_color,stroke_color)
 
-    def body_position(self, body: BodyHandle) -> Point:
-        """Return the current tile-local position of an owned body."""
-        return self._registry.body_position(self._owner, body)
-
     def remove(self, handle: ResourceHandle) -> None:
         """Remove an owned resource from the simulation before normal cleanup."""
         obj=self._registry.resolve(self._owner,handle)
