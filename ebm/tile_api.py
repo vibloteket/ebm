@@ -78,6 +78,26 @@ class ShapeHandle(StyledHandle):
 
 @dataclass(frozen=True)
 class BodyHandle(ResourceHandle):
+    @property
+    def position(self) -> Point:
+        """Current tile-local body position."""
+        return self._registry.body_position(self._owner, self)
+
+    @property
+    def velocity(self) -> Vector:
+        """Current world-space linear velocity."""
+        return self._registry.body_velocity(self._owner, self)
+
+    @property
+    def angle(self) -> float:
+        """Current body angle in radians."""
+        return self._registry.body_angle(self._owner, self)
+
+    @property
+    def angular_velocity(self) -> float:
+        """Current angular velocity in radians per second."""
+        return self._registry.body_angular_velocity(self._owner, self)
+
     def set_position(self, position: Point) -> None:
         """Move this body to a tile-local position."""
         self._registry.set_body_position(self._owner, self, position)
@@ -86,10 +106,41 @@ class BodyHandle(ResourceHandle):
         """Set this body's world-space velocity vector."""
         self._registry.set_body_velocity(self._owner, self, velocity)
 
+    def set_angle(self, angle: float) -> None:
+        """Set this body's angle in radians."""
+        self._registry.set_body_angle(self._owner, self, angle)
+
+    def set_angular_velocity(self, velocity: float) -> None:
+        """Set this body's angular velocity in radians per second."""
+        self._registry.set_body_angular_velocity(self._owner, self, velocity)
+
+    def apply_force(self, force: Vector, point: Point = (0, 0)) -> None:
+        """Apply a world-space force at a body-local point."""
+        self._registry.apply_body_force(self._owner, self, force, point)
+
+    def apply_impulse(self, impulse: Vector, point: Point = (0, 0)) -> None:
+        """Apply a world-space impulse at a body-local point."""
+        self._registry.apply_body_impulse(self._owner, self, impulse, point)
+
+    def apply_torque(self, torque: float) -> None:
+        """Add torque to this body for the current simulation step."""
+        self._registry.apply_body_torque(self._owner, self, torque)
+
 
 @dataclass(frozen=True)
 class ConstraintHandle(ResourceHandle):
     pass
+
+
+@dataclass(frozen=True)
+class MotorHandle(ConstraintHandle):
+    def set_rate(self, rate: float) -> None:
+        """Set the target angular rate in radians per second."""
+        self._registry.set_motor(self._owner, self, rate=rate)
+
+    def set_max_force(self, max_force: float) -> None:
+        """Set the maximum motor force."""
+        self._registry.set_motor(self._owner, self, max_force=max_force)
 
 
 @dataclass(frozen=True)
@@ -209,6 +260,8 @@ class TileResourceRegistry:
         self._origins: dict[int, tuple[float, float]] = {}
         self._paused_resources: set[int] = set()
         self._resource_resumes: dict[int, float] = {}
+        self._body_members: dict[int, set[int]] = {}
+        self._body_for_object: dict[int, int] = {}
         self._balls: dict[Any, dict[str, Any]] = {}
         self._install_dispatcher()
 
@@ -283,12 +336,18 @@ class TileResourceRegistry:
     def register_owner(self, owner: int, origin: tuple[float, float]) -> None:
         self._origins[owner] = tuple(map(float, origin))
 
-    def add(self, owner: int, obj: Any, handle_type):
+    def add(self, owner: int, obj: Any, handle_type, *, body: BodyHandle | None = None):
         handle = handle_type(self._next, owner, self)
         self._next += 1
         self._objects[handle.id] = obj
         self._owner[handle.id] = owner
         self.space.add(obj)
+        if isinstance(handle, BodyHandle):
+            self._body_members[handle.id] = set()
+        if body is not None:
+            self.resolve(owner, body)
+            self._body_members.setdefault(body.id, set()).add(handle.id)
+            self._body_for_object[handle.id] = body.id
         if isinstance(handle, ShapeHandle):
             self._shape_handles[obj] = handle
         return handle
@@ -325,26 +384,80 @@ class TileResourceRegistry:
         ox, oy = self._origins[owner]
         body.position = ox + x, oy + y
 
+    def body_position(self, owner: int, handle) -> Point:
+        body = self.resolve(owner, handle); ox, oy = self._origins[owner]
+        return float(body.position.x - ox), float(body.position.y - oy)
+
+    def body_velocity(self, owner: int, handle) -> Vector:
+        body = self.resolve(owner, handle)
+        return float(body.velocity.x), float(body.velocity.y)
+
+    def body_angle(self, owner: int, handle) -> float:
+        return float(self.resolve(owner, handle).angle)
+
+    def body_angular_velocity(self, owner: int, handle) -> float:
+        return float(self.resolve(owner, handle).angular_velocity)
+
     def set_body_velocity(self, owner: int, handle, velocity):
         body = self.resolve(owner, handle)
         body.velocity = tuple(map(float, velocity))
 
+    def set_body_angle(self, owner: int, handle, angle):
+        self.resolve(owner, handle).angle = self._number(angle, "angle")
+
+    def set_body_angular_velocity(self, owner: int, handle, velocity):
+        self.resolve(owner, handle).angular_velocity = self._number(velocity, "angular velocity")
+
+    def apply_body_force(self, owner: int, handle, force, point):
+        body = self.resolve(owner, handle)
+        body.apply_force_at_local_point(tuple(map(float, force)), tuple(map(float, point)))
+
+    def apply_body_impulse(self, owner: int, handle, impulse, point):
+        body = self.resolve(owner, handle)
+        body.apply_impulse_at_local_point(tuple(map(float, impulse)), tuple(map(float, point)))
+
+    def apply_body_torque(self, owner: int, handle, torque):
+        body = self.resolve(owner, handle)
+        body.torque += self._number(torque, "torque")
+
+    def set_motor(self, owner: int, handle, *, rate=None, max_force=None):
+        motor = self.resolve(owner, handle)
+        if rate is not None: motor.rate = self._number(rate, "rate")
+        if max_force is not None: motor.max_force = self._number(max_force, "max_force", minimum=0)
+
+    def _resource_group(self, resource_id: int) -> set[int]:
+        if resource_id in self._body_members:
+            return {resource_id, *self._body_members[resource_id]}
+        return {resource_id}
+
+    @staticmethod
+    def _removal_priority(obj) -> int:
+        import pymunk
+        if isinstance(obj, pymunk.Constraint): return 0
+        if isinstance(obj, pymunk.Shape): return 1
+        if isinstance(obj, pymunk.Body): return 2
+        return 3
+
     def pause_resource(self, owner: int, handle) -> None:
-        obj = self.resolve(owner, handle)
-        if handle.id in self._paused_resources:
-            raise RuntimeError("object is already paused")
-        self._paused_resources.add(handle.id)
+        self.resolve(owner, handle)
+        group = self._resource_group(handle.id)
+        if group & self._paused_resources:
+            raise RuntimeError("object or one of its dependencies is already paused")
+        removable = [key for key in group if key not in self._visuals.get(owner, ())]
+        try:
+            for key in sorted(removable, key=lambda item: self._removal_priority(self._objects[item])):
+                self.space.remove(self._objects[key])
+        except Exception as exc:
+            raise RuntimeError("object cannot be paused independently") from exc
+        self._paused_resources.update(group)
         self._resource_resumes.pop(handle.id, None)
-        if handle.id not in self._visuals.get(owner, ()):
-            try:
-                self.space.remove(obj)
-            except Exception as exc:
-                self._paused_resources.remove(handle.id)
-                raise RuntimeError("object cannot be paused independently") from exc
         self._visual_revisions[owner] = self._visual_revisions.get(owner, 0) + 1
 
     def resume_resource(self, owner: int, handle, *, delay=0) -> None:
         self.resolve(owner, handle)
+        parent = self._body_for_object.get(handle.id)
+        if parent is not None and parent in self._paused_resources:
+            raise RuntimeError("resume the paused body rather than one of its dependencies")
         if handle.id not in self._paused_resources or handle.id in self._resource_resumes:
             raise RuntimeError("object is not paused or already scheduled to resume")
         delay = self._number(delay, "delay", minimum=0)
@@ -354,10 +467,11 @@ class TileResourceRegistry:
             self._restore_resource(owner, handle.id)
 
     def _restore_resource(self, owner: int, resource_id: int) -> None:
-        obj = self._objects[resource_id]
-        if resource_id not in self._visuals.get(owner, ()):
-            self.space.add(obj)
-        self._paused_resources.discard(resource_id)
+        group = self._resource_group(resource_id)
+        restorable = [key for key in group if key not in self._visuals.get(owner, ())]
+        for key in sorted(restorable, key=lambda item: -self._removal_priority(self._objects[item])):
+            self.space.add(self._objects[key])
+        self._paused_resources.difference_update(group)
         self._resource_resumes.pop(resource_id, None)
         self._visual_revisions[owner] = self._visual_revisions.get(owner, 0) + 1
 
@@ -417,6 +531,9 @@ class TileResourceRegistry:
             self._styles.pop(key, None)
             self._paused_resources.discard(key)
             self._resource_resumes.pop(key, None)
+            body_id = self._body_for_object.pop(key, None)
+            if body_id is not None: self._body_members.get(body_id, set()).discard(key)
+            self._body_members.pop(key, None)
         self._visuals.pop(owner, None)
         self._visual_revisions.pop(owner, None)
         self._origins.pop(owner, None)
@@ -595,6 +712,103 @@ class TileBuilder:
         self._registry.set_object_style(handle, fill_color, stroke_color)
         return handle
 
+    def static_polygon(self, points: list[Point] | tuple[Point, ...], *, radius: float = 0, friction: float = .8, elasticity: float = .2, fill_color: Color = DEFAULT_SEGMENT_FILL, stroke_color: Color = DEFAULT_SEGMENT_STROKE) -> ShapeHandle:
+        """Build a fixed convex polygon from tile-local points."""
+        import pymunk
+
+        local = self._polygon_points(points, radius)
+        shape = pymunk.Poly(self._registry.space.static_body, [self._point(point) for point in local], radius=radius)
+        shape.friction, shape.elasticity = friction, elasticity
+        handle = self._registry.add(self._owner, shape, ShapeHandle)
+        self._registry.set_object_style(handle, fill_color, stroke_color)
+        return handle
+
+    def dynamic_body(self, position: Point, *, angle: float = 0) -> BodyHandle:
+        """Create a dynamic body; attach one or more shapes to define its mass."""
+        import pymunk
+
+        body = pymunk.Body()
+        body.position = self._point(position)
+        body.angle = self._registry._number(angle, "angle")
+        return self._registry.add(self._owner, body, BodyHandle)
+
+    def circle_shape(self, body: BodyHandle, center: Point, radius: float, *, density: float = .01, friction: float = .8, elasticity: float = .2, fill_color: Color = DEFAULT_CIRCLE_FILL, stroke_color: Color = DEFAULT_CIRCLE_STROKE) -> ShapeHandle:
+        """Attach a physical circle to a body using body-local coordinates."""
+        import pymunk
+
+        raw = self._registry.resolve(self._owner, body)
+        radius = self._registry._number(radius, "radius", minimum=0)
+        self._check_attached_bounds(raw, ((center[0]-radius, center[1]-radius), (center[0]+radius, center[1]+radius)))
+        shape = pymunk.Circle(raw, radius, tuple(map(float, center)))
+        return self._add_attached_shape(body, shape, density, friction, elasticity, fill_color, stroke_color)
+
+    def segment_shape(self, body: BodyHandle, a: Point, b: Point, radius: float = 2, *, density: float = .01, friction: float = .8, elasticity: float = .2, surface_velocity: Vector = (0, 0), fill_color: Color = DEFAULT_SEGMENT_FILL, stroke_color: Color = DEFAULT_SEGMENT_STROKE) -> ShapeHandle:
+        """Attach a physical segment to a body using body-local coordinates."""
+        import pymunk
+
+        raw = self._registry.resolve(self._owner, body)
+        radius = self._registry._number(radius, "radius", minimum=0, maximum=BUILD_MARGIN)
+        a, b = tuple(map(float, a)), tuple(map(float, b))
+        self._check_attached_bounds(raw, ((a[0]-radius,a[1]-radius),(a[0]+radius,a[1]+radius),(b[0]-radius,b[1]-radius),(b[0]+radius,b[1]+radius)))
+        shape = pymunk.Segment(raw, a, b, radius); shape.surface_velocity = tuple(map(float, surface_velocity))
+        return self._add_attached_shape(body, shape, density, friction, elasticity, fill_color, stroke_color)
+
+    def polygon_shape(self, body: BodyHandle, points: list[Point] | tuple[Point, ...], *, radius: float = 0, density: float = .01, friction: float = .8, elasticity: float = .2, fill_color: Color = DEFAULT_SEGMENT_FILL, stroke_color: Color = DEFAULT_SEGMENT_STROKE) -> ShapeHandle:
+        """Attach a convex polygon to a body using body-local points."""
+        import pymunk
+
+        raw = self._registry.resolve(self._owner, body)
+        local = self._polygon_points(points, radius)
+        expanded = [(x+dx*radius,y+dy*radius) for x,y in local for dx,dy in ((-1,-1),(1,1))]
+        self._check_attached_bounds(raw, expanded)
+        shape = pymunk.Poly(raw, local, radius=radius)
+        return self._add_attached_shape(body, shape, density, friction, elasticity, fill_color, stroke_color)
+
+    def pivot(self, body: BodyHandle, anchor: Point) -> ConstraintHandle:
+        """Pin a body to the static world at a tile-local pivot point."""
+        import pymunk
+
+        raw = self._registry.resolve(self._owner, body)
+        constraint = pymunk.PivotJoint(self._registry.space.static_body, raw, self._point(anchor))
+        return self._registry.add(self._owner, constraint, ConstraintHandle, body=body)
+
+    def motor(self, body: BodyHandle, *, rate: float, max_force: float) -> MotorHandle:
+        """Drive a body relative to the static world at a target angular rate."""
+        import pymunk
+
+        raw = self._registry.resolve(self._owner, body)
+        constraint = pymunk.SimpleMotor(self._registry.space.static_body, raw, self._registry._number(rate, "rate"))
+        constraint.max_force = self._registry._number(max_force, "max_force", minimum=0)
+        return self._registry.add(self._owner, constraint, MotorHandle, body=body)
+
+    def _polygon_points(self, points, radius):
+        radius = self._registry._number(radius, "radius", minimum=0, maximum=BUILD_MARGIN)
+        local = [tuple(map(float, point)) for point in points]
+        if len(local) < 3: raise ValueError("polygon needs at least three points")
+        for x, y in local:
+            self._point((x-radius,y-radius)); self._point((x+radius,y+radius))
+        return local
+
+    def _check_attached_bounds(self, body, points):
+        ox, oy = self.origin
+        for point in points:
+            world = body.local_to_world(point)
+            self._point((world.x-ox, world.y-oy))
+
+    def _add_attached_shape(self, body, shape, density, friction, elasticity, fill_color, stroke_color):
+        shape.density = self._registry._number(density, "density", minimum=0)
+        if shape.density == 0: raise ValueError("density must be greater than zero")
+        shape.friction = self._registry._number(friction, "friction", minimum=0)
+        shape.elasticity = self._registry._number(elasticity, "elasticity", minimum=0, maximum=1)
+        raw_body = self._registry.resolve(self._owner, body)
+        authored_position = raw_body.position
+        handle = self._registry.add(self._owner, shape, ShapeHandle, body=body)
+        # Pymunk updates center of gravity as density-backed shapes are added.
+        # Keep the contributor-facing body origin fixed while assembling it.
+        raw_body.position = authored_position
+        self._registry.set_object_style(handle, fill_color, stroke_color)
+        return handle
+
     def sensor_box(self, left: float, top: float, right: float, bottom: float) -> ShapeHandle:
         """Build an invisible, non-colliding rectangular sensor; return its ShapeHandle."""
         import pymunk
@@ -627,8 +841,8 @@ class TileBuilder:
         return self._registry.add_visual(self._owner,VisualSegment(local_a,local_b,float(radius)),fill_color,stroke_color)
 
     def body_position(self, body: BodyHandle) -> Point:
-        """Return the current world-space position of an owned BodyHandle."""
-        return self._registry.resolve(self._owner, body).position
+        """Return the current tile-local position of an owned body."""
+        return self._registry.body_position(self._owner, body)
 
     def remove(self, handle: ResourceHandle) -> None:
         """Remove an owned resource from the simulation before normal cleanup."""

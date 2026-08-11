@@ -13,7 +13,7 @@ sys.path.insert(0, str(ROOT))
 
 from ebm.ball_physics import MAX_BALL_SPEED  # noqa: E402
 from ebm.ports import BALL_RADIUS, ENTRY_TEST_SPEEDS, PORT_APERTURE, PORT_CENTER_RANGE, Port, TILE_SIZE  # noqa: E402
-from ebm.tile_api import BUILD_MARGIN, BallHandle, BodyHandle, ContactEvent, ShapeHandle, TileBuilder, VisualHandle  # noqa: E402
+from ebm.tile_api import BUILD_MARGIN, BallHandle, BodyHandle, ConstraintHandle, ContactEvent, MotorHandle, ShapeHandle, TileBuilder, VisualHandle  # noqa: E402
 from ebm.tile_base import TILE_API_VERSION, TileBase  # noqa: E402
 from ebm.validator import MAX_ACTIVE_BALLS, SPAWN_INTERVAL, VALIDATION_BALLS  # noqa: E402
 
@@ -56,8 +56,9 @@ def build_reference() -> dict:
         "tileBuilder": {
             "description": inspect.getdoc(TileBuilder),
             "methods": method_reference(TileBuilder, (
-                "static_segment", "static_circle", "sensor_box", "on_ball_contact",
-                "visual_segment", "body_position", "remove",
+                "static_segment", "static_circle", "static_polygon", "dynamic_body",
+                "circle_shape", "segment_shape", "polygon_shape", "pivot", "motor",
+                "sensor_box", "on_ball_contact", "visual_segment", "body_position", "remove",
             )),
         },
         "handles": [
@@ -74,7 +75,17 @@ def build_reference() -> dict:
             {
                 "name": "BodyHandle",
                 "description": "Ownership-safe handle for a physical body.",
-                "methods": method_reference(BodyHandle, ("set_position", "set_velocity", "pause", "resume")),
+                "methods": method_reference(BodyHandle, ("set_position", "set_velocity", "set_angle", "set_angular_velocity", "apply_force", "apply_impulse", "apply_torque", "pause", "resume")),
+            },
+            {
+                "name": "ConstraintHandle",
+                "description": "Ownership-safe handle for a physical constraint.",
+                "methods": method_reference(ConstraintHandle, ("pause", "resume")),
+            },
+            {
+                "name": "MotorHandle",
+                "description": "Mutable handle for a simple rotary motor.",
+                "methods": method_reference(MotorHandle, ("set_rate", "set_max_force", "pause", "resume")),
             },
             {
                 "name": "BallHandle",
@@ -123,6 +134,11 @@ def build_reference() -> dict:
                 "code": "builder.static_segment(\n    (40, 200), (360, 200),\n    radius=8, surface_velocity=(160, 0),\n)",
             },
             {
+                "title": "Motorized water wheel",
+                "description": "Several shapes share one rotating body, pinned and driven against the static world.",
+                "code": "wheel = builder.dynamic_body((200, 200))\nbuilder.circle_shape(wheel, (0, 0), 28)\nfor a, b in [((-80, 0), (80, 0)), ((0, -80), (0, 80))]:\n    builder.segment_shape(wheel, a, b, radius=7)\nbuilder.pivot(wheel, (200, 200))\nbuilder.motor(wheel, rate=1.5, max_force=4000)",
+            },
+            {
                 "title": "Ball contact sensor",
                 "description": "Detect balls without adding visible or colliding geometry.",
                 "code": "sensor = builder.sensor_box(80, 80, 320, 320)\n\ndef on_ball(event):\n    event.ball.set_fill_color((255, 40, 40, 255))\n\nbuilder.on_ball_contact(sensor, begin=on_ball)",
@@ -140,7 +156,10 @@ def build_reference() -> dict:
         ],
         "capabilities": {
             "available": [
-                "Static segments and circles",
+                "Static segments, circles, and convex polygons",
+                "Dynamic compound bodies with attached circles, segments, and convex polygons",
+                "World pivots and mutable rotary motors",
+                "Body position, velocity, angle, force, impulse, and torque controls",
                 "Sensor boxes and Pymunk-style begin, pre_solve, post_solve, and separate callbacks",
                 "Visual-only segments",
                 "Surface velocity for powered rails",
@@ -150,9 +169,7 @@ def build_reference() -> dict:
                 "Optional per-frame update(builder, dt)",
             ],
             "unavailable": [
-                "User-created dynamic bodies and attached shapes",
-                "Joints, motors, and springs",
-                "Direct forces and impulses",
+                "Body-to-body joints, gears, and springs",
                 "Direct access to the shared Pymunk Space",
             ],
         },

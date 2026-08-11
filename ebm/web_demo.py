@@ -298,6 +298,27 @@ def _cached_tile(active):
 
 def draw_dynamic(canvas, engine: Engine):
     ctx = canvas.getContext("2d"); vx, vy, zoom = _transform(ctx, engine)
+    # Authored dynamic mechanisms cannot be baked into the static tile cache.
+    for active in engine.active_tiles.values():
+        for shape, style in active.builder.visual_items:
+            if not hasattr(shape, "body") or shape.body.body_type != 0 or getattr(shape, "ebm_hidden", False):
+                continue
+            fill = _css_color(style.fill_color); stroke = _css_color(style.stroke_color)
+            name = type(shape).__name__
+            if name == "Segment":
+                a, b = shape.body.local_to_world(shape.a), shape.body.local_to_world(shape.b)
+                if style.stroke_color[3]:
+                    ctx.beginPath();ctx.moveTo(a.x-vx,a.y-vy);ctx.lineTo(b.x-vx,b.y-vy);ctx.strokeStyle=stroke;ctx.lineWidth=max(2,shape.radius*2+2);ctx.stroke()
+                ctx.beginPath();ctx.moveTo(a.x-vx,a.y-vy);ctx.lineTo(b.x-vx,b.y-vy);ctx.strokeStyle=fill;ctx.lineWidth=max(2,shape.radius*2);ctx.stroke()
+            elif name == "Circle":
+                p=shape.body.local_to_world(shape.offset);ctx.beginPath();ctx.arc(p.x-vx,p.y-vy,shape.radius,0,__import__("math").tau)
+                ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=stroke;ctx.lineWidth=2;ctx.stroke()
+            elif name == "Poly":
+                points=[shape.body.local_to_world(vertex) for vertex in shape.get_vertices()]
+                if points:
+                    ctx.beginPath();ctx.moveTo(points[0].x-vx,points[0].y-vy)
+                    for point in points[1:]:ctx.lineTo(point.x-vx,point.y-vy)
+                    ctx.closePath();ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=stroke;ctx.lineWidth=2;ctx.stroke()
     # Balls are already tracked by Engine. Avoid scanning every static Pymunk
     # shape on every dynamic frame; full-screen 0.5× views contain thousands.
     for ball_item in engine.balls:
