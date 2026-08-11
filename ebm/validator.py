@@ -110,16 +110,16 @@ def validate_tile_flow(
     tile.build(builder)
     result = ValidationResult(name, balls, max_active)
     active: list[ValidationBall] = []
-    combinations = {port: entry_flow_samples(port) for port in (Port.T0, Port.L0, Port.R0)}
+    combinations = {port: entry_flow_samples(port) for port in (Port.T0, Port.L0)}
     t = 0.0
     next_spawn = 0.0
 
     while result.balls_spawned < balls:
         if t + 1e-9 >= next_spawn:
             index = result.balls_spawned
-            entry = (Port.T0, Port.L0, Port.R0)[index % 3]
+            entry = (Port.T0, Port.L0)[index % 2]
             samples = combinations[entry]
-            dx, dy, vx, vy = samples[(index // 3) % len(samples)]
+            dx, dy, vx, vy = samples[(index // 2) % len(samples)]
             active.append(_spawn_ball(space, index + 1, entry, t, dx, dy, vx, vy))
             result.balls_spawned += 1
             next_spawn += spawn_interval
@@ -204,12 +204,12 @@ def _classify_ball(space, ball: ValidationBall) -> tuple[str, str | None] | None
     # ball. Classify only after the ball's complete shape has crossed an edge.
     if y - radius >= TILE_SIZE - BOUNDS_EPSILON:
         return _classify_exit(Port.B0, x, y, vx, vy)
-    if x + radius <= BOUNDS_EPSILON:
-        return _classify_exit(Port.L1, x, y, vx, vy)
     if x - radius >= TILE_SIZE - BOUNDS_EPSILON:
-        return _classify_exit(Port.R1, x, y, vx, vy)
+        return _classify_exit(Port.R0, x, y, vx, vy)
     if y + radius <= BOUNDS_EPSILON:
         return "invalid", "top"
+    if x + radius <= BOUNDS_EPSILON:
+        return "invalid", "left"
     return None
 
 
@@ -220,7 +220,7 @@ def _classify_exit(port, x, y, vx, vy):
     allowed = spec.x_range if port == Port.B0 else spec.y_range
     if abs(along - center) > allowed + BOUNDS_EPSILON:
         return "invalid", _edge_label(port)
-    outward = vy if port == Port.B0 else (-vx if port == Port.L1 else vx)
+    outward = vy if port == Port.B0 else vx
     speed = math.hypot(vx, vy)
     # Full passage proves progress, but the instantaneous velocity must still
     # point outward and stay within 30° of the port normal so the next tile can
@@ -234,7 +234,6 @@ def _classify_exit(port, x, y, vx, vy):
 
 def _edge_label(port):
     if port == Port.B0: return "bottom"
-    if port == Port.L1: return "left"
     return "right"
 
 
@@ -271,11 +270,11 @@ def _failure_message(status, label, x, y, vx, vy):
         return "Ball state was removed or became non-finite."
     if label == "top": return "Ball escaped back through the T0 input."
     if label == "bottom": return "Ball crossed the bottom outside the B0 exit aperture."
-    if label == "left": return "Ball crossed the left edge outside the L1 exit aperture."
-    if label == "right": return "Ball crossed the right edge outside the R1 exit aperture."
+    if label == "left": return "Ball crossed the left edge, which has no output port."
+    if label == "right": return "Ball crossed the right edge outside the R0 exit aperture."
     if label and label.startswith("bad-exit-angle:"):
         port = label.rsplit(":", 1)[1]
-        outward = vy if port == "B0" else (-vx if port == "L1" else vx)
+        outward = vy if port == "B0" else vx
         angle = math.degrees(math.acos(max(-1.0, min(1.0, outward / max(math.hypot(vx, vy), 1e-12)))))
         return f"{port} exit angle was {angle:.1f}° from its outward direction (must be ≤ {MAX_EXIT_ANGLE_DEGREES:.0f}°)."
     return "Ball left outside the tile flow contract."

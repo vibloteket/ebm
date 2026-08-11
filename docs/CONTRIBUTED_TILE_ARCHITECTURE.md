@@ -391,13 +391,13 @@ This simplifies early API changes and CI. Once the API stabilizes and contributi
 The current leading port model is a uniform signature on every tile:
 
 ```text
-Inputs:  T0, L0, R0
-Outputs: B0, L1, R1
+Inputs:  T0, L0
+Outputs: B0, R0
 ```
 
 All six bijective input/output permutations are valid contribution contracts. Map policy and contract validity are deliberately separate.
 
-The built-in fallback generator should prefer the three permutations without same-side horizontal returns (`L0 -> L1` or `R0 -> R1`), because repeated same-side defaults create frequent two-tile loops. Authored contributed tiles remain free to use any of the six permutations.
+Every handoff moves down (`B0 -> T0`) or right (`R0 -> L0`). Odd columns are shifted down by half a tile so the asymmetric side ports align. This monotone topology prevents map-level flow loops without constraining how a tile distributes balls between its two outputs.
 
 Routing choice is also separate from concrete tile implementation choice. A coordinate first selects a required permutation; the engine then selects a compatible authored implementation, falling back to a quiet built-in tile only when necessary.
 

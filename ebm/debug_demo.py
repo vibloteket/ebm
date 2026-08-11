@@ -14,8 +14,8 @@ from .validator import validate_tile_flow
 
 
 class _FlowContract:
-    entries = (Port.T0, Port.L0, Port.R0)
-    exits = (Port.B0, Port.L1, Port.R1)
+    entries = (Port.T0, Port.L0)
+    exits = (Port.B0, Port.R0)
 
     def __str__(self):
         return "Any input → any output"
@@ -102,11 +102,6 @@ class DebugEngine:
                 py = spec.y_center + dy
                 px = max(BALL_RADIUS + 0.5, min(TILE_SIZE - BALL_RADIUS - 0.5, px))
                 py = max(BALL_RADIUS + 0.5, min(TILE_SIZE - BALL_RADIUS - 0.5, py))
-            elif port == Port.R0:
-                px = spec.x_center - BALL_RADIUS + dx
-                py = spec.y_center + dy
-                px = max(BALL_RADIUS + 0.5, min(TILE_SIZE - BALL_RADIUS - 0.5, px))
-                py = max(BALL_RADIUS + 0.5, min(TILE_SIZE - BALL_RADIUS - 0.5, py))
             else:
                 px = spec.x_center + dx
                 py = spec.y_center + dy
@@ -121,9 +116,6 @@ class DebugEngine:
             elif port == Port.L0:
                 pos = (x + BALL_RADIUS, y + self.rng.uniform(-10, 10))
                 vel = (160, 20)
-            elif port == Port.R0:
-                pos = (x - BALL_RADIUS, y + self.rng.uniform(-10, 10))
-                vel = (-160, 20)
             else:
                 pos = (x, y)
                 vel = (0, 0)
@@ -301,9 +293,9 @@ def _canvas_color(color):
 
 
 def _draw_port_overlays(ctx, sx, sy, scale) -> None:
-    for port in (Port.T0, Port.L0, Port.R0):
+    for port in (Port.T0, Port.L0):
         _draw_port_spec_zone(ctx, port, sx, sy, scale, kind="entry")
-    for port in (Port.B0, Port.L1, Port.R1):
+    for port in (Port.B0, Port.R0):
         _draw_port_spec_zone(ctx, port, sx, sy, scale, kind="exit")
 
 
@@ -338,14 +330,10 @@ def _draw_port_spec_zone(ctx, port: Port, sx, sy, scale: float, kind: str) -> No
         ctx.rect(left, min(top, bot), right - left, abs(bot - top))
         ctx.fill()
         ctx.stroke()
-    elif port in (Port.L0, Port.L1):
-        # Horizontal left-side port.
-        if port == Port.L0:
-            left = sx(spec.x_center + BALL_RADIUS - spec.x_range)
-            right = sx(spec.x_center + BALL_RADIUS + spec.x_range)
-        else:
-            left = sx(spec.x_center - spec.x_range)
-            right = sx(spec.x_center + spec.x_range)
+    elif port == Port.L0:
+        # Horizontal left-side input.
+        left = sx(spec.x_center + BALL_RADIUS - spec.x_range)
+        right = sx(spec.x_center + BALL_RADIUS + spec.x_range)
         top = cy - hh
         bot = cy + hh
         ctx.fillStyle = fill
@@ -355,14 +343,10 @@ def _draw_port_spec_zone(ctx, port: Port, sx, sy, scale: float, kind: str) -> No
         ctx.rect(min(left, right), top, abs(right - left), bot - top)
         ctx.fill()
         ctx.stroke()
-    elif port in (Port.R0, Port.R1):
-        # Horizontal right-side port.
-        if port == Port.R0:
-            left = sx(spec.x_center - BALL_RADIUS - spec.x_range)
-            right = sx(spec.x_center - BALL_RADIUS + spec.x_range)
-        else:
-            left = sx(spec.x_center - spec.x_range)
-            right = sx(spec.x_center + spec.x_range)
+    elif port == Port.R0:
+        # Horizontal right-side output.
+        left = sx(spec.x_center - BALL_RADIUS - spec.x_range)
+        right = sx(spec.x_center - BALL_RADIUS + spec.x_range)
         top = cy - hh
         bot = cy + hh
         ctx.fillStyle = fill
@@ -386,12 +370,8 @@ def _draw_port_spec_zone(ctx, port: Port, sx, sy, scale: float, kind: str) -> No
         label_y = sy(spec.y_center - spec.y_range - 10)
     elif port == Port.L0:
         label_x = sx(spec.x_center + BALL_RADIUS + spec.x_range + 12)
-    elif port == Port.L1:
-        label_x = sx(spec.x_center - spec.x_range - 12)
     elif port == Port.R0:
         label_x = sx(spec.x_center - BALL_RADIUS - spec.x_range - 12)
-    elif port == Port.R1:
-        label_x = sx(spec.x_center + spec.x_range + 12)
     ctx.fillText(port.name, label_x, label_y)
     ctx.textAlign = "start"
     ctx.textBaseline = "alphabetic"

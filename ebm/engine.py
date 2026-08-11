@@ -7,7 +7,7 @@ import time
 from typing import Any
 
 from .ball_physics import configure_ball_body, limit_space_ball_speeds
-from .ports import BALL_RADIUS, Port, TILE_SIZE
+from .ports import BALL_RADIUS, COLUMN_OFFSET, Port, TILE_SIZE, left_neighbor, tile_origin
 from .tile_api import BALL_COLLISION_TYPE, BALL_ELASTICITY, BALL_FRICTION, TileBuilder, TileResourceRegistry, ball_shape_filter
 from .tile_catalog import default_tile
 from .tile_output import suppress_tile_output
@@ -150,7 +150,7 @@ class Engine:
 
         for coord in sorted(needed - current):
             row, col = coord
-            origin = (col * TILE_SIZE, row * TILE_SIZE)
+            origin = tile_origin(row, col)
             tile = default_tile()
             owner_id = self._next_tile_owner
             self._next_tile_owner += 1
@@ -169,7 +169,8 @@ class Engine:
     def _needed_coords(self) -> set[tuple[int, int]]:
         min_col = math.floor(self.viewport.x / TILE_SIZE) - BUFFER_TILES
         max_col = math.floor(self.viewport.right / TILE_SIZE) + BUFFER_TILES
-        min_row = math.floor(self.viewport.y / TILE_SIZE) - BUFFER_TILES
+        # Odd columns are shifted down by half a tile.
+        min_row = math.floor((self.viewport.y - COLUMN_OFFSET) / TILE_SIZE) - BUFFER_TILES
         max_row = math.floor(self.viewport.bottom / TILE_SIZE) + BUFFER_TILES
         return {
             (row, col)
@@ -178,15 +179,14 @@ class Engine:
         }
 
     def active_bounds(self) -> tuple[float, float, float, float]:
-        min_col = math.floor(self.viewport.x / TILE_SIZE) - BUFFER_TILES
-        max_col = math.floor(self.viewport.right / TILE_SIZE) + BUFFER_TILES
-        min_row = math.floor(self.viewport.y / TILE_SIZE) - BUFFER_TILES
-        max_row = math.floor(self.viewport.bottom / TILE_SIZE) + BUFFER_TILES
+        origins = [tile_origin(row, col) for row, col in self.active_tiles]
+        if not origins:
+            return self.viewport.x, self.viewport.y, self.viewport.right, self.viewport.bottom
         return (
-            min_col * TILE_SIZE,
-            min_row * TILE_SIZE,
-            (max_col + 1) * TILE_SIZE,
-            (max_row + 1) * TILE_SIZE,
+            min(x for x, _ in origins),
+            min(y for _, y in origins),
+            max(x for x, _ in origins) + TILE_SIZE,
+            max(y for _, y in origins) + TILE_SIZE,
         )
 
     def seed_initial_balls(self) -> None:
@@ -198,19 +198,17 @@ class Engine:
             self._seed_tile_inputs(row, col)
 
     def _seed_tile_inputs(self, row: int, col: int) -> None:
-        for port in (Port.T0, Port.L0, Port.R0):
+        for port in (Port.T0, Port.L0):
             x, y, velocity = self._port_state(row, col, port)
             if not self._spawn_blocked(x, y):
                 self.add_ball(x, y, velocity=velocity)
 
     def _port_state(self, row: int, col: int, port: Port):
-        ox, oy = col * TILE_SIZE, row * TILE_SIZE
+        ox, oy = tile_origin(row, col)
         inset = BALL_RADIUS + 1
         if port == Port.T0:
             return ox + 200, oy + inset, (0, 140)
-        if port == Port.L0:
-            return ox + inset, oy + 100, (180, 0)
-        return ox + TILE_SIZE - inset, oy + 300, (-180, 0)
+        return ox + inset, oy + 100, (180, 0)
 
     def _boundary_inputs(self) -> set[tuple[int, int, Port]]:
         coords = set(self.active_tiles)
@@ -218,10 +216,8 @@ class Engine:
         for row, col in coords:
             if (row - 1, col) not in coords:
                 result.add((row, col, Port.T0))
-            if (row, col - 1) not in coords:
+            if left_neighbor(row, col) not in coords:
                 result.add((row, col, Port.L0))
-            if (row, col + 1) not in coords:
-                result.add((row, col, Port.R0))
         return result
 
     def _reconcile_boundary_spawners(self) -> None:

@@ -21,7 +21,7 @@ def test_api_reference_describes_current_contract():
     reference = build_reference()
     assert reference["apiVersion"] == 1
     assert reference["tileSize"] == 400
-    assert {port["name"] for port in reference["ports"]} == {"T0", "L0", "R0", "B0", "L1", "R1"}
+    assert {port["name"] for port in reference["ports"]} == {"T0", "L0", "B0", "R0"}
     assert all(method["description"] for method in reference["tileBuilder"]["methods"])
     signatures = {method["name"]: method["signature"] for method in reference["tileBuilder"]["methods"]}
     assert "a: Point" in signatures["static_segment"]
@@ -44,7 +44,7 @@ def test_api_reference_describes_current_contract():
         "entryTestSpeeds": [1.0, 300.0, 600.0],
         "maxBallSpeed": 600.0,
         "spawnInterval": 0.4,
-        "perInputInterval": pytest.approx(1.2),
+        "perInputInterval": pytest.approx(0.8),
     }
     assert reference["validation"] == {"balls": 120, "maxActive": 20}
     assert reference["capabilities"]["available"]

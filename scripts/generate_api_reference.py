@@ -96,7 +96,7 @@ def build_reference() -> dict:
                 {"name": "kinetic_energy", "type": "float | None", "description": "Energy lost in the collision; available during post_solve."},
             ],
         },
-        "ports": [{"name": port.name, "point": list(port.point), "kind": "input" if port.name in {"T0", "L0", "R0"} else "output"} for port in Port],
+        "ports": [{"name": port.name, "point": list(port.point), "kind": "input" if port.name in {"T0", "L0"} else "output"} for port in Port],
         "portRules": {
             "aperture": PORT_APERTURE,
             "ballRadius": BALL_RADIUS,
@@ -108,7 +108,7 @@ def build_reference() -> dict:
             "entryTestSpeeds": list(ENTRY_TEST_SPEEDS),
             "maxBallSpeed": MAX_BALL_SPEED,
             "spawnInterval": SPAWN_INTERVAL,
-            "perInputInterval": round(SPAWN_INTERVAL * 3, 10),
+            "perInputInterval": round(SPAWN_INTERVAL * 2, 10),
         },
         "validation": {
             "balls": VALIDATION_BALLS,

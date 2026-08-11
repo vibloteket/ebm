@@ -29,10 +29,11 @@ TILE_CLASS = MyTile</code></pre>`;
     ["ports","Ports & coordinates",`${coordinateMap(reference)}<p>Coordinates are local to the tile. <code>(0, 0)</code> is the upper-left corner; x increases to the right and y increases downward. Green ports are inputs and red ports are outputs.</p><h4>Port positions and openings</h4><table class="api-table"><thead><tr><th>Port</th><th>Kind</th><th>Center</th><th>Full opening</th><th>Ball-center range</th></tr></thead><tbody>${reference.ports.map(port=>`<tr><td><code>${port.name}</code></td><td>${port.kind}</td><td><code>(${port.point[0]}, ${port.point[1]})</code></td><td><code>${portRange(port,rules.aperture)}</code></td><td><code>${centerRange(port,rules.centerRange)}</code></td></tr>`).join("")}</tbody></table><p>The full opening includes the whole ${rules.aperture}-unit gap. Since a ball has radius ${rules.ballRadius}, its center uses the narrower range shown in the last column.</p><h4>Ball size and arrival</h4>${list([
       `Every ball has radius ${rules.ballRadius} and diameter ${rules.ballDiameter} tile units.`,
       `Balls can arrive at any speed from nearly stationary up to the global cap of ${flow.maxBallSpeed} units per second; validation samples ${flow.entryTestSpeeds.join(", ")} units per second.`,
-      `The current validator introduces one ball every ${flow.spawnInterval} seconds overall. Inputs rotate between T0, L0, and R0, so the nominal interval at each individual input is ${flow.perInputInterval} seconds.`,
+      `The current validator introduces one ball every ${flow.spawnInterval} seconds overall. Inputs rotate between T0 and L0, so the nominal interval at each individual input is ${flow.perInputInterval} seconds.`,
       "Do not rely on a fixed interval: balls from neighboring tiles can be delayed, grouped, or arrive independently.",
     ])}<h4>Flow rules</h4>${list([
-      "A ball may enter through T0, L0, or R0 and leave through any valid output: B0, L1, or R1. There are no fixed input-to-output routes.",
+      "A ball may enter through T0 or L0 and leave through either valid output: B0 or R0. There are no fixed input-to-output routes.",
+      "Every handoff moves down or right. Odd tile columns are shifted down by half a tile, so R0 at y=300 meets the next column's L0 at y=100. This makes map-level flow loops impossible.",
       `Every port opening is ${rules.aperture} units wide. A ball has radius ${rules.ballRadius}, so its center may be at most ${rules.centerRange} units from the port center.`,
       "Balls may arrive off-center and with different speeds and angles. Do not rely on centered, synchronized input.",
       "A valid exit passes the complete ball through an output opening while moving outward within 30° of the edge normal.",
@@ -40,11 +41,11 @@ TILE_CLASS = MyTile</code></pre>`;
       `Build points and segment radii may extend at most ${rules.buildMargin} units beyond the tile, allowing smooth transitions at edges and ports.`,
     ])}`],
     ["validation","Validation rules",`<p><strong>Validate flow</strong> runs the current strict, concurrent flow test:</p>${list([
-      `${validation.balls} balls enter as one continuous, unsynchronized stream distributed across all three inputs.`,
+      `${validation.balls} balls enter as one continuous, unsynchronized stream distributed across both inputs.`,
       "Entry position, speed, and angle vary across the supported input contract.",
       `At most ${validation.maxActive} balls may be active inside the tile at once. This includes stored balls and balls still travelling through it.`,
       "Balls must not disappear, be removed, acquire non-finite physics state, or leave through an invalid boundary.",
-      "All three outputs must receive at least one ball.",
+      "Both outputs must receive at least one ball.",
       "There is no drain phase after the final ball enters; balls physically present at that point count as active inventory.",
     ])}<p class="api-note">These values describe the current validator. The durable contract is to accept varied input, conserve every ball, produce valid exits, and keep retention bounded.</p>`],
     ["class","Tile class",`<p>${escapeHtml(reference.tileBase.description)}</p><h4>Properties</h4>${propertyTable(reference.tileBase.properties)}<h4>Lifecycle</h4>${methods(reference.tileBase.methods)}`],

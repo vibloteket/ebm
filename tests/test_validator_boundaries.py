@@ -20,28 +20,27 @@ def test_partial_top_exit_is_allowed_until_whole_ball_crosses():
     assert _classify_ball(space, ball) == ("invalid", "top")
 
 
-def test_side_exit_waits_until_whole_ball_crosses():
-    space, ball = _ball(-7, 300, vx=-200, radius=15)
+def test_left_exit_is_always_invalid():
+    space, ball = _ball(-7, 100, vx=-200, radius=15)
     assert _classify_ball(space, ball) is None
-    ball.body.position = -15.5, 300
-    assert _classify_ball(space, ball) == ("exited", "L1")
+    ball.body.position = -15.5, 100
+    assert _classify_ball(space, ball) == ("invalid", "left")
 
 
 def test_b0_checks_angle_instead_of_fixed_transverse_speed():
-    # High transverse speed is fine when the complete vector is within 30°.
     space, ball = _ball(200, 415.5, vx=280, vy=520, radius=15)
     assert _classify_ball(space, ball) == ("exited", "B0")
     ball.body.velocity = 320, 480
     assert _classify_ball(space, ball) == ("invalid", "bad-exit-angle:B0")
 
 
-def test_side_exit_requires_outward_direction_within_30_degrees():
-    space, ball = _ball(-15.5, 300, vx=-520, vy=280, radius=15)
-    assert _classify_ball(space, ball) == ("exited", "L1")
-    ball.body.velocity = -480, 320
-    assert _classify_ball(space, ball) == ("invalid", "bad-exit-angle:L1")
-    ball.body.velocity = 200, 0
-    assert _classify_ball(space, ball) == ("invalid", "bad-exit-angle:L1")
+def test_r0_exit_requires_outward_direction_within_30_degrees():
+    space, ball = _ball(415.5, 300, vx=520, vy=280, radius=15)
+    assert _classify_ball(space, ball) == ("exited", "R0")
+    ball.body.velocity = 480, 320
+    assert _classify_ball(space, ball) == ("invalid", "bad-exit-angle:R0")
+    ball.body.velocity = -200, 0
+    assert _classify_ball(space, ball) == ("invalid", "bad-exit-angle:R0")
 
 
 def test_slow_outward_exit_has_no_minimum_speed():

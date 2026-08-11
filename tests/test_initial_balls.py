@@ -1,5 +1,5 @@
 from ebm.engine import Engine
-from ebm.ports import Port, TILE_SIZE
+from ebm.ports import Port, TILE_SIZE, left_neighbor
 
 
 def cleanup(engine):
@@ -10,7 +10,7 @@ def cleanup(engine):
 def test_initial_state_has_one_ball_at_every_active_tile_input():
     engine=Engine(300,240);assert engine.balls==[]
     engine.resize(1200,800)
-    assert len(engine.balls)==len(engine.active_tiles)*3
+    assert len(engine.balls)==len(engine.active_tiles)*2
     positions={(round(float(b.body.position.x),3),round(float(b.body.position.y),3)) for b in engine.balls}
     assert len(positions)==len(engine.balls)
     cleanup(engine)
@@ -35,7 +35,7 @@ def test_fast_pan_immediately_seeds_every_new_tile_input():
     # Each new tile is seeded synchronously during reconciliation; no frame or
     # boundary-spawn interval is required.
     for row,col in new_tiles:
-        for port in (Port.T0,Port.L0,Port.R0):
+        for port in (Port.T0,Port.L0):
             x,y,_=engine._port_state(row,col,port)
             assert any(abs(float(ball.body.position.x)-x)<.01 and abs(float(ball.body.position.y)-y)<.01 for ball in engine.balls)
     assert any(id(ball) in old_ball_ids for ball in engine.balls)
@@ -47,7 +47,7 @@ def test_boundary_inputs_match_unconnected_outer_edges():
     coords=set(engine.active_tiles);boundary=engine._boundary_inputs()
     for row,col,port in boundary:
         if port==Port.T0:assert(row-1,col)not in coords
-        elif port==Port.L0:assert(row,col-1)not in coords
-        else:assert(row,col+1)not in coords
+        elif port==Port.L0:assert left_neighbor(row,col) not in coords
+        else:raise AssertionError(f"unexpected input port: {port}")
     assert boundary
     cleanup(engine)

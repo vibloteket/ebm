@@ -15,7 +15,6 @@ from ebm.ports import (
 @pytest.mark.parametrize("port,normal", [
     (Port.T0, (0, 1)),
     (Port.L0, (1, 0)),
-    (Port.R0, (-1, 0)),
 ])
 def test_entry_velocity_is_inside_symmetric_30_degree_cone(port, normal):
     for speed in ENTRY_TEST_SPEEDS:
@@ -29,7 +28,7 @@ def test_entry_velocity_is_inside_symmetric_30_degree_cone(port, normal):
 
 
 def test_entry_samples_cover_speed_angle_and_position_extremes():
-    for port in (Port.T0, Port.L0, Port.R0):
+    for port in (Port.T0, Port.L0):
         samples = entry_flow_samples(port)
         assert len(samples) == 3 * len(ENTRY_TEST_SPEEDS) * len(ENTRY_TEST_ANGLES)
         speeds = {round(math.hypot(vx, vy), 6) for _, _, vx, vy in samples}

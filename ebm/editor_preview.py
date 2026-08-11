@@ -10,7 +10,7 @@ from . import editor_runtime
 from .ball_physics import configure_ball_body, limit_space_ball_speeds
 from .editor_console import console_muted, console_phase
 from .debug_demo import Ball, _draw_port_overlays
-from .ports import BALL_RADIUS, MAX_EXIT_ANGLE_DEGREES, Port, PORT_SPECS, TILE_SIZE, entry_velocity
+from .ports import BALL_RADIUS, COLUMN_OFFSET, MAX_EXIT_ANGLE_DEGREES, Port, PORT_SPECS, TILE_SIZE, entry_velocity, tile_origin
 from .tile_api import BALL_COLLISION_TYPE, BALL_ELASTICITY, BALL_FRICTION, TileBuilder, TileResourceRegistry, VisualSegment, ball_shape_filter
 
 
@@ -54,7 +54,7 @@ class EditorPreview:
                 output_context = console_phase(f"build {row},{col}") if is_log_tile else console_muted()
                 with output_context:
                     tile = self.tile_class()
-                    builder = TileBuilder(self.registry, owner, (col * TILE_SIZE, row * TILE_SIZE))
+                    builder = TileBuilder(self.registry, owner, tile_origin(row, col))
                     tile.build(builder)
                 self.owners.append((owner, tile, builder))
                 owner += 1
@@ -88,18 +88,18 @@ class EditorPreview:
             self.space.step(1 / 60)
             self.registry.advance(1 / 60)
             limit_space_ball_speeds(self.balls)
-        edge = self.grid_size * TILE_SIZE
+        edge_x = self.grid_size * TILE_SIZE
+        edge_y = self.grid_size * TILE_SIZE + COLUMN_OFFSET
         for ball in list(self.balls):
             x, y = ball.body.position
-            if x < -200 or x > edge + 200 or y < -200 or y > edge + 300:
+            if x < -200 or x > edge_x + 200 or y < -200 or y > edge_y + 300:
                 self.remove_ball(ball)
 
     def _boundary_inputs(self):
         size = self.grid_size
-        inputs = [(Port.T0, col * TILE_SIZE, 0) for col in range(size)]
+        inputs = [(Port.T0, *tile_origin(0, col)) for col in range(size)]
         for row in range(size):
-            inputs.append((Port.L0, 0, row * TILE_SIZE))
-            inputs.append((Port.R0, (size - 1) * TILE_SIZE, row * TILE_SIZE))
+            inputs.append((Port.L0, *tile_origin(row, 0)))
         return inputs
 
     def spawn_boundary(self):
@@ -119,8 +119,6 @@ class EditorPreview:
             pos = (ox + spec.x_center + dx, oy + BALL_RADIUS + 0.5 + dy)
         elif port == Port.L0:
             pos = (ox + BALL_RADIUS + 0.5 + dx, oy + spec.y_center + dy)
-        else:
-            pos = (ox + TILE_SIZE - BALL_RADIUS - 0.5 + dx, oy + spec.y_center + dy)
         body = pymunk.Body(1, pymunk.moment_for_circle(1, 0, BALL_RADIUS))
         configure_ball_body(body)
         body.position = pos
@@ -264,12 +262,13 @@ def draw(canvas, preview):
     ctx = canvas.getContext("2d")
     width, height = canvas.width, canvas.height
     ctx.fillStyle = "#f4e8c8"; ctx.fillRect(0, 0, width, height)
-    world = preview.grid_size * TILE_SIZE
+    world_width = preview.grid_size * TILE_SIZE
+    world_height = preview.grid_size * TILE_SIZE + (COLUMN_OFFSET if preview.grid_size > 1 else 0)
     # Always fit the complete grid inside the canvas. A 3 × 3 grid needs a
     # scale below .3 on narrow mobile previews; clamping it to .3 clipped the
     # first and last rows instead of preserving the intended margins.
-    scale = max(.01, min((width-36)/world, (height-44)/world))
-    ox, oy = (width-world*scale)/2, (height-world*scale)/2
+    scale = max(.01, min((width-36)/world_width, (height-44)/world_height))
+    ox, oy = (width-world_width*scale)/2, (height-world_height*scale)/2
     sx=lambda x:ox+x*scale; sy=lambda y:oy+y*scale
     for _, _, builder in preview.owners:
         bx, by = builder.origin
