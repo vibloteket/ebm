@@ -4,10 +4,7 @@ from ebm.validator import MAX_ACTIVE_BALLS, VALIDATION_BALLS, validate_tile_flow
 
 
 class BucketTile(TileBase):
-    id = "test.bucket"
-    title = "Bucket"
     author = "Tests"
-    api_version = 1
 
     def build(self, builder):
         # A closed physical box keeps all balls alive and inside forever.

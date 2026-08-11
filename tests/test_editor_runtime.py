@@ -7,22 +7,19 @@ from ebm.editor_runtime import EditorRuntime
 SOURCE = '''from ebm import TileBase
 
 class TestTile(TileBase):
-    id = "test.editor"
-    title = "Editor test"
     author = "Tests"
-    api_version = 1
 
     def build(self, builder):
         builder.visual_segment((20, 20), (180, 180), 3)
 
-TILE_CLASS = TestTile
 '''
 
 
 def test_editor_compiles_route_free_source():
     result = json.loads(EditorRuntime().compile(SOURCE))
     assert result["ok"]
-    assert result["id"] == "test.editor"
+    assert result["className"] == "TestTile"
+    assert result["displayName"] == "Test Tile"
     assert "routes" not in result
 
 
@@ -30,13 +27,18 @@ def test_editor_reports_source_line_for_build_failure():
     result = json.loads(EditorRuntime().compile(SOURCE.replace("(180, 180)", "(480, 180)")))
     assert not result["ok"]
     assert result["type"] == "ValueError"
-    assert result["line"] == 10
+    assert result["line"] == 7
 
 
-def test_editor_rejects_missing_entrypoint():
+def test_editor_requires_exactly_one_tile_class():
     result = json.loads(EditorRuntime().compile("from ebm import TileBase\n"))
     assert not result["ok"]
-    assert "TILE_CLASS" in result["message"]
+    assert "exactly one" in result["message"]
+
+    duplicate = SOURCE + "\nclass OtherTile(TileBase):\n    author = 'Tests'\n    def build(self, builder): pass\n"
+    result = json.loads(EditorRuntime().compile(duplicate))
+    assert not result["ok"]
+    assert "TestTile, OtherTile" in result["message"]
 
 
 def test_compile_check_does_not_emit_output_from_hidden_instance():

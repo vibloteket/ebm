@@ -6,12 +6,13 @@ from ebm.tiles import PoweredChannelTile
 
 def test_catalog_exposes_independent_builtin_modules():
     registrations = all_tiles()
-    assert {item.id for item in registrations} == {"ebm.powered-channel", "ebm.reference-router"}
+    assert {item.id for item in registrations} == {"builtin.powered-channel", "builtin.reference-router"}
+    assert {item.title for item in registrations} == {"Powered Channel Tile", "Reference Router Tile"}
 
 
 def test_catalog_creates_route_free_tiles():
     assert isinstance(default_tile(), PoweredChannelTile)
-    assert isinstance(create_tile("ebm.powered-channel"), PoweredChannelTile)
+    assert isinstance(create_tile("builtin.powered-channel"), PoweredChannelTile)
     assert not hasattr(default_tile(), "route")
 
 

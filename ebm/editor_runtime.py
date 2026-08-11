@@ -7,7 +7,7 @@ import types
 
 from .editor_console import console_muted, console_phase
 from .tile_api import TileBuilder, TileResourceRegistry
-from .tile_base import TileBase
+from .tile_base import TileBase, tile_class_from_module, tile_display_name
 from .validator import validate_tile_flow
 
 
@@ -26,13 +26,13 @@ class EditorRuntime:
             code = compile(source, "editor_tile.py", "exec")
             with console_phase("compile"):
                 exec(code, module.__dict__)
-            tile_class = module.__dict__.get("TILE_CLASS")
+            tile_class = tile_class_from_module(module)
             self._check_tile_class(tile_class)
             with console_muted():
                 self._check_instance(tile_class())
             self.tile_class = tile_class
             self.source = source
-            return json.dumps({"ok": True, "id": tile_class.id, "title": tile_class.title, "author": tile_class.author})
+            return json.dumps({"ok": True, "className": tile_class.__name__, "displayName": tile_display_name(tile_class), "author": tile_class.author})
         except Exception as error:
             return json.dumps(self._error(error))
         finally:
@@ -43,7 +43,7 @@ class EditorRuntime:
             return json.dumps({"ok": False, "message": "Run the source before validating."})
         try:
             with console_phase("validation"):
-                result = validate_tile_flow(self.tile_class, name=self.tile_class.id)
+                result = validate_tile_flow(self.tile_class, name=tile_display_name(self.tile_class))
             return json.dumps({"ok": result.ok, "result": result.to_dict()})
         except Exception as error:
             return json.dumps(self._error(error))
@@ -51,14 +51,8 @@ class EditorRuntime:
     @staticmethod
     def _check_tile_class(tile_class):
         if not isinstance(tile_class, type) or not issubclass(tile_class, TileBase):
-            raise TypeError("Source must export a TileBase subclass as TILE_CLASS")
-        if tile_class.api_version != 1:
-            raise ValueError(f"Unsupported api_version: {tile_class.api_version}")
-        if not isinstance(tile_class.id, str) or not tile_class.id.strip() or tile_class.id == TileBase.id:
-            raise ValueError("Tile must declare a stable id")
-        if not isinstance(tile_class.title, str) or not tile_class.title.strip():
-            raise ValueError("Tile must declare a title")
-        if not isinstance(tile_class.author, str) or not tile_class.author.strip():
+            raise TypeError("Tile source must define a TileBase subclass")
+        if not isinstance(tile_class.author, str) or not tile_class.author.strip() or tile_class.author == TileBase.author:
             raise ValueError("Tile must declare an author")
 
     @staticmethod

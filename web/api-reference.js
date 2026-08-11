@@ -12,20 +12,15 @@ function render(reference){
   const validation=reference.validation;
   const flow=reference.flow;
   const skeleton=`<pre><code>class MyTile(TileBase):
-    id = "local.my-tile"
-    title = "My Tile"
     author = "Your name"
-    api_version = ${reference.apiVersion}
 
     def build(self, builder):
         pass
 
     def update(self, builder, dt):
-        pass
-
-TILE_CLASS = MyTile</code></pre>`;
+        pass</code></pre>`;
   const sections=[
-    ["start","Getting started",`<p>A tile is a self-contained ${reference.tileSize} × ${reference.tileSize} mechanism running on Python 3.14. Define its metadata, create geometry in <code>build()</code>, and optionally animate it in <code>update()</code>.</p>${skeleton}<p>Press <strong>Run</strong> to preview changes, then <strong>Validate flow</strong> to check the tile contract.</p><h4>Common types</h4>${propertyTable(reference.commonTypes)}`],
+    ["start","Getting started",`<p>A tile is a self-contained ${reference.tileSize} × ${reference.tileSize} mechanism running on Python 3.14. A source file defines exactly one <code>TileBase</code> subclass. Its class name is the display name; <code>author</code> is the only declared metadata.</p>${skeleton}<p>Press <strong>Run</strong> to preview changes, then <strong>Validate flow</strong> to check the tile contract.</p><h4>Common types</h4>${propertyTable(reference.commonTypes)}`],
     ["ports","Ports & coordinates",`${coordinateMap(reference)}<p>Coordinates are local to the tile. <code>(0, 0)</code> is the upper-left corner; x increases to the right and y increases downward. Green ports are inputs and red ports are outputs.</p><h4>Port positions and openings</h4><table class="api-table"><thead><tr><th>Port</th><th>Kind</th><th>Center</th><th>Full opening</th><th>Ball-center range</th></tr></thead><tbody>${reference.ports.map(port=>`<tr><td><code>${port.name}</code></td><td>${port.kind}</td><td><code>(${port.point[0]}, ${port.point[1]})</code></td><td><code>${portRange(port,rules.aperture)}</code></td><td><code>${centerRange(port,rules.centerRange)}</code></td></tr>`).join("")}</tbody></table><p>The full opening includes the whole ${rules.aperture}-unit gap. Since a ball has radius ${rules.ballRadius}, its center uses the narrower range shown in the last column.</p><h4>Ball size and arrival</h4>${list([
       `Every ball has radius ${rules.ballRadius} and diameter ${rules.ballDiameter} tile units.`,
       `Balls can arrive at any speed from nearly stationary up to the global cap of ${flow.maxBallSpeed} units per second; validation samples ${flow.entryTestSpeeds.join(", ")} units per second.`,

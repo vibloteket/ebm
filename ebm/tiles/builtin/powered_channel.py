@@ -6,10 +6,7 @@ from ebm import Port, TileBase
 class PoweredChannelTile(TileBase):
     """Flow tile that distributes incoming balls across both outputs."""
 
-    id = "ebm.powered-channel"
-    title = "Physical Channel"
     author = "EBM"
-    api_version = 1
 
     def build(self, builder) -> None:
         sensor = builder.sensor_box(15, 15, 385, 385)
@@ -55,6 +52,3 @@ def _steer(ball, output):
         # aperture; otherwise high-offset entries can leave through bare edge.
         velocity = (max(-240, min(240, (200 - x) * 4)) if abs(error) > 24 else max(280, min(560, vx + 28)), max(-440, min(440, error * 5)))
     ball.set_velocity(velocity)
-
-
-TILE_CLASS = PoweredChannelTile

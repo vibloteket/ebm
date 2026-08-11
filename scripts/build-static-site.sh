@@ -53,13 +53,12 @@ source_dir.mkdir(parents=True, exist_ok=True)
 for registration in all_tiles():
     cls = registration.tile_class
     relative = Path(*registration.module.split(".")).with_suffix(".py")
-    source_name = f"{cls.id}.py"
+    source_name = f"{registration.id}.py"
     (source_dir / source_name).write_text((root / relative).read_text())
     manifest["tiles"].append({
-        "id": cls.id,
-        "title": cls.title,
+        "id": registration.id,
+        "title": registration.title,
         "author": cls.author,
-        "apiVersion": cls.api_version,
         "module": registration.module,
         "class": cls.__name__,
         "source": f"tiles/sources/{source_name}",

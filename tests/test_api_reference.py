@@ -23,6 +23,12 @@ def test_api_reference_describes_current_contract():
     assert reference["tileSize"] == 400
     assert {port["name"] for port in reference["ports"]} == {"T0", "L0", "B0", "R0"}
     assert all(method["description"] for method in reference["tileBuilder"]["methods"])
+    assert reference["tileBase"]["properties"] == [{
+        "name": "author",
+        "type": "str",
+        "required": True,
+        "description": "Name of the tile author or project. This is the only tile metadata declared in Python.",
+    }]
     signatures = {method["name"]: method["signature"] for method in reference["tileBuilder"]["methods"]}
     assert "a: Point" in signatures["static_segment"]
     assert "-> ShapeHandle" in signatures["static_segment"]

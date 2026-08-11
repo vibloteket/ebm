@@ -14,7 +14,7 @@ sys.path.insert(0, str(ROOT))
 from ebm.ball_physics import MAX_BALL_SPEED  # noqa: E402
 from ebm.ports import BALL_RADIUS, ENTRY_TEST_SPEEDS, PORT_APERTURE, PORT_CENTER_RANGE, Port, TILE_SIZE  # noqa: E402
 from ebm.tile_api import BUILD_MARGIN, BallHandle, BodyHandle, ContactEvent, ShapeHandle, TileBuilder, VisualHandle  # noqa: E402
-from ebm.tile_base import TileBase  # noqa: E402
+from ebm.tile_base import TILE_API_VERSION, TileBase  # noqa: E402
 from ebm.validator import MAX_ACTIVE_BALLS, SPAWN_INTERVAL, VALIDATION_BALLS  # noqa: E402
 
 
@@ -37,7 +37,7 @@ def method_reference(cls, names: tuple[str, ...]) -> list[dict[str, str]]:
 
 def build_reference() -> dict:
     return {
-        "apiVersion": TileBase.api_version,
+        "apiVersion": TILE_API_VERSION,
         "tileSize": TILE_SIZE,
         "commonTypes": [
             {"name": "Point", "type": "tuple[float, float]", "description": "Tile-local (x, y) coordinates in tile units."},
@@ -49,10 +49,7 @@ def build_reference() -> dict:
         "tileBase": {
             "description": inspect.getdoc(TileBase),
             "properties": [
-                {"name": "id", "type": "str", "required": True, "description": "Stable, globally unique tile ID, for example vb.water-wheel."},
-                {"name": "title", "type": "str", "required": True, "description": "Human-readable name shown in the editor and catalog."},
-                {"name": "author", "type": "str", "required": True, "description": "Name of the tile author or project."},
-                {"name": "api_version", "type": "int", "required": True, "description": "Tile API version. The current supported value is 1."},
+                {"name": "author", "type": "str", "required": True, "description": "Name of the tile author or project. This is the only tile metadata declared in Python."},
             ],
             "methods": method_reference(TileBase, ("build", "update")),
         },

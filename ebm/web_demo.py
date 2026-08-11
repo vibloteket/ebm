@@ -223,7 +223,7 @@ def _cached_tile(active):
     variant = (row*31 + col*17) % 3
     revision = active.builder.visual_revision
     instance = active.owner_id if revision else 0
-    key = (_renderer, active.tile.id, variant, instance, revision)
+    key = (_renderer, type(active.tile).__module__, type(active.tile).__name__, variant, instance, revision)
     if revision:
         # Dynamic styles are instance-specific. Drop older revisions so a tile
         # that animates its color cannot grow the cache forever.
