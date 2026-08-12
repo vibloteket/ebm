@@ -11,13 +11,16 @@ function render(reference){
   const rules=reference.portRules;
   const validation=reference.validation;
   const flow=reference.flow;
-  const skeleton=`<pre><code>class MyTile(TileBase):
+  const skeleton=`<pre><code>from ebm import TileBase, TileBuilder
+
+
+class MyTile(TileBase):
     author = "Your name"
 
-    def build(self, builder):
+    def build(self, b: TileBuilder):
         pass
 
-    def update(self, builder, dt):
+    def update(self, b: TileBuilder, dt: float):
         pass</code></pre>`;
   const sections=[
     ["start","Getting started",`<p>A tile is a self-contained ${reference.tileSize} × ${reference.tileSize} mechanism running on Python 3.14. A source file defines exactly one <code>TileBase</code> subclass. Its class name is the display name; <code>author</code> is the only declared metadata.</p>${skeleton}<p>Press <strong>Run</strong> to preview changes, then <strong>Validate flow</strong> to check the tile contract.</p><h4>Common types</h4>${propertyTable(reference.commonTypes)}`],
