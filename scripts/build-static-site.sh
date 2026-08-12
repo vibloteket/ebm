@@ -8,6 +8,7 @@ rm -rf "$OUT"
 mkdir -p "$OUT/ebm"
 
 cp "$ROOT/web/index.html" "$OUT/index.html"
+cp "$ROOT/web/favicon.svg" "$OUT/favicon.svg"
 cp "$ROOT/web/admin.html" "$OUT/admin.html"
 cp "$ROOT/web/map-debug.html" "$OUT/map-debug.html"
 cp "$ROOT/web/map-debug.js" "$OUT/map-debug.js"
