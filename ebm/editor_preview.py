@@ -158,7 +158,9 @@ def start(canvas):
 
     def frame(ts):
         global _last_ts
-        if not _paused:
+        # Pausing freezes live simulation, but validation replays must keep
+        # drawing even if the user paused before entering validation mode.
+        if not _paused or _view == "validation":
             dt = 1/60 if _last_ts is None else max(0, min(.05, (ts-_last_ts)/1000))
             _last_ts = ts
             if _preview:
@@ -213,6 +215,8 @@ def replay_failure(detail_json):
         return False
     _failure_replay = detail
     _replay_started = float(window.performance.now())
+    if _canvas is not None and _preview is not None:
+        draw(_canvas, _preview)
     return True
 
 

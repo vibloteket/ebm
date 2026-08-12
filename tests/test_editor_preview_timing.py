@@ -15,7 +15,7 @@ def test_editor_preview_uses_independent_boundary_spawn_clocks():
     assert "spawn_boundary()" not in step_source
 
 
-def test_editor_preview_skips_physics_and_drawing_while_paused():
+def test_editor_preview_keeps_validation_replay_drawing_while_paused():
     source = Path("ebm/editor_preview.py").read_text()
     tree = ast.parse(source)
     frame = next(
@@ -23,8 +23,8 @@ def test_editor_preview_skips_physics_and_drawing_while_paused():
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == "frame"
     )
     frame_source = ast.get_source_segment(source, frame)
-    assert "if not _paused" in frame_source
-    assert "_preview.step(dt)" in frame_source
+    assert 'if not _paused or _view == "validation"' in frame_source
+    assert 'if _view == "simulation": _preview.step(dt)' in frame_source
     assert "draw(canvas, _preview)" in frame_source
 
 
@@ -76,6 +76,7 @@ def test_failure_replay_draws_validator_trajectory_overlay():
     source = Path("ebm/editor_preview.py").read_text()
     assert "def replay_failure" in source
     assert 'detail.get("trajectory")' in source
+    assert "draw(_canvas, _preview)" in source
     assert 'ctx.strokeStyle="rgba(190,24,24,.48)"' in source
     assert 'ctx.fillStyle="#dc2626"' in source
 
