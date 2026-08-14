@@ -30,6 +30,9 @@ _BUILTIN_MODULES = (
     "ebm.tiles.builtin.powered_channel",
     "ebm.tiles.builtin.reference_router",
 )
+_CONTRIBUTED_MODULES = (
+    "ebm.tiles.contributed.segment_switchback",
+)
 
 
 def _load_registration(module_name: str, *, builtin: bool = True) -> TileRegistration:
@@ -40,7 +43,10 @@ def _load_registration(module_name: str, *, builtin: bool = True) -> TileRegistr
     return TileRegistration(module_name, tile_class, builtin)
 
 
-_REGISTRATIONS = tuple(_load_registration(name) for name in _BUILTIN_MODULES)
+_REGISTRATIONS = (
+    *(_load_registration(name) for name in _BUILTIN_MODULES),
+    *(_load_registration(name, builtin=False) for name in _CONTRIBUTED_MODULES),
+)
 _BY_ID = {registration.id: registration for registration in _REGISTRATIONS}
 if len(_BY_ID) != len(_REGISTRATIONS):
     raise ValueError("duplicate generated tile id in catalog")
