@@ -14,6 +14,7 @@ const PY_FILES = [
   "tiles/builtin/powered_channel.py",
   "tiles/builtin/reference_router.py",
   "tiles/contributed/__init__.py",
+  "tiles/contributed/segment_switchback.py",
   "sketch.py",
   "pigment.py",  "engine.py",
   "web_demo.py",
