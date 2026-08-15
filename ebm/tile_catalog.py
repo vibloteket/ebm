@@ -32,6 +32,7 @@ _BUILTIN_MODULES = (
 )
 _CONTRIBUTED_MODULES = (
     "ebm.tiles.contributed.segment_switchback",
+    "ebm.tiles.contributed.teleport_collector",
 )
 
 
