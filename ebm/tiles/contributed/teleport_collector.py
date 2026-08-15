@@ -21,7 +21,10 @@ class TeleportCollector(TileBase):
         # the sensor covers the inside without changing their collisions.
         _rail(b, (-20, 180), (120, 180), color=BOX)
         _rail(b, (120, 35), (120, 180), color=BOX)
-        collector = b.sensor_box(15, 40, 115, 175)
+        # Keep the sensor more than one ball radius inside L0. In a repeated
+        # grid, the previous tile retains ownership until the complete ball has
+        # crossed the shared edge; triggering earlier would reject the handoff.
+        collector = b.sensor_box(31, 40, 115, 175)
 
         # Teleported balls appear above this passive ramp and roll through R0
         # under gravity. No velocity is assigned to them.
