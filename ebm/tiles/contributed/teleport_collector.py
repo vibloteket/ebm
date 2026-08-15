@@ -12,6 +12,8 @@ BUMPER_COLORS = (
     (34, 170, 92, 255),    # green
     (220, 55, 55, 255),    # red
 )
+BLUE_GATE = (35, 125, 235, 128)
+BLUE_BALL = (35, 125, 235, 255)
 
 
 class TeleportCollector(TileBase):
@@ -29,7 +31,7 @@ class TeleportCollector(TileBase):
         # Three alternating bumpers make the fall through the pipe visible.
         # Each bumper physically deflects the ball and dyes it on contact.
         for center, color in zip(
-            ((158, 105), (242, 215), (158, 325)),
+            ((158, 75), (242, 165), (158, 255)),
             BUMPER_COLORS,
         ):
             bumper = b.static_circle(
@@ -45,6 +47,21 @@ class TeleportCollector(TileBase):
                 event.ball.set_fill_color(bumper_color)
 
             b.on_ball_contact(bumper, begin=dye_ball)
+
+        # A non-physical translucent gate spans the pipe at the bottom. Balls
+        # pass straight through while an invisible sensor dyes them blue.
+        b.visual_segment(
+            (140, 380),
+            (260, 380),
+            12,
+            fill_color=BLUE_GATE,
+        )
+        blue_gate = b.sensor_box(140, 368, 260, 392)
+
+        def dye_blue(event):
+            event.ball.set_fill_color(BLUE_BALL)
+
+        b.on_ball_contact(blue_gate, begin=dye_blue)
 
         # L0 opens into a collection box. Its floor leads to the right wall,
         # which is also the teleport trigger.
