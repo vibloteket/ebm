@@ -11,6 +11,11 @@ def test_main_entrypoint_cache_key_matches_app_version():
     assert 'APP_VERSION = "prototype-0.53-tile-400"' in script
 
 
+def test_editor_entrypoint_cache_key_changes_with_runtime_dependencies():
+    html = (ROOT / "web" / "editor.html").read_text()
+    assert 'editor.js?v=0.69' in html
+
+
 def test_browser_entrypoints_ship_python_dependencies():
     for script in ("main.js", "debug.js", "editor.js"):
         source = (ROOT / "web" / script).read_text()
