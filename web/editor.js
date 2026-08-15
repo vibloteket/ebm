@@ -1,7 +1,7 @@
 import {initializeApiReference} from "./api-reference.js?v=0.68";
 
 const PYMUNK_WHEEL="./vendor/pymunk-7.3.0-cp314-cp314-pyemscripten_2026_0_wasm32.whl";
-const PY_FILES=["__init__.py","ball_physics.py","ports.py","random_utils.py","tile_base.py","tile_api.py","tile_catalog.py","editor_console.py","tiles/__init__.py","tiles/builtin/__init__.py","tiles/builtin/powered_channel.py","tiles/builtin/reference_router.py","tiles/contributed/__init__.py","tiles/contributed/segment_switchback.py","tiles/contributed/teleport_collector.py","validator.py","debug_demo.py","editor_runtime.py","editor_preview.py"];
+const PY_FILES=["__init__.py","ball_physics.py","ports.py","random_utils.py","tile_base.py","tile_api.py","tile_catalog.py","editor_console.py","tiles/__init__.py","tiles/builtin/__init__.py","tiles/builtin/powered_channel.py","tiles/builtin/reference_router.py","tiles/contributed/__init__.py","tiles/contributed/segment_switchback.py","tiles/contributed/teleport_collector.py","validator.py","repeat_validation.py","debug_demo.py","editor_runtime.py","editor_preview.py"];
 const NEW_ID="__new__";
 const NEW_SOURCE=`from ebm import TileBase, TileBuilder
 
@@ -44,6 +44,8 @@ function setView(nextView){
   pyodide?.globals.get("set_preview_view")?.(view);
   if(view==="simulation")pyodide?.globals.get("refresh_preview")?.(mode);
 }
+function renderRuntimeErrors(errors){if(!errors?.length)return"";return `<div class="failure-diagnostics"><h2>Runtime exception</h2>${errors.map(error=>`<section class="failure-group"><h3>${escapeHtml(error.type)} during ${escapeHtml(error.phase)}${error.row===undefined?"":` · tile ${error.row},${error.col}`}</h3><p>${escapeHtml(error.message)}</p><pre>${escapeHtml(error.traceback||"")}</pre></section>`).join("")}</div>`}
+function renderRepeatValidation(r){const label=r.ok?"PASS":"FAIL";return `<h2>3 × 3 repeat</h2><table class="validation-table"><tbody><tr><th>Result</th><th>Entered</th><th>Exited</th><th>Active</th><th>Peak</th><th>Lost</th></tr><tr><td class="${r.ok?"pass":"fail-text"}">${label}</td><td>${r.balls_spawned}</td><td>${r.exited}</td><td>${r.active}</td><td>${r.peak_active}</td><td>${r.lost}</td></tr></tbody></table>${renderRuntimeErrors(r.runtime_errors)}`}
 function renderValidation(r){
   const failures=r.details.filter(detail=>detail.status==="invalid"||detail.status==="lost");
   const groups=new Map();
@@ -53,16 +55,16 @@ function renderValidation(r){
     group.count+=1;if(group.examples.length<3)group.examples.push(detail);groups.set(key,group);
   }
   const summary=`<table class="validation-table"><thead><tr><th>Result</th><th>Entered</th><th>Exited</th><th>Active</th><th>Peak</th><th>B0</th><th>R0</th><th>Invalid/lost</th></tr></thead><tbody><tr><td class="${r.ok?"pass":"fail-text"}">${r.ok?"PASS":"FAIL"}</td><td>${r.balls_spawned}</td><td>${r.exited}</td><td>${r.active}/${r.max_active_allowed}</td><td>${r.peak_active}/${r.max_active_allowed}</td><td>${r.output_counts.B0}</td><td>${r.output_counts.R0}</td><td>${r.invalid+r.lost}</td></tr></tbody></table>`;
-  if(!failures.length)return summary;
+  if(!failures.length)return summary+renderRuntimeErrors(r.runtime_errors);
   const diagnostics=[...groups.values()].map(group=>`<section class="failure-group"><h3>${group.count} × ${escapeHtml(group.entry)} → ${escapeHtml(group.reason)}</h3><p>${escapeHtml(group.examples[0].message||"Outside the flow contract")}</p>${group.examples.map(detail=>`<div class="failure-example"><code>#${detail.id} · pos (${detail.position.join(", ")}) · vel (${detail.velocity.join(", ")})</code><button type="button" class="replay-failure" data-failure-id="${detail.id}">Replay</button></div>`).join("")}</section>`).join("");
-  return `${summary}<div class="failure-diagnostics"><h2>Why it failed</h2><p>Grouped by input and failure reason. Replay shows the red ball's validator path in the preview.</p>${diagnostics}</div>`;
+  return `${summary}${renderRuntimeErrors(r.runtime_errors)}<div class="failure-diagnostics"><h2>Why it failed</h2><p>Grouped by input and failure reason. Replay shows the red ball's validator path in the preview.</p>${diagnostics}</div>`;
 }
 async function validate(){
   setView("validation");pyodide.globals.get("refresh_preview")("single");
   setStatus("Validating 120-ball concurrent flow…");els.validation_results.innerHTML="";await new Promise(r=>setTimeout(r,20));
   try{
     const result=JSON.parse(pyodide.globals.get("validate_source")());if(!result.result){setStatus("Validation failed","fail",result.message);return}
-    const r=result.result;setStatus(result.ok?"Flow validation passed":"Flow validation failed",result.ok?"ok":"fail");els.validation_results.innerHTML=renderValidation(r);
+    const r=result.result,repeat=result.repeatResult;setStatus(result.ok?"Flow validation passed":"Flow validation failed",result.ok?"ok":"fail");els.validation_results.innerHTML=renderValidation(r)+renderRepeatValidation(repeat);
     const failures=new Map(r.details.filter(detail=>detail.status==="invalid"||detail.status==="lost").map(detail=>[String(detail.id),detail]));
     els.validation_results.querySelectorAll(".replay-failure").forEach(button=>button.addEventListener("click",()=>{const detail=failures.get(button.dataset.failureId);if(detail){setView("validation");pyodide.globals.get("refresh_preview")("single");pyodide.globals.get("set_preview_view")("validation");pyodide.globals.get("replay_validation_failure")(JSON.stringify(detail));els.validation_results.querySelectorAll(".replay-failure").forEach(item=>item.textContent="Replay");button.textContent="Replaying…"}}));
   }catch(error){setStatus("Validation error","fail",error.stack||String(error))}finally{drainConsole()}

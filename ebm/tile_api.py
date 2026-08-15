@@ -263,6 +263,7 @@ class TileResourceRegistry:
         self._body_members: dict[int, set[int]] = {}
         self._body_for_object: dict[int, int] = {}
         self._balls: dict[Any, dict[str, Any]] = {}
+        self.runtime_errors: list[dict[str, Any]] = []
         self._install_dispatcher()
 
     @classmethod
@@ -300,10 +301,18 @@ class TileResourceRegistry:
                 raise
             except Exception as error:
                 # Never let an authoring error escape through CFFI as
-                # "Exception ignored". Report it once through the normal
-                # captured stderr stream and disable this registration.
+                # "Exception ignored". Record it for validators, report it
+                # through captured stderr, and disable this registration.
                 self._callbacks.pop(owned, None)
                 arbiter.process_collision = False
+                rendered = "".join(traceback.format_exception(error))
+                self.runtime_errors.append({
+                    "owner": handle._owner,
+                    "phase": phase,
+                    "type": type(error).__name__,
+                    "message": str(error),
+                    "traceback": rendered,
+                })
                 print(
                     f"Tile contact callback error during {phase}: "
                     f"{type(error).__name__}: {error}",

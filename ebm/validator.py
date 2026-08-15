@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import math
+import random
+import traceback
 from typing import Any, Callable
 
 from .ball_physics import configure_ball_body, limit_space_ball_speeds
-from .ports import BALL_RADIUS, MAX_EXIT_ANGLE_DEGREES, OUTPUT_PORTS, PORT_SPECS, TILE_SIZE, Port, entry_flow_samples
+from .ports import BALL_RADIUS, COLUMN_OFFSET, MAX_EXIT_ANGLE_DEGREES, OUTPUT_PORTS, PORT_SPECS, TILE_SIZE, Port, entry_flow_samples, entry_velocity, tile_origin
 from .tile_api import (
     BALL_COLLISION_TYPE,
     BALL_ELASTICITY,
@@ -49,6 +51,7 @@ class ValidationResult:
     capacity_exceeded: bool = False
     output_counts: dict[str, int] = field(default_factory=lambda: {port.name: 0 for port in OUTPUT_PORTS})
     details: list[dict[str, Any]] = field(default_factory=list)
+    runtime_errors: list[dict[str, Any]] = field(default_factory=list)
 
     @property
     def all_outputs_used(self) -> bool:
@@ -68,6 +71,7 @@ class ValidationResult:
             and not self.capacity_exceeded
             and self.active <= self.max_active_allowed
             and self.all_outputs_used
+            and not self.runtime_errors
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -87,6 +91,7 @@ class ValidationResult:
             "conserved": self.conserved,
             "ok": self.ok,
             "details": self.details,
+            "runtime_errors": self.runtime_errors,
         }
 
 
@@ -107,8 +112,12 @@ def validate_tile_flow(
     tile = tile_factory()
     registry = TileResourceRegistry.for_space(space)
     builder = TileBuilder(registry, 1, (0, 0))
-    tile.build(builder)
     result = ValidationResult(name, balls, max_active)
+    try:
+        tile.build(builder)
+    except Exception as error:
+        result.runtime_errors.append(_runtime_error(error, 1, "build"))
+        return result
     active: list[ValidationBall] = []
     combinations = {port: entry_flow_samples(port) for port in (Port.T0, Port.L0)}
     t = 0.0
@@ -124,9 +133,16 @@ def validate_tile_flow(
             result.balls_spawned += 1
             next_spawn += spawn_interval
 
-        tile.update(builder, dt)
+        try:
+            tile.update(builder, dt)
+        except Exception as error:
+            result.runtime_errors.append(_runtime_error(error, 1, "update"))
+            break
         space.step(dt)
         registry.advance(dt)
+        if registry.runtime_errors:
+            result.runtime_errors.extend(registry.runtime_errors)
+            break
         limit_space_ball_speeds(active)
         t += dt
         _record_trajectories(active, t)
@@ -148,6 +164,16 @@ def validate_tile_flow(
         _remove_ball(space, ball)
     registry.destroy_owner(1)
     return result
+
+
+def _runtime_error(error: Exception, owner: int, phase: str) -> dict[str, Any]:
+    return {
+        "owner": owner,
+        "phase": phase,
+        "type": type(error).__name__,
+        "message": str(error),
+        "traceback": "".join(traceback.format_exception(error)),
+    }
 
 
 # Keep the editor-facing name while the API transitions from sampled

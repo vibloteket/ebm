@@ -6,6 +6,7 @@ import traceback
 import types
 
 from .editor_console import console_muted, console_phase
+from .repeat_validation import validate_repeated_flow
 from .tile_api import TileBuilder, TileResourceRegistry
 from .tile_base import TileBase, tile_class_from_module, tile_display_name
 from .validator import validate_tile_flow
@@ -44,7 +45,12 @@ class EditorRuntime:
         try:
             with console_phase("validation"):
                 result = validate_tile_flow(self.tile_class, name=tile_display_name(self.tile_class))
-            return json.dumps({"ok": result.ok, "result": result.to_dict()})
+                repeat = validate_repeated_flow(self.tile_class)
+            return json.dumps({
+                "ok": result.ok and repeat.ok,
+                "result": result.to_dict(),
+                "repeatResult": repeat.to_dict(),
+            })
         except Exception as error:
             return json.dumps(self._error(error))
 

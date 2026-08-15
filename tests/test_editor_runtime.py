@@ -55,7 +55,9 @@ def test_validation_failures_include_explanation_and_replay_trajectory():
     )
     runtime = EditorRuntime()
     assert json.loads(runtime.compile(source))["ok"]
-    result = json.loads(runtime.validate())["result"]
+    response = json.loads(runtime.validate())
+    result = response["result"]
+    assert "repeatResult" in response
     failures = [detail for detail in result["details"] if detail["status"] in ("invalid", "lost")]
     assert failures
     assert all(detail["message"] for detail in failures)
