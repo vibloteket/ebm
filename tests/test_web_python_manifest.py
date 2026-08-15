@@ -4,6 +4,13 @@ from pathlib import Path
 ROOT = Path(__file__).parents[1]
 
 
+def test_main_entrypoint_cache_key_matches_app_version():
+    html = (ROOT / "web" / "index.html").read_text()
+    script = (ROOT / "web" / "main.js").read_text()
+    assert 'main.js?v=0.53' in html
+    assert 'APP_VERSION = "prototype-0.53-tile-400"' in script
+
+
 def test_browser_entrypoints_ship_python_dependencies():
     for script in ("main.js", "debug.js", "editor.js"):
         source = (ROOT / "web" / script).read_text()
