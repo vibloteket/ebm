@@ -1,4 +1,4 @@
-const APP_VERSION = "prototype-0.63-tile-400";
+const APP_VERSION = "prototype-0.64-tile-400";
 const PYMUNK_WHEEL = "./vendor/pymunk-7.3.0-cp314-cp314-pyemscripten_2026_0_wasm32.whl";
 const PY_FILES = [
   "__init__.py",
@@ -16,6 +16,7 @@ const PY_FILES = [
   "tiles/contributed/__init__.py",
   "tiles/contributed/segment_switchback.py",
   "tiles/contributed/teleport_collector.py",
+  "tiles/contributed/mirrored_s_switch.py",
   "sketch.py",
   "pigment.py",  "engine.py",
   "web_demo.py",

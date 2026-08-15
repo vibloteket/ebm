@@ -11,12 +11,14 @@ def test_catalog_exposes_independent_builtin_modules():
         "builtin.reference-router",
         "contributed.segment-switchback",
         "contributed.teleport-collector",
+        "contributed.mirrored-s-switch",
     }
     assert {item.title for item in registrations} == {
         "Powered Channel Tile",
         "Reference Router Tile",
         "Segment Switchback",
         "Teleport Collector",
+        "Mirrored S Switch",
     }
     assert not get_tile("contributed.segment-switchback").builtin
 

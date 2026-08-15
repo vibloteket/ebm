@@ -16,6 +16,7 @@ const PY_FILES = [
   "tiles/contributed/__init__.py",
   "tiles/contributed/segment_switchback.py",
   "tiles/contributed/teleport_collector.py",
+  "tiles/contributed/mirrored_s_switch.py",
   "sketch.py",
   "pigment.py",  "engine.py",
   "web_demo.py",

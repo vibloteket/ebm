@@ -1,6 +1,7 @@
 from ebm.engine import Engine, MACHINE_TILE_IDS
 from ebm.tiles.contributed.segment_switchback import SegmentSwitchback
 from ebm.tiles.contributed.teleport_collector import TeleportCollector
+from ebm.tiles.contributed.mirrored_s_switch import MirroredSSwitch
 
 
 def cleanup(engine):
@@ -13,10 +14,11 @@ def cleanup(engine):
 def test_machine_uses_stable_mix_of_contributed_tiles():
     engine = Engine(1200, 800)
     classes = {type(active.tile) for active in engine.active_tiles.values()}
-    assert classes == {SegmentSwitchback, TeleportCollector}
+    assert classes == {SegmentSwitchback, TeleportCollector, MirroredSSwitch}
     assert MACHINE_TILE_IDS == (
         "contributed.segment-switchback",
         "contributed.teleport-collector",
+        "contributed.mirrored-s-switch",
     )
 
     choices = {

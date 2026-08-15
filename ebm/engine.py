@@ -22,6 +22,7 @@ PHYSICS_DT = 1 / 60
 MACHINE_TILE_IDS = (
     "contributed.segment-switchback",
     "contributed.teleport-collector",
+    "contributed.mirrored-s-switch",
 )
 
 
