@@ -11,7 +11,7 @@ from ebm.tile_api import (
     TileResourceRegistry,
     ball_shape_filter,
 )
-from ebm.tiles.contributed.teleport_collector import BOX, MAGIC, MAGIC_OFF, TeleportCollector
+from ebm.tiles.contributed.teleport_collector import BOX, BUMPER_COLORS, MAGIC, MAGIC_OFF, TeleportCollector
 
 
 def test_neighbor_handoff_reaches_teleport_sensor_after_previous_owner_releases():
@@ -51,6 +51,37 @@ def test_neighbor_handoff_reaches_teleport_sensor_after_previous_owner_releases(
 
     assert teleported
     assert registry._balls[body]["owner"] == 2
+
+
+def test_pipe_has_three_colored_bumpers_that_dye_balls():
+    space = pymunk.Space()
+    registry = TileResourceRegistry.for_space(space)
+    builder = TileBuilder(registry, 1, (0, 0))
+    TeleportCollector().build(builder)
+
+    circles = [
+        (obj, registry._styles[key])
+        for key, obj in registry._objects.items()
+        if registry._owner.get(key) == 1 and type(obj).__name__ == "Circle"
+    ]
+    assert len(circles) == 3
+    assert tuple(style.fill_color for _, style in circles) == BUMPER_COLORS
+
+    body = pymunk.Body(1, pymunk.moment_for_circle(1, 0, BALL_RADIUS))
+    configure_ball_body(body)
+    body.position = (158, 65)
+    body.velocity = (0, 200)
+    shape = pymunk.Circle(body, BALL_RADIUS)
+    shape.collision_type = BALL_COLLISION_TYPE
+    shape.filter = ball_shape_filter()
+    shape.ebm_fill_color = (22, 114, 212, 255)
+    shape.ebm_stroke_color = (12, 63, 143, 255)
+    space.add(body, shape)
+    for _ in range(30):
+        space.step(1 / 120)
+        registry.advance(1 / 120)
+
+    assert shape.ebm_fill_color == BUMPER_COLORS[0]
 
 
 def test_teleport_flashes_portal_wall_and_translucent_beam():

@@ -7,6 +7,11 @@ RAIL = (49, 90, 168, 255)
 BOX = (115, 76, 168, 255)
 MAGIC = (113, 72, 255, 128)
 MAGIC_OFF = (113, 72, 255, 0)
+BUMPER_COLORS = (
+    (245, 196, 35, 255),   # yellow
+    (34, 170, 92, 255),    # green
+    (220, 55, 55, 255),    # red
+)
 
 
 class TeleportCollector(TileBase):
@@ -20,6 +25,26 @@ class TeleportCollector(TileBase):
         # A real physical pipe carries T0 straight down to B0.
         _rail(b, (140, -20), (140, 420))
         _rail(b, (260, -20), (260, 420))
+
+        # Three alternating bumpers make the fall through the pipe visible.
+        # Each bumper physically deflects the ball and dyes it on contact.
+        for center, color in zip(
+            ((158, 105), (242, 215), (158, 325)),
+            BUMPER_COLORS,
+        ):
+            bumper = b.static_circle(
+                center,
+                18,
+                friction=0.15,
+                elasticity=0.9,
+                fill_color=color,
+                stroke_color=(70, 55, 35, 255),
+            )
+
+            def dye_ball(event, bumper_color=color):
+                event.ball.set_fill_color(bumper_color)
+
+            b.on_ball_contact(bumper, begin=dye_ball)
 
         # L0 opens into a collection box. Its floor leads to the right wall,
         # which is also the teleport trigger.
