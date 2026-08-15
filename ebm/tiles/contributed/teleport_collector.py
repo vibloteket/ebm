@@ -21,9 +21,6 @@ class TeleportCollector(TileBase):
         # the sensor covers the inside without changing their collisions.
         _rail(b, (-20, 180), (120, 180), color=BOX)
         _rail(b, (120, 35), (120, 180), color=BOX)
-        # Keep the sensor more than one ball radius inside L0. In a repeated
-        # grid, the previous tile retains ownership until the complete ball has
-        # crossed the shared edge; triggering earlier would reject the handoff.
         collector = b.sensor_box(31, 40, 115, 175)
 
         # Teleported balls appear above this passive ramp and roll through R0
@@ -37,7 +34,9 @@ class TeleportCollector(TileBase):
             ball.set_velocity((0, 0))
             return False
 
-        b.on_ball_contact(collector, begin=teleport)
+        # pre_solve retries on the next physics step if a neighboring tile is
+        # still completing ownership handoff when contact first begins.
+        b.on_ball_contact(collector, pre_solve=teleport)
 
 
 def _rail(b: TileBuilder, a, end, *, color=RAIL) -> None:

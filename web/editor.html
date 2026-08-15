@@ -5,7 +5,7 @@
     <link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Tile Editor — Endless Ball Machine</title>
-  <link rel="stylesheet" href="./editor.css?v=0.68">
+  <link rel="stylesheet" href="./editor.css?v=0.72">
   <script src="https://cdn.jsdelivr.net/pyodide/v314.0.4/full/pyodide.js"></script>
   <script data-goatcounter="https://ebm.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </head>
@@ -44,7 +44,7 @@
     <div class="code-heading"><span>Python source</span><span id="draft-state">Original</span></div>
     <div class="editor-shell" id="source-editor" aria-label="Python source editor"></div>
     <section class="console-panel" id="console-panel">
-      <header><button id="console-toggle" type="button" aria-expanded="true">Console <span id="console-count">0</span></button><button id="console-clear" type="button">Clear</button></header>
+      <header><button id="console-toggle" type="button" aria-expanded="true">Console <span id="console-count">0</span></button><div><button id="console-expand" type="button" aria-pressed="false">Expand</button><button id="console-copy" type="button">Copy</button><button id="console-clear" type="button">Clear</button></div></header>
       <div id="console-output" role="log" aria-live="polite"><div class="console-empty">Output from print() will appear here.</div></div>
     </section>
     <footer><span id="cursor-position">Ln 1, Col 1</span><span>Local autosave</span></footer>
@@ -59,6 +59,6 @@
 <div id="api-backdrop" class="api-backdrop"></div>
 <div id="loading"><div><h2>Starting Tile Editor</h2><p>Loading Pyodide and pymunk…</p></div></div>
 <script src="./vendor/codemirror/editor-codemirror.js?v=0.61"></script>
-<script type="module" src="./editor.js?v=0.71"></script>
+<script type="module" src="./editor.js?v=0.72"></script>
 </body>
 </html>

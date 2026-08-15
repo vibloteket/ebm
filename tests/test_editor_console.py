@@ -1,6 +1,17 @@
 import json
+from pathlib import Path
 
 from ebm.editor_console import EditorConsole, MAX_LINES, MAX_LINES_PER_SECOND, console, console_muted, console_phase
+
+
+def test_mobile_console_can_expand_and_copy():
+    html = Path("web/editor.html").read_text()
+    script = Path("web/editor.js").read_text()
+    css = Path("web/editor.css").read_text()
+    assert 'id="console-expand"' in html
+    assert 'id="console-copy"' in html
+    assert 'navigator.clipboard.writeText' in script
+    assert ".code-pane.console-expanded" in css
 
 
 def test_console_captures_lines_with_phase_and_stream():

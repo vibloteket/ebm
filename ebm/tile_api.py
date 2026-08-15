@@ -289,6 +289,15 @@ class TileResourceRegistry:
             event = self._contact_event(handle, ball_handle, arbiter, phase)
             try:
                 result = callback(event)
+            except PermissionError as error:
+                # A ball can touch the next tile's sensor one physics step
+                # before the previous tile releases ownership at handoff.
+                # This is transient, not an authoring failure: suppress this
+                # solve and let a pre_solve callback retry on the next step.
+                if str(error) == "ball is no longer owned by this tile":
+                    arbiter.process_collision = False
+                    return
+                raise
             except Exception as error:
                 # Never let an authoring error escape through CFFI as
                 # "Exception ignored". Report it once through the normal
