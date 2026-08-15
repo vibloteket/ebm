@@ -8,8 +8,9 @@ from typing import Any
 
 from .ball_physics import configure_ball_body, limit_space_ball_speeds
 from .ports import BALL_RADIUS, COLUMN_OFFSET, Port, TILE_SIZE, left_neighbor, tile_origin
+from .random_utils import stable_seed
 from .tile_api import BALL_COLLISION_TYPE, BALL_ELASTICITY, BALL_FRICTION, TileBuilder, TileResourceRegistry, ball_shape_filter
-from .tile_catalog import default_tile
+from .tile_catalog import create_tile
 from .tile_output import suppress_tile_output
 
 BOUNDARY_SPAWN_INTERVAL = 1.2
@@ -18,6 +19,10 @@ BOUNDARY_SPAWN_INTERVAL = 1.2
 BUFFER_TILES = 1
 BALL_MASS = 1
 PHYSICS_DT = 1 / 60
+MACHINE_TILE_IDS = (
+    "contributed.segment-switchback",
+    "contributed.teleport-collector",
+)
 
 
 @dataclass
@@ -151,7 +156,7 @@ class Engine:
         for coord in sorted(needed - current):
             row, col = coord
             origin = tile_origin(row, col)
-            tile = default_tile()
+            tile = self._tile_for_coord(row, col)
             owner_id = self._next_tile_owner
             self._next_tile_owner += 1
             builder = TileBuilder(self.registry, owner_id, origin)
@@ -165,6 +170,11 @@ class Engine:
                 self._seed_tile_inputs(row, col)
         if self._initial_seeded:
             self._reconcile_boundary_spawners()
+
+    def _tile_for_coord(self, row: int, col: int):
+        """Choose a stable contributed tile so panning never changes the map."""
+        index = stable_seed("machine-tile", row, col) % len(MACHINE_TILE_IDS)
+        return create_tile(MACHINE_TILE_IDS[index])
 
     def _needed_coords(self) -> set[tuple[int, int]]:
         min_col = math.floor(self.viewport.x / TILE_SIZE) - BUFFER_TILES
