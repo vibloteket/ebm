@@ -23,9 +23,13 @@ class TeleportCollector(TileBase):
 
         # L0 opens into a collection box. Its floor leads to the right wall,
         # which is also the teleport trigger.
+        # A short funnel lip catches upward-angled L0 arrivals and directs
+        # them into the wall without itself triggering teleportation.
         _rail(b, (-20, 180), (70, 180), color=BOX)
-        portal = _rail(b, (70, 35), (70, 180), color=BOX)
-        portal_sensor = b.sensor_box(31, 40, 69, 175)
+        _rail(b, (25, 35), (70, 35), color=BOX)
+        # The physical right wall itself is the trigger: proximity alone does
+        # nothing; Pymunk must report actual ball/wall contact.
+        portal = _rail(b, (35, 35), (35, 180), color=BOX)
 
         # Teleported balls appear above this passive ramp and roll through R0.
         _rail(b, (270, 320), (420, 355), color=BOX)
@@ -35,7 +39,7 @@ class TeleportCollector(TileBase):
         # the portal wall, making the ball's otherwise instantaneous journey
         # visible without blocking the machinery underneath.
         beam = b.visual_segment(
-            (70, 108),
+            (35, 108),
             (300, 275),
             20,
             fill_color=MAGIC_OFF,
@@ -44,6 +48,8 @@ class TeleportCollector(TileBase):
         self.beam = beam
 
         def teleport(event):
+            source = event.ball.position
+            beam.set_segment_points(source, (300, 275))
             event.ball.set_position((300, 275))
             event.ball.set_velocity((0, 0))
             portal.set_fill_color(MAGIC)
@@ -51,9 +57,7 @@ class TeleportCollector(TileBase):
             self.magic_time = 0.28
             return False
 
-        # pre_solve retries on the next physics step if a neighboring tile is
-        # still completing ownership handoff when contact first begins.
-        b.on_ball_contact(portal_sensor, pre_solve=teleport)
+        b.on_ball_contact(portal, pre_solve=teleport)
 
     def update(self, _b: TileBuilder, dt: float) -> None:
         if self.magic_time <= 0:

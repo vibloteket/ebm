@@ -145,7 +145,9 @@ class MotorHandle(ConstraintHandle):
 
 @dataclass(frozen=True)
 class VisualHandle(StyledHandle):
-    pass
+    def set_segment_points(self, a: Point, b: Point) -> None:
+        """Move the endpoints of a visual segment in tile-local coordinates."""
+        self._registry.set_visual_segment_points(self._owner, self, a, b)
 
 
 @dataclass
@@ -519,6 +521,20 @@ class TileResourceRegistry:
 
     def set_object_style(self, handle, fill_color: Color, stroke_color: Color):
         self._styles[handle.id] = VisualStyle(_validate_color(fill_color), _validate_color(stroke_color))
+
+    def set_visual_segment_points(self, owner: int, handle, a, b) -> None:
+        visual = self.resolve(owner, handle)
+        if not isinstance(visual, VisualSegment):
+            raise TypeError("resource is not a visual segment")
+        ox, oy = self._origins[owner]
+        points = []
+        for point in (a, b):
+            x, y = map(float, point)
+            if not (-BUILD_MARGIN <= x <= TILE_SIZE + BUILD_MARGIN and -BUILD_MARGIN <= y <= TILE_SIZE + BUILD_MARGIN):
+                raise ValueError(f"point outside tile build bounds: {(x, y)}")
+            points.append((x, y))
+        self._objects[handle.id] = VisualSegment(points[0], points[1], visual.radius)
+        self._visual_revisions[owner] = self._visual_revisions.get(owner, 0) + 1
 
     def visual_items(self, owner: int):
         result = []

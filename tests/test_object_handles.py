@@ -39,6 +39,15 @@ def contact_ball(registry, owner, body, shape):
     return registry._claim_ball(owner, body, shape)
 
 
+def test_visual_segment_endpoints_can_be_moved():
+    _, _, registry, builder = setup_world()
+    visual = builder.visual_segment((20, 40), (180, 40))
+    visual.set_segment_points((30, 50), (160, 170))
+    raw = registry.resolve(1, visual)
+    assert raw.a == (30.0, 50.0)
+    assert raw.b == (160.0, 170.0)
+
+
 def test_shape_and_visual_handles_share_pause_resume():
     _, space, registry, builder = setup_world()
     shape = builder.static_segment((20, 20), (180, 20), 2)

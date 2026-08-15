@@ -1,4 +1,5 @@
 import pymunk
+import pytest
 
 from ebm.ball_physics import configure_ball_body
 from ebm.ports import BALL_RADIUS, TILE_SIZE, tile_origin
@@ -79,6 +80,10 @@ def test_teleport_flashes_portal_wall_and_translucent_beam():
 
     assert portal_style.fill_color == MAGIC
     assert beam_style.fill_color == MAGIC
+    beam = registry.resolve(1, tile.beam)
+    assert beam.a[0] == pytest.approx(50, abs=20)
+    assert beam.a[1] == pytest.approx(100, abs=25)
+    assert beam.b == (300.0, 275.0)
     tile.update(builder, 0.3)
     assert portal_style.fill_color == BOX
     assert beam_style.fill_color == MAGIC_OFF
