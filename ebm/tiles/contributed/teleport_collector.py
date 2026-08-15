@@ -5,6 +5,8 @@ from ebm import TileBase, TileBuilder
 
 RAIL = (49, 90, 168, 255)
 BOX = (115, 76, 168, 255)
+MAGIC = (113, 72, 255, 128)
+MAGIC_OFF = (113, 72, 255, 0)
 
 
 class TeleportCollector(TileBase):
@@ -13,31 +15,61 @@ class TeleportCollector(TileBase):
     author = "Pi"
 
     def build(self, b: TileBuilder) -> None:
+        self.magic_time = 0.0
+
         # A real physical pipe carries T0 straight down to B0.
         _rail(b, (140, -20), (140, 420))
         _rail(b, (260, -20), (260, 420))
 
-        # L0 opens into a collection box. Its floor and back wall are physical;
-        # the sensor covers the inside without changing their collisions.
-        _rail(b, (-20, 180), (120, 180), color=BOX)
-        _rail(b, (120, 35), (120, 180), color=BOX)
-        collector = b.sensor_box(31, 40, 115, 175)
+        # L0 opens into a collection box. Its floor leads to the right wall,
+        # which is also the teleport trigger.
+        _rail(b, (-20, 180), (70, 180), color=BOX)
+        portal = _rail(b, (70, 35), (70, 180), color=BOX)
+        portal_sensor = b.sensor_box(31, 40, 69, 175)
 
-        # Teleported balls appear above this passive ramp and roll through R0
-        # under gravity. No velocity is assigned to them.
+        # Teleported balls appear above this passive ramp and roll through R0.
         _rail(b, (270, 320), (420, 355), color=BOX)
         _rail(b, (270, 225), (420, 255), color=BOX)
 
+        # The broad translucent beam is visual only. It flashes together with
+        # the portal wall, making the ball's otherwise instantaneous journey
+        # visible without blocking the machinery underneath.
+        beam = b.visual_segment(
+            (70, 108),
+            (300, 275),
+            20,
+            fill_color=MAGIC_OFF,
+        )
+        self.portal = portal
+        self.beam = beam
+
         def teleport(event):
-            ball = event.ball
-            ball.set_position((300, 275))
-            ball.set_velocity((0, 0))
+            event.ball.set_position((300, 275))
+            event.ball.set_velocity((0, 0))
+            portal.set_fill_color(MAGIC)
+            beam.set_fill_color(MAGIC)
+            self.magic_time = 0.28
             return False
 
         # pre_solve retries on the next physics step if a neighboring tile is
         # still completing ownership handoff when contact first begins.
-        b.on_ball_contact(collector, pre_solve=teleport)
+        b.on_ball_contact(portal_sensor, pre_solve=teleport)
+
+    def update(self, _b: TileBuilder, dt: float) -> None:
+        if self.magic_time <= 0:
+            return
+        self.magic_time = max(0.0, self.magic_time - dt)
+        if self.magic_time == 0:
+            self.portal.set_fill_color(BOX)
+            self.beam.set_fill_color(MAGIC_OFF)
 
 
-def _rail(b: TileBuilder, a, end, *, color=RAIL) -> None:
-    b.static_segment(a, end, 6, friction=0.2, elasticity=0.05, fill_color=color)
+def _rail(b: TileBuilder, a, end, *, color=RAIL):
+    return b.static_segment(
+        a,
+        end,
+        6,
+        friction=0.2,
+        elasticity=0.05,
+        fill_color=color,
+    )

@@ -1,4 +1,4 @@
-const APP_VERSION = "prototype-0.57-tile-400";
+const APP_VERSION = "prototype-0.58-tile-400";
 const PYMUNK_WHEEL = "./vendor/pymunk-7.3.0-cp314-cp314-pyemscripten_2026_0_wasm32.whl";
 const PY_FILES = [
   "__init__.py",
