@@ -26,7 +26,8 @@ def test_segment_switchback_passes_without_surface_velocity():
     result = validate_tile_flow(lambda: registration)
     assert result.ok, result.to_dict()
 
-    from ebm.tiles.contributed.segment_switchback import SegmentSwitchback
+    from ebm.tiles.contributed.segment_switchback import RAIL_ELASTICITY, SegmentSwitchback
     import inspect
 
     assert "surface_velocity" not in inspect.getsource(SegmentSwitchback.build)
+    assert RAIL_ELASTICITY == 0.45

@@ -4,6 +4,7 @@ from ebm import TileBase, TileBuilder
 
 
 RAIL = (49, 90, 168, 255)
+RAIL_ELASTICITY = 0.45
 
 
 class SegmentSwitchback(TileBase):
@@ -30,4 +31,11 @@ class SegmentSwitchback(TileBase):
 
 
 def _rail(b: TileBuilder, a, end) -> None:
-    b.static_segment(a, end, 5, friction=0.15, elasticity=0.0, fill_color=RAIL)
+    b.static_segment(
+        a,
+        end,
+        5,
+        friction=0.15,
+        elasticity=RAIL_ELASTICITY,
+        fill_color=RAIL,
+    )
