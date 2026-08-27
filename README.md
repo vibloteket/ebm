@@ -93,3 +93,8 @@ uv run python -m ebm validate --json
 ```
 
 The command exits non-zero if any filler contract fails. The debug page also shows a short validation result for the selected contract.
+
+## License
+
+Endless Ball Machine is free software licensed under the
+[GNU Affero General Public License v3.0 or later](LICENSE).
