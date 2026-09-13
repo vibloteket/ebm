@@ -16,17 +16,19 @@ class MirroredSSwitch(TileBase):
     def build(self, b: TileBuilder) -> None:
         # The upper and left arrivals are caught by passive rails. The two
         # routes cross through the middle in a compact mirrored-S layout.
-        _rail(b, (120, 85), (300, 350))
-        _rail(b, (300, 350), (420, 350))
+        # Keep exit speed without extending the supporting rail into R0's
+        # neighbour. The final section slopes gently down inside the tile.
+        _rail(b, (120, 85), (300, 350), friction=0)
+        _rail(b, (300, 350), (395, 355), friction=0)
         _rail(b, (260, 20), (385, 205))
-        _rail(b, (385, 205), (420, 250))
+        _rail(b, (385, 205), (395, 205 + 10 * 45 / 35))
 
-        _rail(b, (-20, 180), (85, 230))
+        _rail(b, (5, 180 + 25 * 50 / 105), (85, 230))
         _rail(b, (85, 230), (145, 350))
-        _rail(b, (145, 350), (145, 420))
-        _rail(b, (65, 65), (115, 155))
+        _rail(b, (145, 350), (145, 395))
+        _rail(b, (65, 50), (115, 155))
         _rail(b, (115, 155), (255, 335))
-        _rail(b, (255, 335), (255, 420))
+        _rail(b, (255, 335), (255, 395))
 
         # A visible, unpowered cross pivots freely in the shared centre. It
         # moves only from physical contacts; it has no sensor or callback.
@@ -49,12 +51,12 @@ class MirroredSSwitch(TileBase):
         b.pivot(rotor, (205, 260))
 
 
-def _rail(b: TileBuilder, a, end):
+def _rail(b: TileBuilder, a, end, *, friction=0.15):
     return b.static_segment(
         a,
         end,
         5,
-        friction=0.15,
+        friction=friction,
         elasticity=0.45,
         fill_color=RAIL,
     )

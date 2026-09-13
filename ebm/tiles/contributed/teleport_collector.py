@@ -25,8 +25,8 @@ class TeleportCollector(TileBase):
         self.magic_time = 0.0
 
         # A real physical pipe carries T0 straight down to B0.
-        _rail(b, (140, -20), (140, 420))
-        _rail(b, (260, -20), (260, 420))
+        _rail(b, (140, 6), (140, 394))
+        _rail(b, (260, 6), (260, 394))
 
         # Three alternating bumpers make the fall through the pipe visible.
         # Each bumper physically deflects the ball and dyes it on contact.
@@ -67,23 +67,27 @@ class TeleportCollector(TileBase):
         # which is also the teleport trigger.
         # A short funnel lip catches upward-angled L0 arrivals and directs
         # them into the wall without itself triggering teleportation.
-        _rail(b, (-20, 180), (70, 180), color=BOX)
+        _rail(b, (6, 180), (70, 180), color=BOX)
         _rail(b, (25, 35), (70, 35), color=BOX)
         # The physical right wall itself is the trigger: proximity alone does
         # nothing; Pymunk must report actual ball/wall contact.
         portal = _rail(b, (35, 35), (35, 180), color=BOX)
 
-        # Teleported balls appear above this passive ramp and roll through R0.
-        _rail(b, (270, 320), (420, 355), color=BOX)
-        _rail(b, (270, 225), (420, 255), color=BOX)
+        # A low-friction ramp and level takeoff retain enough horizontal
+        # speed for R0, without any support extending into the next tile.
+        _rail(b, (270, 320), (360, 350), color=BOX, friction=0)
+        _rail(b, (360, 350), (394, 350), color=BOX, friction=0)
+        _rail(b, (270, 225), (394, 225 + 124 * 30 / 150), color=BOX)
 
         # The broad translucent beam is visual only. It flashes together with
         # the portal wall, making the ball's otherwise instantaneous journey
         # visible without blocking the machinery underneath.
+        # A contact centre can be only ~14 units from the left edge; radius
+        # 12 keeps the whole beam inside while preserving its exact endpoints.
         beam = b.visual_segment(
             (35, 108),
             (300, 275),
-            20,
+            12,
             fill_color=MAGIC_OFF,
         )
         self.portal = portal
@@ -110,12 +114,12 @@ class TeleportCollector(TileBase):
             self.beam.set_fill_color(MAGIC_OFF)
 
 
-def _rail(b: TileBuilder, a, end, *, color=RAIL):
+def _rail(b: TileBuilder, a, end, *, color=RAIL, friction=0.2):
     return b.static_segment(
         a,
         end,
         6,
-        friction=0.2,
+        friction=friction,
         elasticity=0.05,
         fill_color=color,
     )

@@ -1,7 +1,7 @@
-import {initializeApiReference} from "./api-reference.js?v=0.68";
+import {initializeApiReference} from "./api-reference.js?v=0.69";
 
 const PYMUNK_WHEEL="./vendor/pymunk-7.3.0-cp314-cp314-pyemscripten_2026_0_wasm32.whl";
-const PY_FILES=["__init__.py","ball_physics.py","ports.py","random_utils.py","tile_base.py","tile_api.py","tile_catalog.py","editor_console.py","tiles/__init__.py","tiles/builtin/__init__.py","tiles/builtin/powered_channel.py","tiles/builtin/reference_router.py","tiles/contributed/__init__.py","tiles/contributed/segment_switchback.py","tiles/contributed/teleport_collector.py","tiles/contributed/mirrored_s_switch.py","validator.py","repeat_validation.py","debug_demo.py","editor_runtime.py","editor_preview.py"];
+const PY_FILES=["__init__.py","ball_physics.py","ports.py","random_utils.py","tile_base.py","tile_api.py", "geometry_bounds.py","tile_catalog.py","editor_console.py","tiles/__init__.py","tiles/builtin/__init__.py","tiles/builtin/powered_channel.py","tiles/builtin/reference_router.py","tiles/contributed/__init__.py","tiles/contributed/segment_switchback.py","tiles/contributed/teleport_collector.py","tiles/contributed/mirrored_s_switch.py","validator.py","repeat_validation.py","debug_demo.py","editor_runtime.py","editor_preview.py"];
 const NEW_ID="__new__";
 const NEW_SOURCE=`from ebm import TileBase, TileBuilder
 
@@ -44,7 +44,7 @@ function setView(nextView){
   pyodide?.globals.get("set_preview_view")?.(view);
   if(view==="simulation")pyodide?.globals.get("refresh_preview")?.(mode);
 }
-function renderRuntimeErrors(errors){if(!errors?.length)return"";return `<div class="failure-diagnostics"><h2>Runtime exception</h2>${errors.map(error=>`<section class="failure-group"><h3>${escapeHtml(error.type)} during ${escapeHtml(error.phase)}${error.row===undefined?"":` · tile ${error.row},${error.col}`}</h3><p>${escapeHtml(error.message)}</p><pre>${escapeHtml(error.traceback||"")}</pre></section>`).join("")}</div>`}
+function renderRuntimeErrors(errors){if(!errors?.length)return"";return `<div class="failure-diagnostics"><h2>Runtime exception</h2>${errors.map(error=>`<section class="failure-group"><h3>${escapeHtml(error.type)} during ${escapeHtml(error.phase)}${error.time===undefined?"":` · t=${escapeHtml(Number(error.time).toFixed(4))}s`}${error.row===undefined?"":` · tile ${error.row},${error.col}`}</h3><p>${escapeHtml(error.message)}</p><pre>${escapeHtml(error.traceback||"")}</pre></section>`).join("")}</div>`}
 function renderRepeatValidation(r){const label=r.ok?"PASS":"FAIL";return `<h2>3 × 3 repeat</h2><table class="validation-table"><tbody><tr><th>Result</th><th>Entered</th><th>Exited</th><th>Active</th><th>Peak</th><th>Lost</th></tr><tr><td class="${r.ok?"pass":"fail-text"}">${label}</td><td>${r.balls_spawned}</td><td>${r.exited}</td><td>${r.active}</td><td>${r.peak_active}</td><td>${r.lost}</td></tr></tbody></table>${renderRuntimeErrors(r.runtime_errors)}`}
 function renderValidation(r){
   const failures=r.details.filter(detail=>detail.status==="invalid"||detail.status==="lost");

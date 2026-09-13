@@ -8,10 +8,10 @@ class BucketTile(TileBase):
 
     def build(self, builder):
         # A closed physical box keeps all balls alive and inside forever.
-        builder.static_segment((0, 0), (400, 0), 4)
-        builder.static_segment((400, 0), (400, 400), 4)
-        builder.static_segment((400, 400), (0, 400), 4)
-        builder.static_segment((0, 400), (0, 0), 4)
+        builder.static_segment((4, 4), (396, 4), 4)
+        builder.static_segment((396, 4), (396, 396), 4)
+        builder.static_segment((396, 396), (4, 396), 4)
+        builder.static_segment((4, 396), (4, 4), 4)
 
 
 def test_flow_validator_uses_global_inventory_contract():

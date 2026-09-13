@@ -44,7 +44,7 @@ def test_api_reference_describes_current_contract():
         "ballRadius": 15,
         "ballDiameter": 30,
         "centerRange": 45,
-        "buildMargin": 20.0,
+        "buildMargin": 0.0,
     }
     assert reference["flow"] == {
         "entryTestSpeeds": [1.0, 300.0, 600.0],

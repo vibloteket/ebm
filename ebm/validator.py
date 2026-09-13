@@ -115,8 +115,10 @@ def validate_tile_flow(
     result = ValidationResult(name, balls, max_active)
     try:
         tile.build(builder)
+        registry.validate_geometry(time=0, phase="build")
     except Exception as error:
-        result.runtime_errors.append(_runtime_error(error, 1, "build"))
+        result.runtime_errors.append(_runtime_error(error, 1, "build", 0))
+        registry.destroy_owner(1)
         return result
     active: list[ValidationBall] = []
     combinations = {port: entry_flow_samples(port) for port in (Port.T0, Port.L0)}
@@ -133,15 +135,21 @@ def validate_tile_flow(
             result.balls_spawned += 1
             next_spawn += spawn_interval
 
+        phase, check_time = "update", t
         try:
             tile.update(builder, dt)
+            registry.validate_geometry(time=t, phase=phase)
+            phase, check_time = "physics", t + dt
+            space.step(dt)
+            registry.validate_geometry(time=check_time, phase=phase)
+            phase = "advance"
+            registry.advance(dt)
+            registry.validate_geometry(time=check_time, phase=phase)
         except Exception as error:
-            result.runtime_errors.append(_runtime_error(error, 1, "update"))
+            result.runtime_errors.append(_runtime_error(error, 1, phase, check_time))
             break
-        space.step(dt)
-        registry.advance(dt)
         if registry.runtime_errors:
-            result.runtime_errors.extend(registry.runtime_errors)
+            result.runtime_errors.extend({"time": t + dt, **error} for error in registry.runtime_errors)
             break
         limit_space_ball_speeds(active)
         t += dt
@@ -166,13 +174,15 @@ def validate_tile_flow(
     return result
 
 
-def _runtime_error(error: Exception, owner: int, phase: str) -> dict[str, Any]:
+def _runtime_error(error: Exception, owner: int, phase: str, time: float = 0) -> dict[str, Any]:
     return {
         "owner": owner,
         "phase": phase,
         "type": type(error).__name__,
         "message": str(error),
         "traceback": "".join(traceback.format_exception(error)),
+        "time": time,
+        **getattr(error, "details", {}),
     }
 
 

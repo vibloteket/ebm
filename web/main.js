@@ -1,4 +1,4 @@
-const APP_VERSION = "prototype-0.64-tile-400";
+const APP_VERSION = "prototype-0.65-tile-400";
 const PYMUNK_WHEEL = "./vendor/pymunk-7.3.0-cp314-cp314-pyemscripten_2026_0_wasm32.whl";
 const PY_FILES = [
   "__init__.py",
@@ -6,7 +6,7 @@ const PY_FILES = [
   "ports.py",
   "random_utils.py",
   "tile_base.py",
-  "tile_api.py",
+  "tile_api.py", "geometry_bounds.py",
   "tile_catalog.py",
   "tile_output.py",
   "tiles/__init__.py",

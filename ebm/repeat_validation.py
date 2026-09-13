@@ -71,8 +71,11 @@ def validate_repeated_flow(
             builder = TileBuilder(registry, owner, tile_origin(row, col))
             try:
                 tile.build(builder)
+                registry.validate_geometry(owner, time=0, phase="build")
             except Exception as error:
                 result.runtime_errors.append(_error(error, owner, "build", size))
+                for built_owner in range(1, owner + 1):
+                    registry.destroy_owner(built_owner)
                 return result
             owners.append((owner, tile, builder))
             owner += 1
@@ -97,15 +100,24 @@ def validate_repeated_flow(
         for owner, tile, builder in owners:
             try:
                 tile.update(builder, dt)
+                registry.validate_geometry(owner, time=t, phase="update")
             except Exception as error:
-                result.runtime_errors.append(_error(error, owner, "update", size))
+                result.runtime_errors.append(_error(error, owner, "update", size, t))
                 break
         if result.runtime_errors:
             break
-        space.step(dt)
-        registry.advance(dt)
+        phase = "physics"
+        try:
+            space.step(dt)
+            registry.validate_geometry(time=t + dt, phase=phase)
+            phase = "advance"
+            registry.advance(dt)
+            registry.validate_geometry(time=t + dt, phase=phase)
+        except Exception as error:
+            result.runtime_errors.append(_error(error, 0, phase, size, t + dt))
+            break
         if registry.runtime_errors:
-            result.runtime_errors.extend(_located(error, size) for error in registry.runtime_errors)
+            result.runtime_errors.extend(_located({"time": t + dt, **error}, size) for error in registry.runtime_errors)
             break
         for body, _shape in balls:
             limit_ball_speed(body)
@@ -163,8 +175,8 @@ def _located(error, size):
     return item
 
 
-def _error(error, owner, phase, size):
-    return _located({"owner": owner, "phase": phase, "type": type(error).__name__, "message": str(error), "traceback": "".join(traceback.format_exception(error))}, size)
+def _error(error, owner, phase, size, time=0):
+    return _located({"owner": owner, "phase": phase, "time": time, "type": type(error).__name__, "message": str(error), "traceback": "".join(traceback.format_exception(error)), **getattr(error, "details", {})}, size)
 
 
 def _remove(space, balls, ball):

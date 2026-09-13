@@ -70,6 +70,7 @@ class EditorRuntime:
         try:
             with console_phase("build"):
                 tile.build(builder)
+                registry.validate_geometry(time=0, phase="build")
         finally:
             registry.destroy_owner(1)
 

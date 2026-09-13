@@ -103,9 +103,15 @@ All tile-authored geometry uses local coordinates in the nominal range:
 
 The engine translates local coordinates to world coordinates.
 
-A small engine-defined construction margin may be allowed, for example `-10..210`, so neighboring port geometry can meet cleanly. This margin is policy, not controlled by each tile.
+All tile-owned geometry must remain inside `0..400` on both axes. There is no construction margin, including at ports. `BUILD_MARGIN = 0` is retained only for API-reference compatibility; the segment/polygon radius budget is a separate constant.
 
-Validation must reject geometry whose full bounding box, including thickness or radius, exceeds the allowed bounds.
+Construction rejects geometry whose full bounding box, including thickness, circular end caps or polygon radius, exceeds these bounds. Sensors and visual-only segments obey the same rule. Attached shapes are measured after applying the current body transform; negative body-local coordinates are valid. Position, angle and visual-endpoint mutations are checked before accepting the change, with rollback on failure.
+
+Both single-tile and repeated-grid flow validation check owned geometry after build, each tile update, every physics step and registry advance (including delayed resumes). The first violation stops the test with object ID, owner/tile, time, phase, edge and overflow distance. Static, hidden and paused geometry is included; simulation balls are excluded and retain their independent port contract. Bounds are computed from current geometry rather than cached Pymunk bounding boxes. A `1e-7`-unit tolerance accommodates floating-point rounding only.
+
+Static shape geometry is immutable through the public API, so validation reuses its successful bounds check while the body transform is unchanged. Visual segments are immutable records replaced by endpoint edits, which invalidate their cached check. Dynamic shapes are measured every step. This avoids repeated expensive Python/CFFI geometry calls in Pyodide.
+
+These runtime checks run in validation, not in the live machine frame loop. They verify the sampled simulation trajectory, not all possible future motion; no geometry is silently clipped or moved.
 
 ## Physics-first behavior
 
@@ -218,7 +224,7 @@ Required checks:
 
 Build the tile and verify:
 
-- all geometry lies within the permitted local bounds and margin;
+- all geometry, including radius, lies within the strict local `0..400` bounds;
 - all resources belong to the tile instance;
 - all numeric values are finite;
 - masses, moments, radii, friction, elasticity, forces, and velocities are reasonable;
