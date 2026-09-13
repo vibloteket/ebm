@@ -6,7 +6,7 @@ import random
 import traceback
 from typing import Any, Callable
 
-from .ball_physics import configure_ball_body, limit_space_ball_speeds
+from .ball_physics import TILE_SPAWN_INTERVAL, configure_ball_body, limit_space_ball_speeds
 from .ports import BALL_RADIUS, COLUMN_OFFSET, MAX_EXIT_ANGLE_DEGREES, OUTPUT_PORTS, PORT_SPECS, TILE_SIZE, Port, entry_flow_samples, entry_velocity, tile_origin
 from .tile_api import (
     BALL_COLLISION_TYPE,
@@ -21,7 +21,7 @@ BALL_MASS = 1
 DEFAULT_DT = 1 / 120
 VALIDATION_BALLS = 120
 MAX_ACTIVE_BALLS = 20
-SPAWN_INTERVAL = 0.4
+SPAWN_INTERVAL = TILE_SPAWN_INTERVAL
 BOUNDS_EPSILON = 0.25
 MAX_EXIT_ANGLE_COSINE = math.cos(math.radians(MAX_EXIT_ANGLE_DEGREES))
 

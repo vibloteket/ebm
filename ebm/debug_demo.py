@@ -6,7 +6,7 @@ import random
 from js import window
 from pyodide.ffi import create_proxy
 
-from .ball_physics import configure_ball_body, limit_space_ball_speeds
+from .ball_physics import TILE_SPAWN_INTERVAL, configure_ball_body, limit_space_ball_speeds
 from .ports import BALL_RADIUS, MAX_EXIT_ANGLE_DEGREES, Port, PORT_SPECS, TILE_SIZE, entry_velocity
 from .tile_api import BALL_COLLISION_TYPE, BALL_ELASTICITY, BALL_FRICTION, TileBuilder, TileResourceRegistry, VisualSegment, ball_shape_filter
 from .tile_catalog import default_tile
@@ -57,14 +57,16 @@ class DebugEngine:
         self.builder = TileBuilder(self.registry, self.owner_id, (0, 0))
         self.tile.build(self.builder)
         self.spawn_timer = 0.0
+        self.next_entry = 0
         # Short validation for debug UI. The command-line validator uses stricter defaults.
         self.validation = validate_tile_flow(default_tile)
 
     def step(self, dt: float) -> None:
         self.spawn_timer -= dt
         if self.spawn_timer <= 0:
-            self.spawn_all_entries()
-            self.spawn_timer = 0.8
+            self.spawn_at_port(self.contract.entries[self.next_entry])
+            self.next_entry = (self.next_entry + 1) % len(self.contract.entries)
+            self.spawn_timer += TILE_SPAWN_INTERVAL
 
         for _ in range(max(1, int(dt / (1 / 60)))):
             self.tile.update(self.builder, 1 / 60)

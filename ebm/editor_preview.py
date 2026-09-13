@@ -7,7 +7,7 @@ from js import window
 from pyodide.ffi import create_proxy
 
 from . import editor_runtime
-from .ball_physics import configure_ball_body, limit_space_ball_speeds
+from .ball_physics import INPUT_SPAWN_INTERVAL, configure_ball_body, limit_space_ball_speeds
 from .editor_console import console_muted, console_phase
 from .debug_demo import Ball, _draw_port_overlays
 from .ports import BALL_RADIUS, COLUMN_OFFSET, MAX_EXIT_ANGLE_DEGREES, Port, PORT_SPECS, TILE_SIZE, entry_velocity, tile_origin
@@ -61,7 +61,7 @@ class EditorPreview:
         # Every open boundary input has an independent phase and cadence.
         # Real neighboring mechanisms do not deliver all balls in lockstep.
         self.spawn_clocks = {
-            boundary: self.rng.uniform(0.05, 0.85)
+            boundary: self.rng.uniform(0.05, INPUT_SPAWN_INTERVAL)
             for boundary in self._boundary_inputs()
         }
 
@@ -77,7 +77,7 @@ class EditorPreview:
                 self.spawn(port, ox, oy)
                 # Vary the interval as well as the initial phase. This exposes
                 # mechanisms that only work when inputs arrive simultaneously.
-                self.spawn_clocks[boundary] += self.rng.uniform(0.65, 1.35)
+                self.spawn_clocks[boundary] += self.rng.uniform(0.75 * INPUT_SPAWN_INTERVAL, 1.25 * INPUT_SPAWN_INTERVAL)
         for _ in range(max(1, int(dt / (1 / 60)))):
             for owner, tile, builder in self.owners:
                 row, col = divmod(owner - 1, self.grid_size)

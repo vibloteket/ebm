@@ -6,7 +6,7 @@ from ebm.validator import validate_tile_flow
 def test_mirrored_s_switch_passes_single_and_repeat_validation():
     single = validate_tile_flow(MirroredSSwitch)
     assert single.ok, single.to_dict()
-    assert single.output_counts == {"B0": 56, "R0": 61}
+    assert single.output_counts == {"B0": 57, "R0": 61}
     repeat = validate_repeated_flow(MirroredSSwitch)
     assert repeat.ok, repeat.to_dict()
 

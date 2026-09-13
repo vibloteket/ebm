@@ -6,7 +6,7 @@ import random
 import traceback
 from typing import Any, Callable
 
-from .ball_physics import configure_ball_body, limit_ball_speed
+from .ball_physics import INPUT_SPAWN_INTERVAL, configure_ball_body, limit_ball_speed
 from .ports import BALL_RADIUS, COLUMN_OFFSET, MAX_EXIT_ANGLE_DEGREES, PORT_SPECS, TILE_SIZE, Port, entry_velocity, tile_origin
 from .tile_api import BALL_COLLISION_TYPE, BALL_ELASTICITY, BALL_FRICTION, TileBuilder, TileResourceRegistry, ball_shape_filter
 
@@ -51,7 +51,7 @@ def validate_repeated_flow(
     *,
     size: int = 3,
     duration: float = 30.0,
-    spawn_interval: float = 0.8,
+    spawn_interval: float = INPUT_SPAWN_INTERVAL,
     max_active_per_tile: int = 20,
     dt: float = 1 / 120,
     seed: int = 17,

@@ -11,7 +11,7 @@ def test_editor_preview_uses_independent_boundary_spawn_clocks():
     )
     step_source = ast.get_source_segment(source, step)
     assert "for boundary in list(self.spawn_clocks)" in step_source
-    assert "self.rng.uniform(0.65, 1.35)" in step_source
+    assert "self.rng.uniform(0.75 * INPUT_SPAWN_INTERVAL, 1.25 * INPUT_SPAWN_INTERVAL)" in step_source
     assert "spawn_boundary()" not in step_source
 
 

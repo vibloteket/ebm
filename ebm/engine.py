@@ -6,14 +6,14 @@ import random
 import time
 from typing import Any
 
-from .ball_physics import configure_ball_body, limit_space_ball_speeds
+from .ball_physics import INPUT_SPAWN_INTERVAL, configure_ball_body, limit_space_ball_speeds
 from .ports import BALL_RADIUS, COLUMN_OFFSET, Port, TILE_SIZE, left_neighbor, tile_origin
 from .random_utils import stable_seed
 from .tile_api import BALL_COLLISION_TYPE, BALL_ELASTICITY, BALL_FRICTION, TileBuilder, TileResourceRegistry, ball_shape_filter
 from .tile_catalog import create_tile
 from .tile_output import suppress_tile_output
 
-BOUNDARY_SPAWN_INTERVAL = 1.2
+BOUNDARY_SPAWN_INTERVAL = INPUT_SPAWN_INTERVAL
 # One retained tile around the viewport is enough for seamless panning. At
 # 0.5×, two tiles added hundreds of unnecessary Pymunk shapes and updates.
 BUFFER_TILES = 1

@@ -4,6 +4,10 @@ import math
 
 MAX_BALL_SPEED = 600.0
 
+# Nominal source cadence: one ball/second across the two tile inputs.
+TILE_SPAWN_INTERVAL = 1.0
+INPUT_SPAWN_INTERVAL = 2 * TILE_SPAWN_INTERVAL
+
 
 def limit_ball_speed(body, _gravity=None, _damping=None, _dt=None) -> None:
     """Clamp a body's velocity vector without changing its direction."""
