@@ -7,6 +7,7 @@ class PoweredChannelTile(TileBase):
     """Flow tile that distributes incoming balls across both outputs."""
 
     author = "EBM"
+    enabled = False  # Reference/example; opt in explicitly to include it in the machine.
 
     def build(self, builder) -> None:
         sensor = builder.sensor_box(15, 15, 385, 385)

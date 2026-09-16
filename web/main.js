@@ -1,26 +1,6 @@
-const APP_VERSION = "prototype-0.67-tile-400";
+import {loadPythonPackage} from "./python-package.js?v=1";
+const APP_VERSION = "prototype-0.68-tile-400";
 const PYMUNK_WHEEL = "./vendor/pymunk-7.3.0-cp314-cp314-pyemscripten_2026_0_wasm32.whl";
-const PY_FILES = [
-  "__init__.py",
-  "ball_physics.py",
-  "ports.py",
-  "random_utils.py",
-  "tile_base.py",
-  "tile_api.py", "geometry_bounds.py",
-  "tile_catalog.py",
-  "tile_output.py",
-  "tiles/__init__.py",
-  "tiles/builtin/__init__.py",
-  "tiles/builtin/powered_channel.py",
-  "tiles/builtin/reference_router.py",
-  "tiles/contributed/__init__.py",
-  "tiles/contributed/segment_switchback.py",
-  "tiles/contributed/teleport_collector.py",
-  "tiles/contributed/mirrored_s_switch.py",
-  "sketch.py",
-  "pigment.py",  "engine.py",
-  "web_demo.py",
-];
 
 const diagnostics = [];
 let loading;
@@ -122,17 +102,7 @@ async function checkResource(path) {
 }
 
 async function writePackage(pyodide) {
-  for (const directory of ["/ebm", "/ebm/tiles", "/ebm/tiles/builtin", "/ebm/tiles/contributed"]) {
-    try { pyodide.FS.mkdir(directory); } catch (_) {}
-  }
-  for (const file of PY_FILES) {
-    pyodide.FS.writeFile(`/ebm/${file}`, await fetchText(`./ebm/${file}`));
-  }
-  pyodide.runPython(`
-import sys
-if '/' not in sys.path:
-    sys.path.insert(0, '/')
-`);
+  await loadPythonPackage(pyodide);
 }
 
 async function main() {

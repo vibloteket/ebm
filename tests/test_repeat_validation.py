@@ -1,6 +1,7 @@
+import pytest
 from ebm import TileBase
 from ebm.repeat_validation import validate_repeated_flow
-from ebm.tile_catalog import create_tile
+from ebm.tile_catalog import create_tile, get_tile
 from ebm.validator import validate_tile_flow
 
 
@@ -26,6 +27,7 @@ class CallbackErrorTile(TileBase):
         builder.on_ball_contact(sensor, begin=fail)
 
 
+@pytest.mark.skipif(not get_tile("contributed.teleport-collector").enabled, reason="Tile disabled")
 def test_repeat_validator_passes_teleport_collector_handoffs():
     result = validate_repeated_flow(
         lambda: create_tile("contributed.teleport-collector"),

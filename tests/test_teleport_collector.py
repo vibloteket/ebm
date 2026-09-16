@@ -14,6 +14,8 @@ from ebm.tile_api import (
 from ebm.tiles.contributed.teleport_collector import BLUE_BALL, BLUE_GATE, BOX, BUMPER_COLORS, MAGIC, MAGIC_OFF, TeleportCollector
 
 
+pytestmark = pytest.mark.skipif(not TeleportCollector.enabled, reason="Tile disabled")
+
 def test_neighbor_handoff_reaches_teleport_sensor_after_previous_owner_releases():
     """Reproduce R0 -> L0 handoff used by the 3x3 repeated preview."""
     space = pymunk.Space()

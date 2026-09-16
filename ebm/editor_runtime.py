@@ -33,7 +33,7 @@ class EditorRuntime:
                 self._check_instance(tile_class())
             self.tile_class = tile_class
             self.source = source
-            return json.dumps({"ok": True, "className": tile_class.__name__, "displayName": tile_display_name(tile_class), "author": tile_class.author})
+            return json.dumps({"ok": True, "className": tile_class.__name__, "displayName": tile_display_name(tile_class), "author": tile_class.author, "enabled": tile_class.enabled})
         except Exception as error:
             return json.dumps(self._error(error))
         finally:
@@ -60,6 +60,8 @@ class EditorRuntime:
             raise TypeError("Tile source must define a TileBase subclass")
         if not isinstance(tile_class.author, str) or not tile_class.author.strip() or tile_class.author == TileBase.author:
             raise ValueError("Tile must declare an author")
+        if type(tile_class.enabled) is not bool:
+            raise ValueError("enabled must be True or False")
 
     @staticmethod
     def _check_instance(tile):

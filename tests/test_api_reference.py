@@ -27,7 +27,12 @@ def test_api_reference_describes_current_contract():
         "name": "author",
         "type": "str",
         "required": True,
-        "description": "Name of the tile author or project. This is the only tile metadata declared in Python.",
+        "description": "Name of the tile author or project.",
+    }, {
+        "name": "enabled",
+        "type": "bool",
+        "required": False,
+        "description": "Defaults to True. False skips publication flow checks and machine selection, but keeps the tile in the editor. Syntax, imports and metadata must still be valid.",
     }]
     signatures = {method["name"]: method["signature"] for method in reference["tileBuilder"]["methods"]}
     assert "a: Point" in signatures["static_segment"]

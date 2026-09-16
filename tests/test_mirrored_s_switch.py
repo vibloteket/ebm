@@ -1,7 +1,10 @@
+import pytest
 from ebm.repeat_validation import validate_repeated_flow
 from ebm.tiles.contributed.mirrored_s_switch import MirroredSSwitch
 from ebm.validator import validate_tile_flow
 
+
+pytestmark = pytest.mark.skipif(not MirroredSSwitch.enabled, reason="Tile disabled")
 
 def test_mirrored_s_switch_passes_single_and_repeat_validation():
     single = validate_tile_flow(MirroredSSwitch)

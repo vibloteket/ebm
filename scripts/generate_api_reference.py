@@ -49,7 +49,8 @@ def build_reference() -> dict:
         "tileBase": {
             "description": inspect.getdoc(TileBase),
             "properties": [
-                {"name": "author", "type": "str", "required": True, "description": "Name of the tile author or project. This is the only tile metadata declared in Python."},
+                {"name": "author", "type": "str", "required": True, "description": "Name of the tile author or project."},
+                {"name": "enabled", "type": "bool", "required": False, "description": "Defaults to True. False skips publication flow checks and machine selection, but keeps the tile in the editor. Syntax, imports and metadata must still be valid."},
             ],
             "methods": method_reference(TileBase, ("build", "update")),
         },

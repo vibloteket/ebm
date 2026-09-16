@@ -13,6 +13,7 @@ class TileBase:
     """Contributor-facing flow tile interface."""
 
     author = "unknown"
+    enabled = True  # False keeps the source in the editor, out of publication tests and the machine.
 
     def build(self, builder: TileBuilder) -> None:  # pragma: no cover - interface
         """Create this instance's physical and visual resources with a TileBuilder."""

@@ -10,7 +10,7 @@ from .ball_physics import INPUT_SPAWN_INTERVAL, configure_ball_body, limit_space
 from .ports import BALL_RADIUS, COLUMN_OFFSET, Port, TILE_SIZE, left_neighbor, tile_origin
 from .random_utils import stable_seed
 from .tile_api import BALL_COLLISION_TYPE, BALL_ELASTICITY, BALL_FRICTION, TileBuilder, TileResourceRegistry, ball_shape_filter
-from .tile_catalog import create_tile
+from .tile_catalog import active_tiles, create_tile
 from .tile_output import suppress_tile_output
 
 BOUNDARY_SPAWN_INTERVAL = INPUT_SPAWN_INTERVAL
@@ -19,11 +19,8 @@ BOUNDARY_SPAWN_INTERVAL = INPUT_SPAWN_INTERVAL
 BUFFER_TILES = 1
 BALL_MASS = 1
 PHYSICS_DT = 1 / 60
-MACHINE_TILE_IDS = (
-    "contributed.segment-switchback",
-    "contributed.teleport-collector",
-    "contributed.mirrored-s-switch",
-)
+WORLD_SEED = "machine-tile-v1"
+MACHINE_TILE_IDS = tuple(registration.id for registration in active_tiles())
 
 
 @dataclass
@@ -173,8 +170,10 @@ class Engine:
             self._reconcile_boundary_spawners()
 
     def _tile_for_coord(self, row: int, col: int):
-        """Choose a stable contributed tile so panning never changes the map."""
-        index = stable_seed("machine-tile", row, col) % len(MACHINE_TILE_IDS)
+        """Stable for a fixed seed and enabled catalog; catalog edits may remap the world."""
+        if not MACHINE_TILE_IDS:
+            raise ValueError("No enabled tiles: enable at least one tile before publishing")
+        index = stable_seed(WORLD_SEED, row, col) % len(MACHINE_TILE_IDS)
         return create_tile(MACHINE_TILE_IDS[index])
 
     def _needed_coords(self) -> set[tuple[int, int]]:

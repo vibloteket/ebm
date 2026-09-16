@@ -15,6 +15,8 @@ cp "$ROOT/web/map-debug.js" "$OUT/map-debug.js"
 cp "$ROOT/web/map-debug.css" "$OUT/map-debug.css"
 cp "$ROOT/web/map-data.json" "$OUT/map-data.json"
 cp "$ROOT/web/main.js" "$OUT/main.js"
+cp "$ROOT/web/python-package.js" "$OUT/python-package.js"
+touch "$OUT/.nojekyll"
 cp "$ROOT/web/v3-renderer.js" "$OUT/v3-renderer.js"
 cp "$ROOT/web/debug.html" "$OUT/debug.html"
 cp "$ROOT/web/debug.js" "$OUT/debug.js"
@@ -64,8 +66,11 @@ for registration in all_tiles():
         "class": cls.__name__,
         "source": f"tiles/sources/{source_name}",
         "builtin": registration.builtin,
+        "enabled": registration.enabled,
     })
 (out / "tiles" / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+files = sorted(path.relative_to(root / "ebm").as_posix() for path in (root / "ebm").rglob("*.py"))
+(out / "python-files.json").write_text(json.dumps(files, indent=2) + "\n")
 PY
 
 cat > "$OUT/README.txt" <<'TXT'

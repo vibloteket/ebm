@@ -1,0 +1,73 @@
+name: Validate and publish machine
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Serialize publication: an older run cannot deploy after a newer one.
+# PRs have their own read-only validation groups.
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.8.22"
+          enable-cache: true
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Install locked dependencies
+        run: uv sync --frozen --extra dev
+      - name: Check Python and unit tests
+        run: |
+          uv run --no-sync python -m compileall -q ebm
+          uv run --no-sync python -m pytest -q
+      - name: Validate enabled tiles (single and homogeneous 3x3)
+        run: uv run --no-sync python -m ebm validate --json > validation.json
+      - name: Save validation diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tile-validation
+          path: validation.json
+          if-no-files-found: ignore
+      - name: Build static site
+        run: uv run --no-sync bash scripts/build-static-site.sh
+      - name: Upload Pages artifact
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/site
+
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: validate-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check Pages configuration
+        uses: actions/configure-pages@v5
+      - name: Publish validated site
+        id: deployment
+        uses: actions/deploy-pages@v4

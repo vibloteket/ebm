@@ -9,7 +9,7 @@ from ebm.editor_runtime import EditorRuntime
 from ebm.geometry_bounds import GEOMETRY_EPSILON, GeometryBoundsError, check_bounds, shape_bounds
 from ebm.repeat_validation import validate_repeated_flow
 from ebm.tile_api import BUILD_MARGIN, TileBuilder, TileResourceRegistry
-from ebm.tile_catalog import all_tiles
+from ebm.tile_catalog import active_tiles
 from ebm.validator import validate_tile_flow
 
 
@@ -237,7 +237,7 @@ class BadTile(TileBase):
     assert "10 units" in result["message"] and "left" in result["message"]
 
 
-@pytest.mark.parametrize("registration", all_tiles(), ids=lambda r: r.id)
+@pytest.mark.parametrize("registration", active_tiles(), ids=lambda r: r.id)
 def test_catalog_builds_inside_strict_bounds_at_nonzero_origin(registration):
     _, registry, b = world((-400, 600))
     registration.create().build(b)
