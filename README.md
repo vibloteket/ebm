@@ -96,11 +96,11 @@ The command exits non-zero if any filler contract fails. The debug page also sho
 
 ### Ball supply
 
-The nominal source rate is **one ball per second across a tile's two inputs**:
+The nominal source rate is **0.8 balls per second across a tile's two inputs**:
 
-- Single-tile validation and automatic debug spawning alternate T0/L0 every 1 second.
-- Editor preview uses independent 1.5–2.5 second intervals per open input (2 seconds on average).
-- Repeated validation and the main machine use 2 seconds per open boundary input.
+- Single-tile validation and automatic debug spawning alternate T0/L0 every 1.25 seconds.
+- Editor preview uses independent 1.875–3.125 second intervals per open input (2.5 seconds on average).
+- Repeated validation and the main machine use 2.5 seconds per open boundary input.
 
 The shared timing constants live in `ebm/ball_physics.py`. These control sources, not transfers between tiles: upstream mechanisms may still produce bursts or concentrate flow. Initial machine inventory and manual ball spawning are unchanged.
 

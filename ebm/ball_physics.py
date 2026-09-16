@@ -4,8 +4,8 @@ import math
 
 MAX_BALL_SPEED = 600.0
 
-# Nominal source cadence: one ball/second across the two tile inputs.
-TILE_SPAWN_INTERVAL = 1.0
+# Nominal source cadence: 0.8 balls/second across the two tile inputs.
+TILE_SPAWN_INTERVAL = 1.25
 INPUT_SPAWN_INTERVAL = 2 * TILE_SPAWN_INTERVAL
 
 

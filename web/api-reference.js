@@ -28,7 +28,7 @@ class MyTile(TileBase):
       `Every ball has radius ${rules.ballRadius} and diameter ${rules.ballDiameter} tile units.`,
       `Balls can arrive at any speed from nearly stationary up to the global cap of ${flow.maxBallSpeed} units per second; validation samples ${flow.entryTestSpeeds.join(", ")} units per second.`,
       `The current validator introduces one ball every ${flow.spawnInterval} seconds overall. Inputs rotate between T0 and L0, so the nominal interval at each individual input is ${flow.perInputInterval} seconds.`,
-      "Preview inputs use independent random intervals of 1.5–2.5 seconds: about one ball per second across T0 and L0 together. Repeated validation and the main machine use two seconds per open boundary input.",
+      `Preview inputs use independent random intervals of ${0.75 * flow.perInputInterval}–${1.25 * flow.perInputInterval} seconds: about ${1 / flow.spawnInterval} balls per second across T0 and L0 together. Repeated validation and the main machine use ${flow.perInputInterval} seconds per open boundary input.`,
       "This is source cadence, not a rate limiter between tiles. Balls from neighboring tiles can be delayed, grouped, or arrive independently.",
     ])}<h4>Flow rules</h4>${list([
       "A ball may enter through T0 or L0 and leave through either valid output: B0 or R0. There are no fixed input-to-output routes.",

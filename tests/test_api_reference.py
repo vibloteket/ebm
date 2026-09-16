@@ -49,8 +49,8 @@ def test_api_reference_describes_current_contract():
     assert reference["flow"] == {
         "entryTestSpeeds": [1.0, 300.0, 600.0],
         "maxBallSpeed": 600.0,
-        "spawnInterval": 1.0,
-        "perInputInterval": pytest.approx(2.0),
+        "spawnInterval": 1.25,
+        "perInputInterval": pytest.approx(2.5),
     }
     assert reference["validation"] == {"balls": 120, "maxActive": 20}
     assert reference["capabilities"]["available"]
