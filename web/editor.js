@@ -1,5 +1,5 @@
 import {loadPythonPackage} from "./python-package.js?v=1";
-import {initializeApiReference} from "./api-reference.js?v=0.72";
+import {initializeApiReference} from "./api-reference.js?v=0.73";
 
 const PYMUNK_WHEEL="./vendor/pymunk-7.3.0-cp314-cp314-pyemscripten_2026_0_wasm32.whl";
 const NEW_ID="__new__";
