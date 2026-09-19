@@ -58,6 +58,21 @@ def test_moving_cord_does_not_rebuild_static_cache_and_draws_at_world_coordinate
     assert ('lineTo', (550, 350)) in canvas.context.calls
 
 
+def test_kinematic_pin_is_drawn_in_dynamic_layer():
+    registry = TileResourceRegistry.for_space(pymunk.Space())
+    b = TileBuilder(registry, 8, (400, 200))
+    pin = b.kinematic_body((100, 100))
+    b.segment_shape(pin, (0, 0), (0, -25), 5)
+    scope = renderer()
+    active = SimpleNamespace(builder=b, owner_id=8, tile=object())
+    canvas = Canvas()
+
+    scope['draw_dynamic'](canvas, SimpleNamespace(active_tiles={8: active}, balls=[]))
+
+    assert ('moveTo', (490.0, 280.0)) in canvas.context.calls
+    assert ('lineTo', (490.0, 255.0)) in canvas.context.calls
+
+
 def test_static_style_cache_discards_previous_revisions_of_the_same_instance():
     registry = TileResourceRegistry.for_space(pymunk.Space())
     b = TileBuilder(registry, 7, (0, 0))

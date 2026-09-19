@@ -312,7 +312,7 @@ def draw_dynamic(canvas, engine: Engine):
                     ctx.beginPath();ctx.moveTo(ox+shape.a[0]-vx,oy+shape.a[1]-vy);ctx.lineTo(ox+shape.b[0]-vx,oy+shape.b[1]-vy)
                     ctx.strokeStyle=_css_color(style.fill_color);ctx.lineWidth=max(2,shape.radius*2);ctx.stroke()
                 continue
-            if not hasattr(shape, "body") or shape.body.body_type != 0 or getattr(shape, "ebm_hidden", False):
+            if not hasattr(shape, "body") or shape.body.body_type not in (0, 1) or getattr(shape, "ebm_hidden", False):
                 continue
             fill = _css_color(style.fill_color); stroke = _css_color(style.stroke_color)
             name = type(shape).__name__
