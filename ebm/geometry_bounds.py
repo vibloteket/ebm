@@ -48,7 +48,8 @@ def check_bounds(bounds, *, label="geometry", **details):
             )
 
 
-def shape_bounds(shape, origin):
+def local_shape_geometry(shape):
+    """Read immutable shape-local data once; public shape handles cannot edit it."""
     import pymunk
 
     if isinstance(shape, pymunk.Circle):
@@ -59,8 +60,24 @@ def shape_bounds(shape, origin):
         points = shape.get_vertices()
     else:
         raise TypeError(f"unsupported geometry: {type(shape).__name__}")
+    return tuple(tuple(point) for point in points), float(shape.radius)
+
+
+def transformed_bounds(geometry, pose, origin):
+    """Measure current world bounds without repeated Python/CFFI shape calls."""
+    points, radius = geometry
+    position, angle = pose
+    c, s = math.cos(angle), math.sin(angle)
+    ox, oy = origin
+    x, y = position
+    return points_bounds(((x + c * px - s * py - ox, y + s * px + c * py - oy)
+                          for px, py in points), radius)
+
+
+def shape_bounds(shape, origin):
+    points, radius = local_shape_geometry(shape)
     ox, oy = origin
     world = [shape.body.local_to_world(point) for point in points]
     # Radius stays circular under rotation. Expanding in body-local space and
     # rotating two diagonal corners does not give the correct world bounds.
-    return points_bounds(((point.x - ox, point.y - oy) for point in world), shape.radius)
+    return points_bounds(((point.x - ox, point.y - oy) for point in world), radius)

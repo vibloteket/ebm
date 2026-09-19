@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import math
 import sys
 import traceback
 from typing import Any, Callable
 from weakref import WeakKeyDictionary
 
 from .ports import TILE_SIZE
-from .geometry_bounds import GeometryBoundsError, MAX_SHAPE_RADIUS, check_bounds, points_bounds, radius_value, shape_bounds
+from .geometry_bounds import GeometryBoundsError, MAX_SHAPE_RADIUS, check_bounds, local_shape_geometry, points_bounds, radius_value, shape_bounds, transformed_bounds
 
 BUILD_MARGIN = 0.0  # Kept for API reference compatibility; no geometry may overhang.
 BALL_COLLISION_TYPE = 1
@@ -162,6 +163,7 @@ class VisualSegment:
     a: Point
     b: Point
     radius: float
+    dynamic: bool = False
 
 
 @dataclass(frozen=True)
@@ -267,6 +269,8 @@ class TileResourceRegistry:
         self._body_for_object: dict[int, int] = {}
         self._balls: dict[Any, dict[str, Any]] = {}
         self._static_shape_bodies: dict[int, Any] = {}
+        self._shape_geometries: dict[int, Any] = {}
+        self._body_geometry_radii: dict[Any, float] = {}
         self._checked_static_poses: dict[int, Any] = {}
         self._checked_visuals: dict[int, VisualSegment] = {}
         self.runtime_errors: list[dict[str, Any]] = []
@@ -369,7 +373,8 @@ class TileResourceRegistry:
         if its body transform changes. Visual endpoint changes replace the
         immutable VisualSegment. Dynamic geometry is always remeasured.
         """
-        static_poses = {}
+        poses = {}
+        interior_bodies = set()
         for key, resource_owner in self._owner.items():
             if owner is not None and owner != resource_owner:
                 continue
@@ -378,27 +383,41 @@ class TileResourceRegistry:
             static_body = self._static_shape_bodies.get(key)
             if is_visual and self._checked_visuals.get(key) is obj:
                 continue
-            if static_body is not None:
-                if static_body not in static_poses:
-                    static_poses[static_body] = (static_body.position, static_body.angle)
-                if self._checked_static_poses.get(key) == static_poses[static_body]:
+            shape_data = self._shape_geometries.get(key)
+            if shape_data is not None:
+                body, geometry = shape_data
+                if body in interior_bodies:
                     continue
-            if not is_visual and obj not in self._shape_handles:
+                if body not in poses:
+                    poses[body] = (body.position, body.angle)
+                    radius = self._body_geometry_radii.get(body)
+                    if radius is not None:
+                        position, angle = poses[body]
+                        ox, oy = self._origins[resource_owner]
+                        x, y = position.x - ox, position.y - oy
+                        # This circle encloses every attached shape at ANY
+                        # rotation. If it fits, all their exact bounds fit too.
+                        if math.isfinite(angle) and radius <= x <= TILE_SIZE - radius and radius <= y <= TILE_SIZE - radius:
+                            interior_bodies.add(body)
+                            continue
+                if static_body is not None and self._checked_static_poses.get(key) == poses[body]:
+                    continue
+            elif not is_visual:
                 continue
             label = f"{type(obj).__name__} #{key}, tile {resource_owner}, t={time:.6g}s ({phase})"
             details = dict(owner=resource_owner, object_id=key, time=time, phase=phase)
             try:
                 if is_visual:
                     bounds = points_bounds((obj.a, obj.b), obj.radius)
-                elif obj in self._shape_handles:
-                    bounds = shape_bounds(obj, self._origins[resource_owner])
+                elif shape_data is not None:
+                    bounds = transformed_bounds(geometry, poses[body], self._origins[resource_owner])
                 else:
                     continue
             except ValueError as error:
                 raise GeometryBoundsError(f"{label}: {error}", **details) from error
             check_bounds(bounds, label=label, **details)
             if static_body is not None:
-                self._checked_static_poses[key] = static_poses[static_body]
+                self._checked_static_poses[key] = poses[static_body]
             if is_visual:
                 self._checked_visuals[key] = obj
 
@@ -419,8 +438,13 @@ class TileResourceRegistry:
             self._body_for_object[handle.id] = body.id
         if isinstance(handle, ShapeHandle):
             self._shape_handles[obj] = handle
+            self._shape_geometries[handle.id] = (obj.body, local_shape_geometry(obj))
             if obj.body.body_type == obj.body.STATIC:
                 self._static_shape_bodies[handle.id] = obj.body
+            else:
+                points, radius = self._shape_geometries[handle.id][1]
+                extent = max(math.hypot(x, y) for x, y in points) + radius
+                self._body_geometry_radii[obj.body] = max(self._body_geometry_radii.get(obj.body, 0), extent)
         return handle
 
     def resolve(self, owner: int, handle):
@@ -568,7 +592,7 @@ class TileResourceRegistry:
         self._visual_revisions[owner] = self._visual_revisions.get(owner, 0) + 1
 
     def set_style(self, owner: int, handle, *, fill_color=None, stroke_color=None):
-        self.resolve(owner, handle)
+        obj = self.resolve(owner, handle)
         style = self._styles.get(handle.id)
         if style is None:
             raise TypeError("resource has no visual style")
@@ -579,7 +603,7 @@ class TileResourceRegistry:
         if stroke_color is not None:
             value = _validate_color(stroke_color)
             if style.stroke_color != value: style.stroke_color = value; changed = True
-        if changed:
+        if changed and not (isinstance(obj, VisualSegment) and obj.dynamic):
             self._visual_revisions[owner] = self._visual_revisions.get(owner, 0) + 1
 
     def add_visual(self, owner: int, visual: Any, fill_color: Color, stroke_color: Color):
@@ -603,8 +627,10 @@ class TileResourceRegistry:
         points = [tuple(map(float, point)) for point in (a, b)]
         check_bounds(points_bounds(points, visual.radius),
                      label=f"VisualSegment #{handle.id}, tile {owner}", owner=owner, object_id=handle.id)
-        self._objects[handle.id] = VisualSegment(points[0], points[1], visual.radius)
-        self._visual_revisions[owner] = self._visual_revisions.get(owner, 0) + 1
+        self._objects[handle.id] = VisualSegment(points[0], points[1], visual.radius, visual.dynamic)
+        self._checked_visuals[handle.id] = self._objects[handle.id]
+        if not visual.dynamic:
+            self._visual_revisions[owner] = self._visual_revisions.get(owner, 0) + 1
 
     def visual_items(self, owner: int):
         result = []
@@ -632,6 +658,8 @@ class TileResourceRegistry:
                 pass
             self._objects.pop(key, None)
             self._static_shape_bodies.pop(key, None)
+            self._shape_geometries.pop(key, None)
+            self._body_geometry_radii.pop(obj, None)
             self._checked_static_poses.pop(key, None)
             self._checked_visuals.pop(key, None)
             self._owner.pop(key, None)
@@ -877,6 +905,49 @@ class TileBuilder:
         constraint = pymunk.PivotJoint(self._registry.space.static_body, raw, self._point(anchor))
         return self._registry.add(self._owner, constraint, ConstraintHandle, body=body)
 
+    def spring(self, body: BodyHandle, anchor: Point, attachment: Point, *, rest_length: float, stiffness: float, damping: float) -> ConstraintHandle:
+        """Suspend a body from a tile-local anchor; attachment is body-local. No collision geometry is created."""
+        import pymunk
+
+        raw = self._registry.resolve(self._owner, body)
+        attachment = tuple(map(float, attachment))
+        points_bounds((attachment,))
+        world = raw.local_to_world(attachment)
+        self._point((world.x - self.origin[0], world.y - self.origin[1]))
+        number = self._registry._number
+        constraint = pymunk.DampedSpring(
+            self._registry.space.static_body, raw, self._point(anchor), attachment,
+            number(rest_length, "rest length", minimum=0),
+            number(stiffness, "stiffness", minimum=0),
+            number(damping, "damping", minimum=0),
+        )
+        return self._registry.add(self._owner, constraint, ConstraintHandle, body=body)
+
+    def rope(self, body: BodyHandle, anchor: Point, attachment: Point, *, max_length: float) -> ConstraintHandle:
+        """Limit distance to a tile-local anchor, allowing slack. Attachment is body-local; no rope collider is created."""
+        import pymunk
+
+        raw = self._registry.resolve(self._owner, body)
+        attachment = tuple(map(float, attachment))
+        points_bounds((attachment,))
+        world = raw.local_to_world(attachment)
+        self._point((world.x - self.origin[0], world.y - self.origin[1]))
+        constraint = pymunk.SlideJoint(
+            self._registry.space.static_body, raw, self._point(anchor), attachment,
+            0, self._registry._number(max_length, "maximum rope length", minimum=0),
+        )
+        return self._registry.add(self._owner, constraint, ConstraintHandle, body=body)
+
+    def sensor_polygon(self, body: BodyHandle, points: list[Point] | tuple[Point, ...]) -> ShapeHandle:
+        """Attach an invisible, massless, non-colliding convex sensor using body-local points."""
+        import pymunk
+
+        raw = self._registry.resolve(self._owner, body)
+        shape = pymunk.Poly(raw, self._polygon_points(points, 0))
+        shape.sensor = True
+        shape.ebm_hidden = True
+        return self._registry.add(self._owner, shape, ShapeHandle, body=body)
+
     def motor(self, body: BodyHandle, *, rate: float, max_force: float) -> MotorHandle:
         """Drive a body relative to the static world at a target angular rate."""
         import pymunk
@@ -932,12 +1003,14 @@ class TileBuilder:
             raise ValueError("at least one contact callback is required")
         self._registry.on_contact(self._owner, shape, callbacks)
 
-    def visual_segment(self, a: Point, b: Point, radius: float = 6, *, fill_color: Color = DEFAULT_SEGMENT_FILL, stroke_color: Color = DEFAULT_SEGMENT_STROKE) -> VisualHandle:
-        """Build a styled non-physical line; return its VisualHandle."""
+    def visual_segment(self, a: Point, b: Point, radius: float = 6, *, fill_color: Color = DEFAULT_SEGMENT_FILL, stroke_color: Color = DEFAULT_SEGMENT_STROKE, dynamic: bool = False) -> VisualHandle:
+        """Build a non-physical line. Use dynamic=True for moving cords, drawn without rebuilding the static tile cache."""
         # Visual-only primitives are owned and bounds-checked but never added to
         # Pymunk, so reference graphics cannot interfere with ball routing.
+        if type(dynamic) is not bool:
+            raise ValueError("dynamic must be True or False")
         local_a=(float(a[0]),float(a[1]));local_b=(float(b[0]),float(b[1]))
-        return self._registry.add_visual(self._owner,VisualSegment(local_a,local_b,radius_value(radius)),fill_color,stroke_color)
+        return self._registry.add_visual(self._owner,VisualSegment(local_a,local_b,radius_value(radius),dynamic),fill_color,stroke_color)
 
     def remove(self, handle: ResourceHandle) -> None:
         """Remove an owned resource from the simulation before normal cleanup."""

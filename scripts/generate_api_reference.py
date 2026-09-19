@@ -58,7 +58,7 @@ def build_reference() -> dict:
             "description": inspect.getdoc(TileBuilder),
             "methods": method_reference(TileBuilder, (
                 "static_segment", "static_circle", "static_polygon", "dynamic_body",
-                "circle_shape", "segment_shape", "polygon_shape", "pivot", "motor",
+                "circle_shape", "segment_shape", "polygon_shape", "sensor_polygon", "pivot", "spring", "rope", "motor",
                 "sensor_box", "on_ball_contact", "visual_segment", "remove",
             )),
         },
@@ -159,7 +159,9 @@ def build_reference() -> dict:
             "available": [
                 "Static segments, circles, and convex polygons",
                 "Dynamic compound bodies with attached circles, segments, and convex polygons",
-                "World pivots and mutable rotary motors",
+                "World pivots, anchored damped springs, slack rope limits, and mutable rotary motors",
+                "Massless, body-attached polygon sensors",
+                "Moving visual cords with dynamic=True (no collision shape or static-cache rebuild)",
                 "Body position, velocity, angle, force, impulse, and torque controls",
                 "Sensor boxes and Pymunk-style begin, pre_solve, post_solve, and separate callbacks",
                 "Visual-only segments",
@@ -170,7 +172,7 @@ def build_reference() -> dict:
                 "Optional per-frame update(builder, dt)",
             ],
             "unavailable": [
-                "Body-to-body joints, gears, and springs",
+                "Body-to-body joints and springs, and gears",
                 "Direct access to the shared Pymunk Space",
             ],
         },

@@ -227,7 +227,7 @@ def _cached_tile(active):
     if revision:
         # Dynamic styles are instance-specific. Drop older revisions so a tile
         # that animates its color cannot grow the cache forever.
-        for old_key in [candidate for candidate in _tile_cache if candidate[3] == instance and candidate != key]:
+        for old_key in [candidate for candidate in _tile_cache if candidate[4] == instance and candidate != key]:
             _tile_cache.pop(old_key, None)
     cached = _tile_cache.get(key)
     if cached is not None:
@@ -241,6 +241,8 @@ def _cached_tile(active):
     for shape, style in active.builder.visual_items:
         fill = _css_color(style.fill_color); stroke = _css_color(style.stroke_color)
         if isinstance(shape, VisualSegment):
+            if shape.dynamic:
+                continue
             segments.append([shape.a[0]+_TILE_PAD,shape.a[1]+_TILE_PAD,shape.b[0]+_TILE_PAD,shape.b[1]+_TILE_PAD,shape.radius,fill,stroke])
             continue
         if not hasattr(shape, "body") or shape.body.body_type != 2 or getattr(shape, "ebm_hidden", False): continue
@@ -301,6 +303,15 @@ def draw_dynamic(canvas, engine: Engine):
     # Authored dynamic mechanisms cannot be baked into the static tile cache.
     for active in engine.active_tiles.values():
         for shape, style in active.builder.visual_items:
+            if isinstance(shape, VisualSegment) and shape.dynamic:
+                ox, oy = active.builder.origin
+                if style.stroke_color[3]:
+                    ctx.beginPath();ctx.moveTo(ox+shape.a[0]-vx,oy+shape.a[1]-vy);ctx.lineTo(ox+shape.b[0]-vx,oy+shape.b[1]-vy)
+                    ctx.strokeStyle=_css_color(style.stroke_color);ctx.lineWidth=max(2,shape.radius*2+2);ctx.stroke()
+                if style.fill_color[3]:
+                    ctx.beginPath();ctx.moveTo(ox+shape.a[0]-vx,oy+shape.a[1]-vy);ctx.lineTo(ox+shape.b[0]-vx,oy+shape.b[1]-vy)
+                    ctx.strokeStyle=_css_color(style.fill_color);ctx.lineWidth=max(2,shape.radius*2);ctx.stroke()
+                continue
             if not hasattr(shape, "body") or shape.body.body_type != 0 or getattr(shape, "ebm_hidden", False):
                 continue
             fill = _css_color(style.fill_color); stroke = _css_color(style.stroke_color)

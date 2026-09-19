@@ -11,21 +11,21 @@ def test_static_cache_skips_unchanged_geometry_but_not_dynamic_shapes_or_static_
     registry = TileResourceRegistry.for_space(space)
     b = TileBuilder(registry, 1, (400, 600))
     fixed = b.static_circle((100, 100), 10)
-    body = b.dynamic_body((200, 200))
-    moving = b.circle_shape(body, (0, 0), 10)
-    original = api.shape_bounds
+    body = b.dynamic_body((15, 200), angle=1.5707963267948966)
+    moving = b.segment_shape(body, (-40, 0), (40, 0), 5)
+    original = api.transformed_bounds
     measured = []
 
-    def measure(shape, origin):
-        measured.append(shape)
-        return original(shape, origin)
+    def measure(geometry, pose, origin):
+        measured.append(pose[0])
+        return original(geometry, pose, origin)
 
-    monkeypatch.setattr(api, "shape_bounds", measure)
+    monkeypatch.setattr(api, "transformed_bounds", measure)
     registry.validate_geometry()
     assert len(measured) == 2
     measured.clear()
     registry.validate_geometry(time=.1)
-    assert measured == [registry.resolve(1, moving)]
+    assert measured == [registry.resolve(1, moving).body.position]
     registry.resolve(1, fixed).body.position = (795, 700)
     with pytest.raises(GeometryBoundsError) as caught:
         registry.validate_geometry(time=.2, phase="update")
@@ -34,6 +34,8 @@ def test_static_cache_skips_unchanged_geometry_but_not_dynamic_shapes_or_static_
     registry.destroy_owner(1)
     assert not registry._checked_static_poses
     assert not registry._static_shape_bodies
+    assert not registry._shape_geometries
+    assert not registry._body_geometry_radii
 
 
 def test_visual_cache_rechecks_replacement_and_cleanup_releases_it():
@@ -63,3 +65,22 @@ def test_nonfinite_static_transform_is_reported_with_owner_and_time_after_cache_
         registry.validate_geometry(time=2, phase="update")
     assert caught.value.details == {"owner": 5, "object_id": shape.id, "time": 2, "phase": "update"}
     assert "finite" in str(caught.value)
+
+
+@pytest.mark.parametrize('angle', [-1.2, 0, .3, 1.5707963267948966])
+def test_cached_local_geometry_matches_pymunk_world_transform_with_offset_mass(angle):
+    registry = TileResourceRegistry.for_space(pymunk.Space())
+    b = TileBuilder(registry, 1, (400, 200))
+    body = b.dynamic_body((200, 200), angle=angle)
+    shapes = [b.circle_shape(body, (30, -10), 15),
+              b.segment_shape(body, (-20, -20), (20, 10), 3),
+              b.polygon_shape(body, ((-30, 0), (10, 0), (5, 30)), radius=2)]
+    raw = registry.resolve(1, body)
+    assert raw.center_of_gravity.length > 0
+    for handle in shapes:
+        shape = registry.resolve(1, handle)
+        _, geometry = registry._shape_geometries[handle.id]
+        expected = api.shape_bounds(shape, b.origin)
+        actual = api.transformed_bounds(geometry, (raw.position, raw.angle), b.origin)
+        assert actual == pytest.approx(expected, abs=1e-10)
+    registry.validate_geometry()
