@@ -867,6 +867,15 @@ class TileBuilder:
         body.angle = self._registry._number(angle, "angle")
         return self._registry.add(self._owner, body, BodyHandle)
 
+    def kinematic_body(self, position: Point, *, angle: float = 0) -> BodyHandle:
+        """Create an externally driven body for a continuously powered mechanism."""
+        import pymunk
+
+        body = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
+        body.position = self._point(position)
+        body.angle = self._registry._number(angle, "angle")
+        return self._registry.add(self._owner, body, BodyHandle)
+
     def circle_shape(self, body: BodyHandle, center: Point, radius: float, *, density: float = .01, friction: float = .8, elasticity: float = .2, fill_color: Color = DEFAULT_CIRCLE_FILL, stroke_color: Color = DEFAULT_CIRCLE_STROKE) -> ShapeHandle:
         """Attach a physical circle to a body using body-local coordinates."""
         import pymunk

@@ -57,7 +57,7 @@ def build_reference() -> dict:
         "tileBuilder": {
             "description": inspect.getdoc(TileBuilder),
             "methods": method_reference(TileBuilder, (
-                "static_segment", "static_circle", "static_polygon", "dynamic_body",
+                "static_segment", "static_circle", "static_polygon", "dynamic_body", "kinematic_body",
                 "circle_shape", "segment_shape", "polygon_shape", "sensor_polygon", "pivot", "spring", "rope", "motor",
                 "sensor_box", "on_ball_contact", "visual_segment", "remove",
             )),

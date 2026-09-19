@@ -39,6 +39,20 @@ def test_static_polygon_builds_visible_colliding_geometry():
     assert any(item[0] is shape for item in tile.visual_items)
 
 
+def test_kinematic_body_can_drive_attached_collision_geometry():
+    import pymunk
+
+    space, registry, tile, _ = make_builders()
+    body = tile.kinematic_body((100, 100), angle=.25)
+    shape = tile.segment_shape(body, (0, 0), (20, 0), 3)
+    body.set_velocity((40, 10))
+    space.step(.5)
+    raw_body = registry.resolve(1, body)
+    assert raw_body.body_type == pymunk.Body.KINEMATIC
+    assert body.position == pytest.approx((120, 105))
+    assert registry.resolve(1, shape).body is raw_body
+
+
 def test_dynamic_compound_body_pivot_motor_and_mutation():
     import pymunk
 
