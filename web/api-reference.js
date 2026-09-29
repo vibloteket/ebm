@@ -2,7 +2,7 @@ const escapeHtml=value=>String(value??"").replaceAll("&","&amp;").replaceAll("<"
 
 function propertyTable(properties){return `<table class="api-table"><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>${properties.map(p=>`<tr><td><code>${escapeHtml(p.name)}</code>${p.required?'<br><span class="api-required">required</span>':""}</td><td><code>${escapeHtml(p.type)}</code></td><td>${escapeHtml(p.description)}</td></tr>`).join("")}</tbody></table>`}
 function methods(items){return items.map(item=>`<article class="api-card"><h4><code>${escapeHtml(item.name)}</code></h4><code class="api-signature">${escapeHtml(item.name+item.signature)}</code><p>${escapeHtml(item.description)}</p></article>`).join("")}
-function section(id,title,body){return `<section class="api-section" id="api-${id}" data-api-search="${escapeHtml((title+" "+body).replaceAll(/<[^>]*>/g," "))}"><h3>${escapeHtml(title)}</h3>${body}</section>`}
+function section(id,title,body){return `<section class="api-section" id="api-${id}"><h3>${escapeHtml(title)}</h3>${body}</section>`}
 function list(items){return `<ul>${items.map(item=>`<li>${escapeHtml(item)}</li>`).join("")}</ul>`}
 function coordinateMap(reference){return `<div class="coordinate-map" aria-label="${reference.tileSize} by ${reference.tileSize} local tile coordinates">${reference.ports.map(port=>{const [x,y]=port.point;return `<span class="port ${port.kind}" style="left:${x/reference.tileSize*100}%;top:${y/reference.tileSize*100}%">${escapeHtml(port.name)}</span>`}).join("")}<span class="axis" style="left:5px;top:5px">(0, 0)</span><span class="axis" style="right:5px;bottom:5px">(${reference.tileSize}, ${reference.tileSize})</span></div>`}
 function portRange(port,aperture){const [x,y]=port.point,half=aperture/2,side=port.name.startsWith("L")||port.name.startsWith("R");return side?`y = ${y-half}–${y+half}`:`x = ${x-half}–${x+half}`}
@@ -73,14 +73,49 @@ class MyTile(TileBase):
   ];
   document.getElementById("api-version").textContent=`Tile API v${reference.apiVersion}`;
   document.getElementById("api-nav").innerHTML=sections.map(([id,title])=>`<button type="button" data-api-target="api-${id}">${escapeHtml(title)}</button>`).join("");
-  document.getElementById("api-content").innerHTML=sections.map(args=>section(...args)).join("")+`<p class="api-empty" hidden>No matching help entries.</p>`;
+  document.getElementById("api-content").innerHTML=sections.map(args=>section(...args)).join("");
   document.querySelectorAll("[data-api-target]").forEach(button=>button.onclick=()=>document.getElementById(button.dataset.apiTarget)?.scrollIntoView());
 }
 
+function clearHighlights(content){
+  content.querySelectorAll("mark.api-hit").forEach(mark=>{const parent=mark.parentNode;parent.replaceChild(document.createTextNode(mark.textContent),mark);parent.normalize()});
+}
+function highlightMatches(content,query){
+  const marks=[];
+  if(!query)return marks;
+  const walker=document.createTreeWalker(content,NodeFilter.SHOW_TEXT,{acceptNode:node=>node.nodeValue.toLowerCase().includes(query)?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_REJECT});
+  const nodes=[];
+  while(walker.nextNode())nodes.push(walker.currentNode);
+  for(const node of nodes){
+    const text=node.nodeValue,lower=text.toLowerCase(),frag=document.createDocumentFragment();
+    let i=0;
+    for(;;){
+      const at=lower.indexOf(query,i);
+      if(at<0){frag.appendChild(document.createTextNode(text.slice(i)));break}
+      if(at>i)frag.appendChild(document.createTextNode(text.slice(i,at)));
+      const mark=document.createElement("mark");mark.className="api-hit";mark.textContent=text.slice(at,at+query.length);
+      frag.appendChild(mark);marks.push(mark);i=at+query.length;
+    }
+    node.parentNode.replaceChild(frag,node);
+  }
+  return marks;
+}
+
 export async function initializeApiReference(){
-  const drawer=document.getElementById("api-reference"),backdrop=document.getElementById("api-backdrop"),search=document.getElementById("api-search");
+  const drawer=document.getElementById("api-reference"),backdrop=document.getElementById("api-backdrop"),search=document.getElementById("api-search"),content=document.getElementById("api-content"),hitsLabel=document.getElementById("api-hits");
   const setOpen=open=>{drawer.classList.toggle("open",open);backdrop.classList.toggle("open",open);drawer.setAttribute("aria-hidden",String(!open));document.getElementById("api-button").setAttribute("aria-expanded",String(open));if(open)setTimeout(()=>search.focus(),210)};
   document.getElementById("api-button").onclick=()=>setOpen(true);document.getElementById("api-close").onclick=()=>setOpen(false);backdrop.onclick=()=>setOpen(false);document.addEventListener("keydown",event=>{if(event.key==="Escape")setOpen(false)});
-  try{const response=await fetch("./api-reference.json",{cache:"no-store"});if(!response.ok)throw new Error(`HTTP ${response.status}`);render(await response.json())}catch(error){document.getElementById("api-content").innerHTML=`<p class="api-empty">Could not load tile help: ${escapeHtml(error.message)}</p>`}
-  search.oninput=()=>{const query=search.value.trim().toLowerCase();let visible=0;document.querySelectorAll(".api-section").forEach(section=>{const show=!query||section.dataset.apiSearch.toLowerCase().includes(query);section.hidden=!show;if(show)visible++});document.querySelector(".api-empty").hidden=visible!==0};
+  try{const response=await fetch("./api-reference.json",{cache:"no-store"});if(!response.ok)throw new Error(`HTTP ${response.status}`);render(await response.json())}catch(error){content.innerHTML=`<p class="api-empty">Could not load tile help: ${escapeHtml(error.message)}</p>`}
+  let hits=[],current=-1;
+  const updateLabel=()=>{hitsLabel.textContent=!search.value.trim()?"":hits.length?`${current+1} / ${hits.length}`:"No matches"};
+  const goTo=index=>{
+    if(!hits.length){updateLabel();return}
+    current=(index+hits.length)%hits.length;
+    hits.forEach((mark,i)=>mark.classList.toggle("current",i===current));
+    const mark=hits[current],box=content.getBoundingClientRect(),rect=mark.getBoundingClientRect();
+    content.scrollTop+=rect.top-box.top-(box.height-rect.height)/2;
+    updateLabel();
+  };
+  search.oninput=()=>{const query=search.value.trim().toLowerCase();clearHighlights(content);hits=highlightMatches(content,query);current=-1;goTo(0)};
+  search.onkeydown=event=>{if(event.key==="Enter"){event.preventDefault();goTo(current+(event.shiftKey?-1:1))}};
 }
