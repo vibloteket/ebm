@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Endless Ball Machine</title>
     <link rel="stylesheet" href="./style.css?v=0.52" />
-    <script src="./v3-renderer.js?v=0.43"></script>
+    <script src="./scene.js?v=0.70"></script>
     <script src="https://cdn.jsdelivr.net/pyodide/v314.0.4/full/pyodide.js"></script>
     <script data-goatcounter="https://ebm.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
   </head>
@@ -16,14 +16,6 @@
         <canvas id="static-machine" aria-hidden="true"></canvas>
         <canvas id="dynamic-machine" aria-label="Endless Ball Machine"></canvas>
       </div>
-      <aside id="renderer-controls" aria-label="Renderer controls">
-        <label>Renderer
-          <select id="renderer-select">
-            <option value="basic" selected>Basic</option>
-            <option value="v3">Pigment V3</option>
-          </select>
-        </label>
-      </aside>
       <aside id="view-controls" aria-label="View controls">
         <button id="zoom-out" type="button" title="Zoom out (−)">−</button>
         <button id="zoom-reset" type="button" title="Reset zoom (0)">0.5×</button>
@@ -36,6 +28,6 @@
         <p>Loading Pyodide + pymunk…</p>
       </div>
     </main>
-    <script type="module" src="./main.js?v=0.69"></script>
+    <script type="module" src="./main.js?v=0.70"></script>
   </body>
 </html>

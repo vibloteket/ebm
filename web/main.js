@@ -1,5 +1,5 @@
 import {loadPythonPackage} from "./python-package.js?v=1";
-const APP_VERSION = "prototype-0.69-tile-400";
+const APP_VERSION = "prototype-0.70-tile-400";
 const PYMUNK_WHEEL = "./vendor/pymunk-7.3.0-cp314-cp314-pyemscripten_2026_0_wasm32.whl";
 
 const diagnostics = [];
@@ -138,23 +138,10 @@ async function main() {
 
   setStatus("Starting simulation…");
   await pyodide.runPythonAsync(`
-from ebm.web_demo import start, zoom_at, set_zoom, zoom_value, set_renderer, renderer_value, performance_stats
+from ebm.web_demo import start, zoom_at, set_zoom, zoom_value, performance_stats
 from js import window, document
 start(document.getElementById('static-machine'), document.getElementById('dynamic-machine'))
 `);
-
-  const setRenderer = pyodide.globals.get("set_renderer");
-  const rendererSelect = document.getElementById("renderer-select");
-  const requestedRenderer = new URLSearchParams(location.search).get("renderer");
-  rendererSelect.value = requestedRenderer === "v3" ? "v3" : "basic";
-  setRenderer(rendererSelect.value);
-  rendererSelect.addEventListener("change", () => {
-    setRenderer(rendererSelect.value);
-    const url = new URL(location.href);
-    if (rendererSelect.value === "basic") url.searchParams.delete("renderer");
-    else url.searchParams.set("renderer", rendererSelect.value);
-    history.replaceState(null, "", url);
-  });
 
   // Expose zoom for pinch-to-zoom, touchpads without wheel events, and
   // explicit controls that work consistently in Firefox/Linux.
@@ -247,16 +234,20 @@ start(document.getElementById('static-machine'), document.getElementById('dynami
       if (now - last >= 1000) {
         const seconds = (now-last)/1000;
         const data = JSON.parse(String(getPerformanceStats?.() || "{}"));
+        const scene = window.EbmScene?.consumeStats?.() || {};
         const engine = data.engine || {};
-        const renderedFps = (data.dynamic_frames || 0) / seconds;
+        const dynamicFrames = scene.dynamicFrames || 0;
+        const renderedFps = dynamicFrames / seconds;
         const browserFps = browserFrames / seconds;
+        const exportCalls = data.export_calls || 0;
         const metrics = {
           renderedFps: renderedFps.toFixed(1), browserFps: browserFps.toFixed(1),
           engine: ms(avg(engine.engine_total)), tileUpdates: ms(avg(engine.tile_update)),
           physics: ms(avg(engine.physics)), physicsSteps: Math.round(engine.physics?.units || 0),
           reconcile: ms(avg(engine.tile_reconcile)), ballUpkeep: ms(avg(engine.ball_maintenance)),
-          dynamic: ms((data.dynamic_total_ms||0)/Math.max(1,data.dynamic_frames||0)), dynamicMax: ms(data.dynamic_max_ms),
-          staticDraw: ms((data.static_total_ms||0)/Math.max(1,data.static_frames||0)), staticRedraws: data.static_frames||0,
+          exportMs: ms((data.export_total_ms||0)/Math.max(1,exportCalls)), exportMax: ms(data.export_max_ms),
+          dynamic: ms((scene.dynamicTotalMs||0)/Math.max(1,dynamicFrames)), dynamicMax: ms(scene.dynamicMaxMs),
+          staticDraw: ms((scene.staticTotalMs||0)/Math.max(1,scene.staticFrames||0)), staticRedraws: scene.staticFrames||0,
         };
         stats.innerHTML = `
           <strong>${metrics.renderedFps} rendered FPS</strong>
@@ -268,12 +259,13 @@ start(document.getElementById('static-machine'), document.getElementById('dynami
           <span>Reconcile <b>${metrics.reconcile} ms</b></span>
           <span>Ball upkeep <b>${metrics.ballUpkeep} ms</b></span>
           <hr>
+          <span>Export <b>${metrics.exportMs} ms/frame</b> · max ${metrics.exportMax} ms</span>
           <span>Dynamic draw <b>${metrics.dynamic} ms</b> · max ${metrics.dynamicMax} ms</span>
           <span>Static draw <b>${metrics.staticDraw} ms</b> · ${metrics.staticRedraws} redraws</span>
-          <span>Cache <b>${data.cache_hits||0} hits</b> · ${data.cache_misses||0} misses · ${data.tile_cache_entries||0} entries</span>
+          <span>Scene events <b>${data.sync_events||0}</b> · JS ${scene.eventCount||0}</span>
           <hr>
           <span>${data.visible_tiles||0} visible · ${data.tiles||0} active tiles · ${data.balls||0} balls</span>
-          <span>${data.boundary_inputs||0} open inputs · ${data.shapes||0} shapes</span>
+          <span>${data.boundary_inputs||0} open inputs · ${data.shapes||0} shapes · ${data.bodies||0} bodies</span>
           <span>${innerWidth}×${innerHeight} · zoom ${Number(getZoom()).toFixed(2)}×</span>`;
         latestReport = [
           "Endless Ball Machine performance report",
@@ -288,13 +280,13 @@ start(document.getElementById('static-machine'), document.getElementById('dynami
           `Physics: ${metrics.physics} ms/frame (${metrics.physicsSteps} steps in sample)`,
           `Tile reconcile: ${metrics.reconcile} ms/frame`,
           `Ball upkeep: ${metrics.ballUpkeep} ms/frame`,
+          `Export: ${metrics.exportMs} ms/frame (max ${metrics.exportMax} ms), ${data.sync_events||0} scene events`,
           `Dynamic draw: ${metrics.dynamic} ms/frame (max ${metrics.dynamicMax} ms)`,
           `Static draw: ${metrics.staticDraw} ms/redraw (${metrics.staticRedraws} redraws)`,
-          `Tile cache: ${data.cache_hits||0} hits, ${data.cache_misses||0} misses, ${data.tile_cache_entries||0} entries`,
           `World: ${data.visible_tiles||0} visible tiles, ${data.tiles||0} active buffered tiles, ${data.balls||0} balls, ${data.boundary_inputs||0} open boundary inputs, ${data.shapes||0} shapes, ${data.bodies||0} bodies, ${data.constraints||0} constraints`,
           `Viewport: ${innerWidth}x${innerHeight}`,
           `Zoom: ${Number(getZoom()).toFixed(2)}x`,
-          `Renderer: ${rendererSelect.value}`,
+          `Renderer: js-scene basic`,
         ].join("\n");
         browserFrames = 0; last = now;
       }
