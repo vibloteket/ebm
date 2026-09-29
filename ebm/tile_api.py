@@ -273,6 +273,7 @@ class TileResourceRegistry:
         self._body_geometry_radii: dict[Any, float] = {}
         self._checked_static_poses: dict[int, Any] = {}
         self._checked_visuals: dict[int, VisualSegment] = {}
+        self._scene_listeners: list[Callable[[str, int], None]] = []
         self.runtime_errors: list[dict[str, Any]] = []
         self._install_dispatcher()
 
@@ -283,6 +284,18 @@ class TileResourceRegistry:
             registry = cls(space)
             cls._by_space[space] = registry
         return registry
+
+    def add_scene_listener(self, listener: Callable[[str, int], None]) -> None:
+        """Register a callable notified with (kind, ident) on visual/ball changes.
+
+        kind "visual" carries a tile owner id; kind "ball" carries a body id.
+        Listeners let the web scene exporter mirror state without polling.
+        """
+        self._scene_listeners.append(listener)
+
+    def _emit_scene(self, kind: str, ident: int) -> None:
+        for listener in self._scene_listeners:
+            listener(kind, ident)
 
     def _install_dispatcher(self):
         def dispatch(phase: str, arbiter) -> None:
@@ -568,6 +581,7 @@ class TileResourceRegistry:
         self._paused_resources.update(group)
         self._resource_resumes.pop(handle.id, None)
         self._visual_revisions[owner] = self._visual_revisions.get(owner, 0) + 1
+        self._emit_scene("visual", owner)
 
     def resume_resource(self, owner: int, handle, *, delay=0) -> None:
         self.resolve(owner, handle)
@@ -590,6 +604,7 @@ class TileResourceRegistry:
         self._paused_resources.difference_update(group)
         self._resource_resumes.pop(resource_id, None)
         self._visual_revisions[owner] = self._visual_revisions.get(owner, 0) + 1
+        self._emit_scene("visual", owner)
 
     def set_style(self, owner: int, handle, *, fill_color=None, stroke_color=None):
         obj = self.resolve(owner, handle)
@@ -603,8 +618,12 @@ class TileResourceRegistry:
         if stroke_color is not None:
             value = _validate_color(stroke_color)
             if style.stroke_color != value: style.stroke_color = value; changed = True
-        if changed and not (isinstance(obj, VisualSegment) and obj.dynamic):
-            self._visual_revisions[owner] = self._visual_revisions.get(owner, 0) + 1
+        if changed:
+            if isinstance(obj, VisualSegment) and obj.dynamic:
+                self._emit_scene("dynvisual", owner)
+            else:
+                self._visual_revisions[owner] = self._visual_revisions.get(owner, 0) + 1
+                self._emit_scene("visual", owner)
 
     def add_visual(self, owner: int, visual: Any, fill_color: Color, stroke_color: Color):
         check_bounds(points_bounds((visual.a, visual.b), visual.radius),
@@ -615,6 +634,7 @@ class TileResourceRegistry:
         self._owner[handle.id] = owner
         self._styles[handle.id] = VisualStyle(_validate_color(fill_color), _validate_color(stroke_color))
         self._visuals.setdefault(owner, []).append(handle.id)
+        self._emit_scene("visual", owner)
         return handle
 
     def set_object_style(self, handle, fill_color: Color, stroke_color: Color):
@@ -629,8 +649,11 @@ class TileResourceRegistry:
                      label=f"VisualSegment #{handle.id}, tile {owner}", owner=owner, object_id=handle.id)
         self._objects[handle.id] = VisualSegment(points[0], points[1], visual.radius, visual.dynamic)
         self._checked_visuals[handle.id] = self._objects[handle.id]
-        if not visual.dynamic:
+        if visual.dynamic:
+            self._emit_scene("dynvisual", owner)
+        else:
             self._visual_revisions[owner] = self._visual_revisions.get(owner, 0) + 1
+            self._emit_scene("visual", owner)
 
     def visual_items(self, owner: int):
         result = []
@@ -730,6 +753,7 @@ class TileResourceRegistry:
         record = self._ball_record(handle); shape = record["shape"]
         if fill_color is not None: shape.ebm_fill_color = _validate_color(fill_color)
         if stroke_color is not None: shape.ebm_stroke_color = _validate_color(stroke_color)
+        self._emit_scene("ball", record["body"].id)
 
     def set_ball_material(self, handle, *, friction=None, elasticity=None):
         record = self._ball_record(handle); shape = record["shape"]
@@ -755,6 +779,7 @@ class TileResourceRegistry:
             raise ValueError("ball must overlap the tile before it can be paused")
         self.space.remove(record["shape"], record["body"])
         record["paused"] = True; record["resume"] = None
+        self._emit_scene("ball", record["body"].id)
 
     def resume_ball(self, handle, *, delay=0):
         record = self._ball_record(handle)
@@ -769,6 +794,7 @@ class TileResourceRegistry:
     def _restore_ball(self, record):
         self.space.add(record["body"], record["shape"])
         record["paused"] = False; record["resume"] = None
+        self._emit_scene("ball", record["body"].id)
 
     def _release_ball(self, record):
         if record["paused"]:
@@ -778,6 +804,7 @@ class TileResourceRegistry:
         shape.friction, shape.elasticity = friction, elasticity
         shape.ebm_fill_color, shape.ebm_stroke_color = fill, stroke
         record["owner"] = None; record["generation"] += 1
+        self._emit_scene("ball", record["body"].id)
 
     def ball_is_paused(self, body) -> bool:
         record = self._balls.get(body)

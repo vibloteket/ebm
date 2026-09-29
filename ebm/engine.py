@@ -286,6 +286,7 @@ class Engine:
         self.space.add(body, shape)
         ball = Ball(body, shape)
         self.balls.append(ball)
+        self.registry._emit_scene("ball", body.id)
         return ball
 
     def remove_ball(self, ball: Ball) -> None:
@@ -297,6 +298,7 @@ class Engine:
             self.balls.remove(ball)
         except ValueError:
             pass
+        self.registry._emit_scene("ball", ball.body.id)
 
     def screen_to_world(self, x: float, y: float) -> tuple[float, float]:
         return self.viewport.x + x / self.viewport.zoom, self.viewport.y + y / self.viewport.zoom

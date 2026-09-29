@@ -7,8 +7,8 @@ ROOT = Path(__file__).parents[1]
 def test_main_entrypoint_cache_key_matches_app_version():
     html = (ROOT / "web" / "index.html").read_text()
     script = (ROOT / "web" / "main.js").read_text()
-    assert 'main.js?v=0.69' in html
-    assert 'APP_VERSION = "prototype-0.69-tile-400"' in script
+    assert 'main.js?v=0.70' in html
+    assert 'APP_VERSION = "prototype-0.70-tile-400"' in script
 
 
 def test_editor_entrypoint_cache_key_changes_with_runtime_dependencies():
