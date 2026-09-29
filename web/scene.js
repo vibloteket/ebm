@@ -153,7 +153,8 @@
     const vx = vp.x, vy = vp.y;
     sctx.setTransform(1, 0, 0, 1, 0, 0);
     sctx.clearRect(0, 0, w, h);
-    sctx.setTransform(zoom, 0, 0, zoom, 0, 0);
+    // World-to-screen: scale by zoom, then translate so (vx, vy) is top-left.
+    sctx.setTransform(zoom, 0, 0, zoom, -vx * zoom, -vy * zoom);
 
     sctx.fillStyle = PAPER;
     sctx.fillRect(vx, vy, vw, vh);
@@ -196,7 +197,9 @@
     strokeGroups(sctx, halos);
     fillGroups(sctx, circleFills);
     strokeGroups(sctx, circleHalos);
-    fillGroups(sctx, fills);
+    // Segment "fills" are wide strokes in the fill color; filling an open
+    // line path would paint nothing.
+    strokeGroups(sctx, fills);
     for (let i = 0; i < polys.length; i += 3) drawPoly(sctx, polys[i], polys[i + 1], polys[i + 2]);
   }
 
@@ -217,7 +220,7 @@
     const vx = vp.x, vy = vp.y;
     dctx.setTransform(1, 0, 0, 1, 0, 0);
     dctx.clearRect(0, 0, w, h);
-    dctx.setTransform(zoom, 0, 0, zoom, 0, 0);
+    dctx.setTransform(zoom, 0, 0, zoom, -vx * zoom, -vy * zoom);
     dctx.lineCap = "round";
 
     // Authored dynamic decorations keep fixed tile-local coordinates.
@@ -328,6 +331,15 @@
         stats.dynamicMaxMs = Math.max(stats.dynamicMaxMs, elapsed);
         lastDynamic = now;
       }
+    },
+
+    debug() {
+      let segs = 0, circles = 0, polys = 0, dynVis = 0;
+      for (const tile of tiles.values()) {
+        for (const s of tile.statics) { if (s.t === 0) segs++; else if (s.t === 1) circles++; else polys++; }
+        dynVis += tile.dynVisuals.length;
+      }
+      return { tiles: tiles.size, segs, circles, polys, dynVis, dynBodies: dynBodies.size, balls: balls.size, vp };
     },
 
     consumeStats() {
