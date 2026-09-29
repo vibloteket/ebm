@@ -199,6 +199,8 @@
     strokeGroups(sctx, circleHalos);
     // Segment "fills" are wide strokes in the fill color; filling an open
     // line path would paint nothing.
+    // Segment "fills" are wide strokes in the fill color; filling an open
+    // line path would paint nothing.
     strokeGroups(sctx, fills);
     for (let i = 0; i < polys.length; i += 3) drawPoly(sctx, polys[i], polys[i + 1], polys[i + 2]);
   }

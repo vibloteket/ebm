@@ -21,14 +21,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v10
         with:
           version: "0.8.22"
           enable-cache: true
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
       - name: Install locked dependencies
@@ -41,7 +41,7 @@ jobs:
         run: uv run --no-sync python -m ebm validate --json > validation.json
       - name: Save validation diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: tile-validation
           path: validation.json
@@ -50,13 +50,42 @@ jobs:
         run: uv run --no-sync bash scripts/build-static-site.sh
       - name: Upload Pages artifact
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: dist/site
 
+  # Pixel-level rendering smoke test: counters cannot catch "renders nothing"
+  # regressions, so this job asserts on canvas pixel histograms in a real
+  # browser before the site may deploy.
+  browser-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v10
+        with:
+          version: "0.8.22"
+          enable-cache: true
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - name: Install locked dependencies
+        run: uv sync --frozen --extra dev
+      - name: Build static site
+        run: uv run --no-sync bash scripts/build-static-site.sh
+      - uses: oven-sh/setup-bun@v2
+      - name: Install JS dependencies
+        run: bun install --frozen-lockfile
+      - name: Install Chromium headless shell
+        run: bunx playwright install --with-deps --only-shell chromium
+      - name: Run browser smoke test
+        run: node tests/browser/smoke.mjs
+
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    needs: validate-build
+    needs: [validate-build, browser-smoke]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -67,7 +96,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Check Pages configuration
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
       - name: Publish validated site
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
