@@ -57,9 +57,9 @@ def build_reference() -> dict:
         "tileBuilder": {
             "description": inspect.getdoc(TileBuilder),
             "methods": method_reference(TileBuilder, (
-                "static_segment", "static_circle", "static_polygon", "dynamic_body", "kinematic_body",
-                "circle_shape", "segment_shape", "polygon_shape", "sensor_polygon", "pivot", "spring", "rope", "motor",
-                "sensor_box", "on_ball_contact", "visual_segment", "remove",
+                "static_segment", "static_circle", "static_polygon", "static_box", "dynamic_body", "kinematic_body",
+                "circle_shape", "segment_shape", "polygon_shape", "box_shape", "pivot", "spring", "rope", "motor",
+                "sensor_segment", "sensor_circle", "sensor_polygon", "sensor_box", "on_ball_contact", "visual_segment", "remove",
             )),
         },
         "handles": [
@@ -145,6 +145,11 @@ def build_reference() -> dict:
                 "code": "sensor = builder.sensor_box(80, 80, 320, 320)\n\ndef on_ball(event):\n    event.ball.set_fill_color((255, 40, 40, 255))\n\nbuilder.on_ball_contact(sensor, begin=on_ball)",
             },
             {
+                "title": "Crossing-line sensor",
+                "description": "Detect balls crossing an invisible line. Every sensor shape also accepts body=a_body for moving sensors.",
+                "code": "gate = builder.sensor_segment((200, 100), (200, 300), radius=4)\n\ndef crossed(event):\n    event.ball.set_fill_color((40, 200, 40, 255))\n\nbuilder.on_ball_contact(gate, begin=crossed)",
+            },
+            {
                 "title": "Immediate teleport",
                 "description": "Move a contacting ball and reject the old physical collision.",
                 "code": "portal = builder.static_segment((140, 30), (260, 30), 4)\n\ndef teleport(event):\n    event.ball.set_position((100, 300))\n    event.ball.set_velocity((0, 200))\n    return False\n\nbuilder.on_ball_contact(portal, begin=teleport)",
@@ -157,13 +162,13 @@ def build_reference() -> dict:
         ],
         "capabilities": {
             "available": [
-                "Static segments, circles, and convex polygons",
-                "Dynamic compound bodies with attached circles, segments, and convex polygons",
+                "Static segments, circles, convex polygons, and boxes",
+                "Dynamic compound bodies with attached circles, segments, polygons, and boxes",
                 "World pivots, anchored damped springs, slack rope limits, and mutable rotary motors",
-                "Massless, body-attached polygon sensors",
+                "Invisible, massless sensor segments, circles, polygons, and boxes; static or body-attached",
                 "Moving visual cords with dynamic=True (no collision shape or static-cache rebuild)",
                 "Body position, velocity, angle, force, impulse, and torque controls",
-                "Sensor boxes and Pymunk-style begin, pre_solve, post_solve, and separate callbacks",
+                "Pymunk-style begin, pre_solve, post_solve, and separate ball-contact callbacks",
                 "Visual-only segments",
                 "Surface velocity for powered rails",
                 "Mutable colors and physical materials",

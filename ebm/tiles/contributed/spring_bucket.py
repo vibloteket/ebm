@@ -45,7 +45,7 @@ class SpringBucket(TileBase):
         self.handle = [b.visual_segment(self._world(self.attachment), self._world(p), 1.5,
                                        fill_color=(115, 80, 45, 255), dynamic=True)
                        for p in ((-65, -36), (65, -36))]
-        sensor = b.sensor_polygon(self.bucket, ((-61, -36), (61, -36), (61, 43), (-61, 43)))
+        sensor = b.sensor_polygon(((-61, -36), (61, -36), (61, 43), (-61, 43)), body=self.bucket)
         b.on_ball_contact(sensor, begin=lambda event: self.balls.add(event.ball),
                           separate=lambda event: self.balls.discard(event.ball))
 

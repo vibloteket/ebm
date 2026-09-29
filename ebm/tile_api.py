@@ -885,6 +885,14 @@ class TileBuilder:
         self._registry.set_object_style(handle, fill_color, stroke_color)
         return handle
 
+    def static_box(self, left: float, top: float, right: float, bottom: float, *, radius: float = 0, friction: float = .8, elasticity: float = .2, fill_color: Color = DEFAULT_SEGMENT_FILL, stroke_color: Color = DEFAULT_SEGMENT_STROKE) -> ShapeHandle:
+        """Build a fixed physical rectangle from tile-local extents; return its ShapeHandle."""
+        return self.static_polygon(
+            ((left, top), (right, top), (right, bottom), (left, bottom)),
+            radius=radius, friction=friction, elasticity=elasticity,
+            fill_color=fill_color, stroke_color=stroke_color,
+        )
+
     def dynamic_body(self, position: Point, *, angle: float = 0) -> BodyHandle:
         """Create a dynamic body; attach one or more shapes to define its mass."""
         import pymunk
@@ -933,6 +941,14 @@ class TileBuilder:
         shape = pymunk.Poly(raw, local, radius=radius)
         return self._add_attached_shape(body, shape, density, friction, elasticity, fill_color, stroke_color)
 
+    def box_shape(self, body: BodyHandle, left: float, top: float, right: float, bottom: float, *, radius: float = 0, density: float = .01, friction: float = .8, elasticity: float = .2, fill_color: Color = DEFAULT_SEGMENT_FILL, stroke_color: Color = DEFAULT_SEGMENT_STROKE) -> ShapeHandle:
+        """Attach a physical rectangle to a body using body-local extents."""
+        return self.polygon_shape(
+            body, ((left, top), (right, top), (right, bottom), (left, bottom)),
+            radius=radius, density=density, friction=friction, elasticity=elasticity,
+            fill_color=fill_color, stroke_color=stroke_color,
+        )
+
     def pivot(self, body: BodyHandle, anchor: Point) -> ConstraintHandle:
         """Pin a body to the static world at a tile-local pivot point."""
         import pymunk
@@ -974,12 +990,54 @@ class TileBuilder:
         )
         return self._registry.add(self._owner, constraint, ConstraintHandle, body=body)
 
-    def sensor_polygon(self, body: BodyHandle, points: list[Point] | tuple[Point, ...]) -> ShapeHandle:
-        """Attach an invisible, massless, non-colliding convex sensor using body-local points."""
+    def sensor_segment(self, a: Point, b: Point, radius: float = 2, *, body: BodyHandle | None = None) -> ShapeHandle:
+        """Build an invisible, massless, non-colliding segment sensor; tile-local, or body-local when body is given."""
         import pymunk
 
-        raw = self._registry.resolve(self._owner, body)
-        shape = pymunk.Poly(raw, self._polygon_points(points, 0))
+        radius = radius_value(radius, maximum=MAX_SHAPE_RADIUS)
+        if body is None:
+            check_bounds(points_bounds((a, b), radius), label="sensor_segment")
+            raw = self._registry.space.static_body
+            a, b = self._point(a), self._point(b)
+        else:
+            raw = self._registry.resolve(self._owner, body)
+            a, b = tuple(map(float, a)), tuple(map(float, b))
+            points_bounds((a, b))
+        return self._add_sensor(pymunk.Segment(raw, a, b, radius), body)
+
+    def sensor_circle(self, center: Point, radius: float, *, body: BodyHandle | None = None) -> ShapeHandle:
+        """Build an invisible, massless, non-colliding circular sensor; tile-local, or body-local when body is given."""
+        import pymunk
+
+        radius = radius_value(radius)
+        if body is None:
+            x, y = map(float, center)
+            check_bounds(points_bounds(((x, y),), radius), label="sensor_circle")
+            raw = self._registry.space.static_body
+            offset = self._point(center)
+        else:
+            raw = self._registry.resolve(self._owner, body)
+            offset = tuple(map(float, center))
+            points_bounds((offset,))
+        return self._add_sensor(pymunk.Circle(raw, radius, offset), body)
+
+    def sensor_polygon(self, points: list[Point] | tuple[Point, ...], *, radius: float = 0, body: BodyHandle | None = None) -> ShapeHandle:
+        """Build an invisible, massless, non-colliding convex sensor; tile-local, or body-local when body is given."""
+        import pymunk
+
+        local = self._polygon_points(points, radius)
+        if body is None:
+            raw = self._registry.space.static_body
+            local = [self._point(point) for point in local]
+        else:
+            raw = self._registry.resolve(self._owner, body)
+        return self._add_sensor(pymunk.Poly(raw, local, radius=radius), body)
+
+    def sensor_box(self, left: float, top: float, right: float, bottom: float, *, body: BodyHandle | None = None) -> ShapeHandle:
+        """Build an invisible, massless, non-colliding rectangular sensor; tile-local, or body-local when body is given."""
+        return self.sensor_polygon(((left, top), (right, top), (right, bottom), (left, bottom)), body=body)
+
+    def _add_sensor(self, shape, body: BodyHandle | None) -> ShapeHandle:
         shape.sensor = True
         shape.ebm_hidden = True
         return self._registry.add(self._owner, shape, ShapeHandle, body=body)
@@ -1015,14 +1073,6 @@ class TileBuilder:
         raw_body.position = authored_position
         self._registry.set_object_style(handle, fill_color, stroke_color)
         return handle
-
-    def sensor_box(self, left: float, top: float, right: float, bottom: float) -> ShapeHandle:
-        """Build an invisible, non-colliding rectangular sensor; return its ShapeHandle."""
-        import pymunk
-
-        points=[self._point(p) for p in ((left,top),(right,top),(right,bottom),(left,bottom))]
-        shape=pymunk.Poly(self._registry.space.static_body,points);shape.sensor=True;shape.ebm_hidden=True
-        return self._registry.add(self._owner,shape,ShapeHandle)
 
     def on_ball_contact(
         self,

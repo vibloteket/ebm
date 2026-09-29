@@ -53,7 +53,7 @@ def test_rope_drawing_and_attached_sensor_do_not_collide_or_add_mass():
     b.spring(body, (200, 20), (0, 0), rest_length=220, stiffness=100, damping=10)
     b.rope(body, (200, 20), (0, 0), max_length=240)
     b.visual_segment((200, 20), (200, 240), 2)
-    sensor = b.sensor_polygon(body, ((-10, -160), (10, -160), (10, -140), (-10, -140)))
+    sensor = b.sensor_polygon(((-10, -160), (10, -160), (10, -140), (-10, -140)), body=body)
     assert (raw.mass, raw.moment) == pytest.approx((mass, moment))
     assert registry.resolve(1, sensor).sensor
     assert registry.resolve(1, sensor).mass == 0
@@ -77,7 +77,7 @@ def test_suspension_and_sensor_follow_body_pause_resume_and_cleanup():
     space, registry, b, body = world()
     b.spring(body, (200, 20), (0, 0), rest_length=120, stiffness=100, damping=10)
     b.rope(body, (200, 20), (0, 0), max_length=140)
-    b.sensor_polygon(body, ((-20, -20), (20, -20), (20, 20), (-20, 20)))
+    b.sensor_polygon(((-20, -20), (20, -20), (20, 20), (-20, 20)), body=body)
     body.pause()
     assert not space.shapes and not space.constraints and not space.bodies
     body.resume()
@@ -107,4 +107,4 @@ def test_cross_owner_suspension_and_sensor_are_rejected():
     with pytest.raises(PermissionError):
         other.rope(body, (200, 20), (0, 0), max_length=120)
     with pytest.raises(PermissionError):
-        other.sensor_polygon(body, ((-10, -10), (10, -10), (0, 10)))
+        other.sensor_polygon(((-10, -10), (10, -10), (0, 10)), body=body)
