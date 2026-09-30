@@ -116,16 +116,22 @@ function setupPerformanceStats(getPerformanceStats, getZoom, setTileProfiling) {
 
   let enabled = false;
   let browserFrames = 0, last = performance.now(), latestReport = "Waiting for the first profiling sample…";
+  let copiedUntil = 0;
 
-  const copyButton = document.createElement("button");
-  copyButton.type = "button";
-  copyButton.className = "copy-performance-report";
-  copyButton.textContent = "Copy report";
-  copyButton.hidden = true;
-  copyButton.addEventListener("click", async () => {
+  // The Copy button is rendered inside the overlay markup (anchored to the
+  // box's top-right corner) so it always follows the box height regardless
+  // of how many detail rows are shown. One delegated listener survives the
+  // innerHTML rewrite each sample; CSS re-enables pointer events for the
+  // button since the overlay itself is click-through.
+  stats.addEventListener("click", async (event) => {
+    const button = event.target.closest(".copy-performance-report");
+    if (!button) return;
+    // Flip the label before the async clipboard call so feedback is instant;
+    // the 1s sample re-render reads copiedUntil so it persists until expiry.
+    copiedUntil = performance.now() + 1400;
+    button.textContent = "Copied";
     try {
       await navigator.clipboard.writeText(latestReport);
-      copyButton.textContent = "Copied";
     } catch (_) {
       const textarea = document.createElement("textarea");
       textarea.value = latestReport;
@@ -133,11 +139,8 @@ function setupPerformanceStats(getPerformanceStats, getZoom, setTileProfiling) {
       textarea.select();
       document.execCommand("copy");
       textarea.remove();
-      copyButton.textContent = "Copied";
     }
-    setTimeout(() => { copyButton.textContent = "Copy report"; }, 1400);
   });
-  stats.after(copyButton);
 
   const avg = (entry) => entry?.calls ? entry.total_ms / entry.calls : 0;
   const ms = (value) => Number(value || 0).toFixed(2);
@@ -171,6 +174,7 @@ function setupPerformanceStats(getPerformanceStats, getZoom, setTileProfiling) {
       };
       stats.innerHTML = `
         <strong>${metrics.renderedFps} rendered FPS</strong>
+        <button type="button" class="copy-performance-report">${performance.now() < copiedUntil ? "Copied" : "Copy report"}</button>
         <span>${metrics.browserFps} browser FPS · target 30</span>
         <hr>
         <span>Engine total <b>${metrics.engine} ms/frame</b></span>
@@ -223,7 +227,6 @@ function setupPerformanceStats(getPerformanceStats, getZoom, setTileProfiling) {
     if (want === enabled) return;
     enabled = want;
     stats.hidden = !enabled;
-    copyButton.hidden = !enabled;
     try { setTileProfiling?.(enabled); } catch (_) { /* profiling is optional */ }
     if (enabled) {
       // Discard counters accumulated while the overlay was off; both

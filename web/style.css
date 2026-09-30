@@ -114,10 +114,10 @@ html, body, main {
 }
 
 .copy-performance-report {
-  position: fixed;
-  z-index: 4;
-  left: 12px;
-  bottom: 235px;
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  pointer-events: auto;
   border: 1px solid rgba(255,255,255,.22);
   border-radius: 8px;
   padding: 7px 11px;
