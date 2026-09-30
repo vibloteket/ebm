@@ -10,6 +10,7 @@ from .ball_physics import INPUT_SPAWN_INTERVAL, configure_ball_body, limit_space
 from .ports import BALL_RADIUS, COLUMN_OFFSET, Port, TILE_SIZE, left_neighbor, tile_origin
 from .random_utils import stable_seed
 from .tile_api import BALL_COLLISION_TYPE, BALL_ELASTICITY, BALL_FRICTION, TileBuilder, TileResourceRegistry, ball_shape_filter
+from .tile_base import tile_has_frame_update
 from .tile_catalog import active_tiles, create_tile
 from .tile_output import suppress_tile_output
 
@@ -68,6 +69,9 @@ class Engine:
         self._rng = random.Random(12345)
         self._initial_seeded = False
         self._spawn_clocks: dict[tuple[int, int, Port], float] = {}
+        # Coords whose tile class overrides TileBase.update; all other tiles
+        # only have the no-op base implementation and are skipped per frame.
+        self._updatable_coords: set[tuple[int, int]] = set()
         self.profile: dict[str, dict[str, float]] = {}
         self.reconcile_active_tiles()
 
@@ -109,9 +113,13 @@ class Engine:
         self._profile_add("tile_reconcile", started)
 
         started = time.perf_counter()
-        for active in list(self.active_tiles.values()):
+        update_dt = min(dt, 0.05)
+        for coord in list(self._updatable_coords):
+            active = self.active_tiles.get(coord)
+            if active is None:
+                continue
             with suppress_tile_output():
-                active.tile.update(active.builder, min(dt, 0.05))
+                active.tile.update(active.builder, update_dt)
         self._profile_add("tile_update", started)
 
         started = time.perf_counter()
@@ -149,6 +157,7 @@ class Engine:
 
         for coord in sorted(current - needed):
             active = self.active_tiles.pop(coord)
+            self._updatable_coords.discard(coord)
             self.registry.destroy_owner(active.owner_id)
 
         for coord in sorted(needed - current):
@@ -161,6 +170,8 @@ class Engine:
             with suppress_tile_output():
                 tile.build(builder)
             self.active_tiles[coord] = ActiveTile(tile, builder, owner_id)
+            if tile_has_frame_update(tile):
+                self._updatable_coords.add(coord)
             # Camera movement can expose several tile columns before a periodic
             # boundary spawner fires. Seed each newly activated tile
             # immediately so a fast pan never reveals an empty strip.

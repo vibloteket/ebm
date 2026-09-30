@@ -29,9 +29,6 @@ class PoweredChannelTile(TileBase):
         for entry, output in zip((Port.T0, Port.L0), outputs):
             builder.visual_segment(_inside(entry), _inside(output), 6)
 
-    def update(self, _builder, _dt):
-        pass
-
 
 def _inside(port: Port):
     x, y = port.point

@@ -24,6 +24,15 @@ class TileBase:
         pass
 
 
+def tile_has_frame_update(tile: TileBase) -> bool:
+    """True when the tile's class overrides TileBase.update and needs per-frame calls.
+
+    The engine uses this to skip the per-frame update loop for static tiles,
+    which are the vast majority; the base implementation is a no-op anyway.
+    """
+    return type(tile).update is not TileBase.update
+
+
 def tile_class_from_module(module: ModuleType) -> type[TileBase]:
     """Return the one TileBase subclass defined by a tile module."""
     candidates = [

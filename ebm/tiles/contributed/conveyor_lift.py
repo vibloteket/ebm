@@ -64,13 +64,18 @@ class ConveyorLift(TileBase):
         self.pins = []
         for index in range(count):
             distance = index * self.path_length / count
-            position, velocity, angle = self._sample(distance)
+            position, velocity, angle, segment = self._sample(distance)
             pin = b.kinematic_body(position, angle=angle)
             b.segment_shape(pin, (0, -2), (0, -27), PIN_RADIUS,
                             density=.01, friction=.8, elasticity=0,
                             fill_color=BELT_COLOR)
             pin.set_velocity(velocity)
-            self.pins.append((pin, distance))
+            # Kinematic bodies are integrated by the physics step itself
+            # (p += v*dt), and velocity is constant along each straight path
+            # segment. update() therefore only tracks which segment the pin is
+            # on; position/velocity/angle are re-applied (snapping any float
+            # drift) only when the pin rounds a corner into a new segment.
+            self.pins.append([pin, distance, segment])
         self.travel = 0.0
 
     def _sample(self, distance):
@@ -87,13 +92,21 @@ class ConveyorLift(TileBase):
                     BELT_SPEED * (end[0] - a[0]) / length,
                     BELT_SPEED * (end[1] - a[1]) / length,
                 )
-                return (x, y), velocity, math.atan2(end[1] - a[1], end[0] - a[0])
+                return (x, y), velocity, math.atan2(end[1] - a[1], end[0] - a[0]), index
         raise AssertionError("unreachable conveyor position")
 
     def update(self, b: TileBuilder, dt: float):
         self.travel = (self.travel + BELT_SPEED * dt) % self.path_length
-        for pin, offset in self.pins:
-            position, velocity, angle = self._sample(offset + self.travel)
+        for pin_state in self.pins:
+            pin, offset, segment = pin_state
+            distance = (offset + self.travel) % self.path_length
+            start, end = self.cumulative[segment], self.cumulative[segment + 1]
+            if distance <= end and (segment == 0 or distance > start):
+                # Same segment: physics integration carries the pin exactly
+                # along the straight path; no Pymunk calls needed.
+                continue
+            position, velocity, angle, new_segment = self._sample(distance)
             pin.set_position(position)
-            pin.set_angle(angle)
             pin.set_velocity(velocity)
+            pin.set_angle(angle)
+            pin_state[2] = new_segment
