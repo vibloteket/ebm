@@ -105,6 +105,7 @@ html, body, main {
 #performance-stats span { display: block; }
 #performance-stats strong { color: #b9e3ff; font-size: 15px; }
 #performance-stats b { color: #fff; font-weight: 700; }
+#performance-stats .tile-detail { opacity: .72; padding-left: 4px; }
 #performance-stats hr {
   height: 1px;
   margin: 6px 0;

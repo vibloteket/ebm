@@ -50,12 +50,19 @@ def zoom_value():
     return _engine.viewport.zoom if _engine is not None else .5
 
 
+def set_tile_profiling(enabled):
+    """Toggle per-tile-type update() timing (enabled while the stats overlay shows)."""
+    if _engine is not None:
+        _engine.set_tile_profiling(bool(enabled))
+
+
 def performance_stats():
     """Return and reset one profiling window as JSON for the web overlay."""
     if _engine is None:
         return "{}"
     snapshot = dict(_render_profile)
     snapshot["engine"] = _engine.consume_profile()
+    snapshot["per_tile"] = _engine.consume_tile_profile()
     snapshot["tiles"] = len(_engine.active_tiles)
     snapshot["visible_tiles"] = len({
         (row, col)

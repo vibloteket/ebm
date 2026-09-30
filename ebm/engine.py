@@ -72,6 +72,11 @@ class Engine:
         # Coords whose tile class overrides TileBase.update; all other tiles
         # only have the no-op base implementation and are skipped per frame.
         self._updatable_coords: set[tuple[int, int]] = set()
+        # Per-tile-type update() timing, opt-in via set_tile_profiling (the
+        # web overlay enables it while visible). Costs two perf_counter calls
+        # per updating tile per frame, so it stays off by default.
+        self.tile_profiling = False
+        self._per_tile_profile: dict[str, dict[str, float]] = {}
         self.profile: dict[str, dict[str, float]] = {}
         self.reconcile_active_tiles()
 
@@ -114,12 +119,24 @@ class Engine:
 
         started = time.perf_counter()
         update_dt = min(dt, 0.05)
+        profiling = self.tile_profiling
         for coord in list(self._updatable_coords):
             active = self.active_tiles.get(coord)
             if active is None:
                 continue
-            with suppress_tile_output():
-                active.tile.update(active.builder, update_dt)
+            if profiling:
+                tile_started = time.perf_counter()
+                with suppress_tile_output():
+                    active.tile.update(active.builder, update_dt)
+                elapsed_ms = (time.perf_counter() - tile_started) * 1000
+                name = type(active.tile).__name__
+                bucket = self._per_tile_profile.setdefault(name, {"total_ms": 0.0, "calls": 0.0, "max_ms": 0.0})
+                bucket["total_ms"] += elapsed_ms
+                bucket["calls"] += 1
+                bucket["max_ms"] = max(bucket["max_ms"], elapsed_ms)
+            else:
+                with suppress_tile_output():
+                    active.tile.update(active.builder, update_dt)
         self._profile_add("tile_update", started)
 
         started = time.perf_counter()
@@ -149,6 +166,17 @@ class Engine:
     def consume_profile(self) -> dict[str, dict[str, float]]:
         result = self.profile
         self.profile = {}
+        return result
+
+    def set_tile_profiling(self, enabled: bool) -> None:
+        """Enable per-tile-type update() timing; enabling starts a fresh window."""
+        self.tile_profiling = enabled
+        self._per_tile_profile = {}
+
+    def consume_tile_profile(self) -> dict[str, dict[str, float]]:
+        """Return and reset per-tile-type timings, keyed by tile class name."""
+        result = self._per_tile_profile
+        self._per_tile_profile = {}
         return result
 
     def reconcile_active_tiles(self) -> None:

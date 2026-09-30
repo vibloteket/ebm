@@ -110,7 +110,7 @@ async function writePackage(pyodide) {
 // the hashchange event. Sampling (rAF loop) only runs while enabled, and the
 // consume-style counters on both the Python and JS scene side are discarded
 // on enable so the first sample is a fresh window.
-function setupPerformanceStats(getPerformanceStats, getZoom) {
+function setupPerformanceStats(getPerformanceStats, getZoom, setTileProfiling) {
   const stats = document.getElementById("performance-stats");
   if (!stats) return;
 
@@ -153,6 +153,13 @@ function setupPerformanceStats(getPerformanceStats, getZoom) {
       const renderedFps = dynamicFrames / seconds;
       const browserFps = browserFrames / seconds;
       const exportCalls = data.export_calls || 0;
+      const frameCount = Math.max(1, engine.engine_total?.calls || 0);
+      const perTile = Object.entries(data.per_tile || {})
+        .map(([name, bucket]) => ({ name, total: bucket.total_ms || 0, calls: bucket.calls || 0, max: bucket.max_ms || 0 }))
+        .sort((a, b) => b.total - a.total);
+      const tileRows = perTile.slice(0, 3)
+        .map((t) => `<span class="tile-detail">↳ ${t.name} ×${Math.round(t.calls / frameCount)} · ${(t.total / frameCount).toFixed(2)} ms/f</span>`)
+        .join("");
       const metrics = {
         renderedFps: renderedFps.toFixed(1), browserFps: browserFps.toFixed(1),
         engine: ms(avg(engine.engine_total)), tileUpdates: ms(avg(engine.tile_update)),
@@ -168,6 +175,7 @@ function setupPerformanceStats(getPerformanceStats, getZoom) {
         <hr>
         <span>Engine total <b>${metrics.engine} ms/frame</b></span>
         <span>Tile updates <b>${metrics.tileUpdates} ms</b></span>
+        ${tileRows}
         <span>Physics <b>${metrics.physics} ms</b> · ${metrics.physicsSteps} steps</span>
         <span>Reconcile <b>${metrics.reconcile} ms</b></span>
         <span>Ball upkeep <b>${metrics.ballUpkeep} ms</b></span>
@@ -190,6 +198,10 @@ function setupPerformanceStats(getPerformanceStats, getZoom) {
         `Browser FPS: ${metrics.browserFps}`,
         `Engine total: ${metrics.engine} ms/frame`,
         `Tile updates: ${metrics.tileUpdates} ms/frame`,
+        ...(perTile.length
+          ? ["Tile update breakdown:", ...perTile.map((t) =>
+            `  ${t.name}: ${Math.round(t.calls / frameCount)} instances, ${(t.total / frameCount).toFixed(3)} ms/frame avg, ${t.max.toFixed(2)} ms max, ${(100 * t.total / Math.max(1e-9, engine.tile_update?.total_ms || 0)).toFixed(0)}% of tile updates`)]
+          : []),
         `Physics: ${metrics.physics} ms/frame (${metrics.physicsSteps} steps in sample)`,
         `Tile reconcile: ${metrics.reconcile} ms/frame`,
         `Ball upkeep: ${metrics.ballUpkeep} ms/frame`,
@@ -212,6 +224,7 @@ function setupPerformanceStats(getPerformanceStats, getZoom) {
     enabled = want;
     stats.hidden = !enabled;
     copyButton.hidden = !enabled;
+    try { setTileProfiling?.(enabled); } catch (_) { /* profiling is optional */ }
     if (enabled) {
       // Discard counters accumulated while the overlay was off; both
       // performance_stats() and EbmScene.consumeStats() reset on read.
@@ -259,7 +272,7 @@ async function main() {
 
   setStatus("Starting simulation…");
   await pyodide.runPythonAsync(`
-from ebm.web_demo import start, zoom_at, set_zoom, zoom_value, performance_stats
+from ebm.web_demo import start, zoom_at, set_zoom, zoom_value, performance_stats, set_tile_profiling
 from js import window, document
 start(document.getElementById('static-machine'), document.getElementById('dynamic-machine'))
 `);
@@ -322,7 +335,7 @@ start(document.getElementById('static-machine'), document.getElementById('dynami
 
   loading.classList.add("hidden");
 
-  setupPerformanceStats(pyodide.globals.get("performance_stats"), getZoom);
+  setupPerformanceStats(pyodide.globals.get("performance_stats"), getZoom, pyodide.globals.get("set_tile_profiling"));
 }
 
 window.addEventListener("error", (event) => {
