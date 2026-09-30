@@ -105,6 +105,127 @@ async function writePackage(pyodide) {
   await loadPythonPackage(pyodide);
 }
 
+// Performance stats overlay toggled by the URL hash (#stats). Changing the
+// hash never reloads the page, so the overlay can be switched on/off live via
+// the hashchange event. Sampling (rAF loop) only runs while enabled, and the
+// consume-style counters on both the Python and JS scene side are discarded
+// on enable so the first sample is a fresh window.
+function setupPerformanceStats(getPerformanceStats, getZoom) {
+  const stats = document.getElementById("performance-stats");
+  if (!stats) return;
+
+  let enabled = false;
+  let browserFrames = 0, last = performance.now(), latestReport = "Waiting for the first profiling sample…";
+
+  const copyButton = document.createElement("button");
+  copyButton.type = "button";
+  copyButton.className = "copy-performance-report";
+  copyButton.textContent = "Copy report";
+  copyButton.hidden = true;
+  copyButton.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(latestReport);
+      copyButton.textContent = "Copied";
+    } catch (_) {
+      const textarea = document.createElement("textarea");
+      textarea.value = latestReport;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      textarea.remove();
+      copyButton.textContent = "Copied";
+    }
+    setTimeout(() => { copyButton.textContent = "Copy report"; }, 1400);
+  });
+  stats.after(copyButton);
+
+  const avg = (entry) => entry?.calls ? entry.total_ms / entry.calls : 0;
+  const ms = (value) => Number(value || 0).toFixed(2);
+  const sample = (now) => {
+    if (!enabled) return;
+    browserFrames++;
+    if (now - last >= 1000) {
+      const seconds = (now-last)/1000;
+      const data = JSON.parse(String(getPerformanceStats?.() || "{}"));
+      const scene = window.EbmScene?.consumeStats?.() || {};
+      const engine = data.engine || {};
+      const dynamicFrames = scene.dynamicFrames || 0;
+      const renderedFps = dynamicFrames / seconds;
+      const browserFps = browserFrames / seconds;
+      const exportCalls = data.export_calls || 0;
+      const metrics = {
+        renderedFps: renderedFps.toFixed(1), browserFps: browserFps.toFixed(1),
+        engine: ms(avg(engine.engine_total)), tileUpdates: ms(avg(engine.tile_update)),
+        physics: ms(avg(engine.physics)), physicsSteps: Math.round(engine.physics?.units || 0),
+        reconcile: ms(avg(engine.tile_reconcile)), ballUpkeep: ms(avg(engine.ball_maintenance)),
+        exportMs: ms((data.export_total_ms||0)/Math.max(1,exportCalls)), exportMax: ms(data.export_max_ms),
+        dynamic: ms((scene.dynamicTotalMs||0)/Math.max(1,dynamicFrames)), dynamicMax: ms(scene.dynamicMaxMs),
+        staticDraw: ms((scene.staticTotalMs||0)/Math.max(1,scene.staticFrames||0)), staticRedraws: scene.staticFrames||0,
+      };
+      stats.innerHTML = `
+        <strong>${metrics.renderedFps} rendered FPS</strong>
+        <span>${metrics.browserFps} browser FPS · target 30</span>
+        <hr>
+        <span>Engine total <b>${metrics.engine} ms/frame</b></span>
+        <span>Tile updates <b>${metrics.tileUpdates} ms</b></span>
+        <span>Physics <b>${metrics.physics} ms</b> · ${metrics.physicsSteps} steps</span>
+        <span>Reconcile <b>${metrics.reconcile} ms</b></span>
+        <span>Ball upkeep <b>${metrics.ballUpkeep} ms</b></span>
+        <hr>
+        <span>Export <b>${metrics.exportMs} ms/frame</b> · max ${metrics.exportMax} ms</span>
+        <span>Dynamic draw <b>${metrics.dynamic} ms</b> · max ${metrics.dynamicMax} ms</span>
+        <span>Static draw <b>${metrics.staticDraw} ms</b> · ${metrics.staticRedraws} redraws</span>
+        <span>Scene events <b>${data.sync_events||0}</b> · JS ${scene.eventCount||0}</span>
+        <hr>
+        <span>${data.visible_tiles||0} visible · ${data.tiles||0} active tiles · ${data.balls||0} balls</span>
+        <span>${data.boundary_inputs||0} open inputs · ${data.shapes||0} shapes · ${data.bodies||0} bodies</span>
+        <span>${innerWidth}×${innerHeight} · zoom ${Number(getZoom()).toFixed(2)}×</span>`;
+      latestReport = [
+        "Endless Ball Machine performance report",
+        `Timestamp: ${new Date().toISOString()}`,
+        `App: ${APP_VERSION}`,
+        `URL: ${location.href}`,
+        `Browser: ${navigator.userAgent}`,
+        `Rendered FPS: ${metrics.renderedFps} (target 30)`,
+        `Browser FPS: ${metrics.browserFps}`,
+        `Engine total: ${metrics.engine} ms/frame`,
+        `Tile updates: ${metrics.tileUpdates} ms/frame`,
+        `Physics: ${metrics.physics} ms/frame (${metrics.physicsSteps} steps in sample)`,
+        `Tile reconcile: ${metrics.reconcile} ms/frame`,
+        `Ball upkeep: ${metrics.ballUpkeep} ms/frame`,
+        `Export: ${metrics.exportMs} ms/frame (max ${metrics.exportMax} ms), ${data.sync_events||0} scene events`,
+        `Dynamic draw: ${metrics.dynamic} ms/frame (max ${metrics.dynamicMax} ms)`,
+        `Static draw: ${metrics.staticDraw} ms/redraw (${metrics.staticRedraws} redraws)`,
+        `World: ${data.visible_tiles||0} visible tiles, ${data.tiles||0} active buffered tiles, ${data.balls||0} balls, ${data.boundary_inputs||0} open boundary inputs, ${data.shapes||0} shapes, ${data.bodies||0} bodies, ${data.constraints||0} constraints`,
+        `Viewport: ${innerWidth}x${innerHeight}`,
+        `Zoom: ${Number(getZoom()).toFixed(2)}x`,
+        `Renderer: js-scene basic`,
+      ].join("\n");
+      browserFrames = 0; last = now;
+    }
+    requestAnimationFrame(sample);
+  };
+
+  const applyHash = () => {
+    const want = location.hash === "#stats";
+    if (want === enabled) return;
+    enabled = want;
+    stats.hidden = !enabled;
+    copyButton.hidden = !enabled;
+    if (enabled) {
+      // Discard counters accumulated while the overlay was off; both
+      // performance_stats() and EbmScene.consumeStats() reset on read.
+      try { getPerformanceStats?.(); } catch (_) { /* ignore */ }
+      window.EbmScene?.consumeStats?.();
+      browserFrames = 0;
+      last = performance.now();
+      requestAnimationFrame(sample);
+    }
+  };
+  window.addEventListener("hashchange", applyHash);
+  applyHash();
+}
+
 async function main() {
   loading = document.getElementById("loading");
   const canvas = document.getElementById("dynamic-machine");
@@ -201,99 +322,7 @@ start(document.getElementById('static-machine'), document.getElementById('dynami
 
   loading.classList.add("hidden");
 
-  if (new URLSearchParams(location.search).has("stats")) {
-    const stats = document.getElementById("performance-stats");
-    stats.hidden = false;
-    const getPerformanceStats = pyodide.globals.get("performance_stats");
-    let browserFrames = 0, last = performance.now(), latestReport = "Waiting for the first profiling sample…";
-    const copyButton = document.createElement("button");
-    copyButton.type = "button";
-    copyButton.className = "copy-performance-report";
-    copyButton.textContent = "Copy report";
-    copyButton.addEventListener("click", async () => {
-      try {
-        await navigator.clipboard.writeText(latestReport);
-        copyButton.textContent = "Copied";
-      } catch (_) {
-        const textarea = document.createElement("textarea");
-        textarea.value = latestReport;
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand("copy");
-        textarea.remove();
-        copyButton.textContent = "Copied";
-      }
-      setTimeout(() => { copyButton.textContent = "Copy report"; }, 1400);
-    });
-    stats.after(copyButton);
-
-    const avg = (entry) => entry?.calls ? entry.total_ms / entry.calls : 0;
-    const ms = (value) => Number(value || 0).toFixed(2);
-    const sample = (now) => {
-      browserFrames++;
-      if (now - last >= 1000) {
-        const seconds = (now-last)/1000;
-        const data = JSON.parse(String(getPerformanceStats?.() || "{}"));
-        const scene = window.EbmScene?.consumeStats?.() || {};
-        const engine = data.engine || {};
-        const dynamicFrames = scene.dynamicFrames || 0;
-        const renderedFps = dynamicFrames / seconds;
-        const browserFps = browserFrames / seconds;
-        const exportCalls = data.export_calls || 0;
-        const metrics = {
-          renderedFps: renderedFps.toFixed(1), browserFps: browserFps.toFixed(1),
-          engine: ms(avg(engine.engine_total)), tileUpdates: ms(avg(engine.tile_update)),
-          physics: ms(avg(engine.physics)), physicsSteps: Math.round(engine.physics?.units || 0),
-          reconcile: ms(avg(engine.tile_reconcile)), ballUpkeep: ms(avg(engine.ball_maintenance)),
-          exportMs: ms((data.export_total_ms||0)/Math.max(1,exportCalls)), exportMax: ms(data.export_max_ms),
-          dynamic: ms((scene.dynamicTotalMs||0)/Math.max(1,dynamicFrames)), dynamicMax: ms(scene.dynamicMaxMs),
-          staticDraw: ms((scene.staticTotalMs||0)/Math.max(1,scene.staticFrames||0)), staticRedraws: scene.staticFrames||0,
-        };
-        stats.innerHTML = `
-          <strong>${metrics.renderedFps} rendered FPS</strong>
-          <span>${metrics.browserFps} browser FPS · target 30</span>
-          <hr>
-          <span>Engine total <b>${metrics.engine} ms/frame</b></span>
-          <span>Tile updates <b>${metrics.tileUpdates} ms</b></span>
-          <span>Physics <b>${metrics.physics} ms</b> · ${metrics.physicsSteps} steps</span>
-          <span>Reconcile <b>${metrics.reconcile} ms</b></span>
-          <span>Ball upkeep <b>${metrics.ballUpkeep} ms</b></span>
-          <hr>
-          <span>Export <b>${metrics.exportMs} ms/frame</b> · max ${metrics.exportMax} ms</span>
-          <span>Dynamic draw <b>${metrics.dynamic} ms</b> · max ${metrics.dynamicMax} ms</span>
-          <span>Static draw <b>${metrics.staticDraw} ms</b> · ${metrics.staticRedraws} redraws</span>
-          <span>Scene events <b>${data.sync_events||0}</b> · JS ${scene.eventCount||0}</span>
-          <hr>
-          <span>${data.visible_tiles||0} visible · ${data.tiles||0} active tiles · ${data.balls||0} balls</span>
-          <span>${data.boundary_inputs||0} open inputs · ${data.shapes||0} shapes · ${data.bodies||0} bodies</span>
-          <span>${innerWidth}×${innerHeight} · zoom ${Number(getZoom()).toFixed(2)}×</span>`;
-        latestReport = [
-          "Endless Ball Machine performance report",
-          `Timestamp: ${new Date().toISOString()}`,
-          `App: ${APP_VERSION}`,
-          `URL: ${location.href}`,
-          `Browser: ${navigator.userAgent}`,
-          `Rendered FPS: ${metrics.renderedFps} (target 30)`,
-          `Browser FPS: ${metrics.browserFps}`,
-          `Engine total: ${metrics.engine} ms/frame`,
-          `Tile updates: ${metrics.tileUpdates} ms/frame`,
-          `Physics: ${metrics.physics} ms/frame (${metrics.physicsSteps} steps in sample)`,
-          `Tile reconcile: ${metrics.reconcile} ms/frame`,
-          `Ball upkeep: ${metrics.ballUpkeep} ms/frame`,
-          `Export: ${metrics.exportMs} ms/frame (max ${metrics.exportMax} ms), ${data.sync_events||0} scene events`,
-          `Dynamic draw: ${metrics.dynamic} ms/frame (max ${metrics.dynamicMax} ms)`,
-          `Static draw: ${metrics.staticDraw} ms/redraw (${metrics.staticRedraws} redraws)`,
-          `World: ${data.visible_tiles||0} visible tiles, ${data.tiles||0} active buffered tiles, ${data.balls||0} balls, ${data.boundary_inputs||0} open boundary inputs, ${data.shapes||0} shapes, ${data.bodies||0} bodies, ${data.constraints||0} constraints`,
-          `Viewport: ${innerWidth}x${innerHeight}`,
-          `Zoom: ${Number(getZoom()).toFixed(2)}x`,
-          `Renderer: js-scene basic`,
-        ].join("\n");
-        browserFrames = 0; last = now;
-      }
-      requestAnimationFrame(sample);
-    };
-    requestAnimationFrame(sample);
-  }
+  setupPerformanceStats(pyodide.globals.get("performance_stats"), getZoom);
 }
 
 window.addEventListener("error", (event) => {
