@@ -4,16 +4,15 @@ import math
 
 from ebm import TileBase, TileBuilder
 
-
 TURRET = (280.0, 280.0)
-SENSOR_CENTER = (180.0, 180.0)
-SENSOR_RADIUS = 120.0
+SENSOR_CENTER = (160.0, 160.0)
+SENSOR_RADIUS = 125.0
 # Only fire at targets well inside the zone; boundary grazers may escape.
-FIRE_DEPTH = 130.0
+FIRE_DEPTH = 200.0
 BARREL_LENGTH = 34.0
 MUZZLE = 28.0
-AIM_SECONDS = 0.35
-COOLDOWN_SECONDS = 0.15
+AIM_SECONDS = 0.25
+COOLDOWN_SECONDS = 0.05
 BEAM_SECONDS = 0.12
 BLAST_SECONDS = 0.45
 BLAST_RAYS = 10
