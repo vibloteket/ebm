@@ -6,7 +6,7 @@ from ebm import TileBase, TileBuilder
 
 TURRET = (280.0, 280.0)
 SENSOR_CENTER = (160.0, 160.0)
-SENSOR_RADIUS = 125.0
+SENSOR_RADIUS = 130.0
 # Only fire at targets well inside the zone; boundary grazers may escape.
 FIRE_DEPTH = 200.0
 BARREL_LENGTH = 34.0
