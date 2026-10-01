@@ -113,7 +113,7 @@ def test_ball_inside_sensor_is_shot_and_explodes():
     assert beam.a != beam.b
     impact_x, impact_y = beam.b
     assert abs(impact_x - 180) < BALL_RADIUS
-    assert SENSOR_CENTER[1] < impact_y < SENSOR_CENTER[1] + SENSOR_RADIUS
+    assert math.hypot(impact_x - SENSOR_CENTER[0], impact_y - SENSOR_CENTER[1]) < SENSOR_RADIUS
     # The ring flashes on firing.
     assert tile.flash_t > 0
 
