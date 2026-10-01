@@ -12,12 +12,17 @@ from ebm.tile_api import (
     TileResourceRegistry,
     ball_shape_filter,
 )
+from ebm.validator import validate_tile_flow
 from ebm.tiles.contributed.laser_turret import (
     AIM_SECONDS,
     BLAST_RAYS,
+    BOX_FADE_SECONDS,
     LaserTurret,
     NO_BEAM,
     NO_RAY,
+    PIPE_CAPACITY,
+    PIPE_TOP_SPAWN,
+    PRIME_STOCK,
     RING_SEGMENTS,
     SENSOR_CENTER,
     SENSOR_RADIUS,
@@ -54,6 +59,16 @@ def _step(space, registry, builder, tile, frames, dt=1 / 120):
         tile.update(builder, dt)
         space.step(dt)
         registry.advance(dt)
+
+
+def _feed_kill(space, registry, builder, tile, x=160):
+    """Drop one ball into the sensor and step until the turret destroys it."""
+    body, _shape = _ball(space, (x, 50), (0, 500))
+    for _ in range(150):
+        _step(space, registry, builder, tile, 1)
+        if registry.ball_is_paused(body):
+            return body
+    raise AssertionError("turret did not shoot the dropped ball")
 
 
 def test_build_has_sensor_turret_and_hidden_effects():
@@ -136,18 +151,104 @@ def test_fast_ball_crossing_the_zone_escapes_unshot():
     # A fast upward pass nicks the zone and leaves it before the aim delay.
     body, _shape = _ball(space, (200, 60), (300, -500))
 
-    min_distance = math.inf
+    entered = left = False
     for _ in range(140):
         _step(space, registry, builder, tile, 1)
-        min_distance = min(
-            min_distance,
-            math.hypot(body.position.x - 180, body.position.y - 180),
-        )
+        distance = math.hypot(body.position.x - SENSOR_CENTER[0],
+                              body.position.y - SENSOR_CENTER[1])
+        entered = entered or distance <= SENSOR_RADIUS + BALL_RADIUS
+        left = left or (entered and distance > SENSOR_RADIUS + BALL_RADIUS)
+        if left or registry.ball_is_paused(body):
+            break
 
-    # The ball provably entered the sensor (touch distance is radius + ball),
-    # was queued and dropped again, and was never shot.
-    assert min_distance <= SENSOR_RADIUS + BALL_RADIUS
+    # The ball provably entered the sensor, was queued and dropped again on
+    # the way out, and was never shot.
+    assert entered and left
     assert not registry.ball_is_paused(body)
     assert tile.queue == []
     assert tile.target is None
-    assert body.position.x > 400
+
+
+def test_wave_primes_after_three_kills_and_spawns_both_outputs():
+    space, registry, builder, tile = _world()
+    _feed_kill(space, registry, builder, tile)
+    _feed_kill(space, registry, builder, tile)
+    assert len(tile.stockpile) == 2
+    assert not tile.primed
+    assert tile.box_ball is None
+    assert not tile.pipe_balls and not tile.pending_spawn
+
+    _feed_kill(space, registry, builder, tile)
+    _step(space, registry, builder, tile, 3)
+    assert tile.primed
+    assert tile.box_ball is not None
+    # The pipe half of the wave has materialized at the pipe top.
+    pipe_handles = tile.pipe_balls or tile.pending_spawn
+    assert len(pipe_handles) == 1
+    _step(space, registry, builder, tile, 10)
+    assert len(tile.pipe_balls) == 1
+    ball = tile.pipe_balls[0]
+    assert ball.position == PIPE_TOP_SPAWN or not ball.paused
+
+
+def test_box_ball_fades_in_then_hatch_drops_it_out_b0():
+    space, registry, builder, tile = _world()
+    for _ in range(PRIME_STOCK):
+        _feed_kill(space, registry, builder, tile)
+    _step(space, registry, builder, tile, 3)
+    ball = tile.box_ball
+    assert ball is not None
+    body = ball._body
+
+    # Mid-fade: partially transparent, hatch still closed.
+    _step(space, registry, builder, tile, int(BOX_FADE_SECONDS * 60))  # ~half fade
+    alpha = body.shapes and next(iter(body.shapes)).ebm_fill_color[3]
+    assert 40 < alpha < 220
+    assert tile.hatch_open is False
+
+    # Fade completes: hatch opens and the ball falls out through B0.
+    while not tile.hatch_open:
+        _step(space, registry, builder, tile, 1)
+    assert tile.hatch.id in registry._paused_resources
+    released = False
+    for _ in range(240):
+        _step(space, registry, builder, tile, 1)
+        if registry._balls[body]["owner"] is None:
+            released = True
+            break
+    assert released
+    assert abs(body.position.x - 225) <= 45 + 1
+    assert body.position.y > 400
+    # The hatch closes again after its open window; the box is then ready for
+    # the next wave.
+    _step(space, registry, builder, tile, 60)
+    assert tile.hatch_open is False
+    assert tile.box_ball is None
+
+
+def test_pipe_fills_then_shuttle_releases_one_ball_per_wave_through_r0():
+    space, registry, builder, tile = _world()
+    for _ in range(14):
+        _feed_kill(space, registry, builder, tile)
+        _step(space, registry, builder, tile, 24)
+
+    exits = []
+    for frame in range(1800):
+        _step(space, registry, builder, tile, 1)
+        for body in list(space.bodies):
+            x, y = body.position
+            if x > 400 and 240 < y < 360 and id(body) not in exits:
+                vx, vy = body.velocity
+                angle = math.degrees(math.atan2(vy, max(vx, 1e-9)))
+                exits.append(id(body))
+                assert 255 <= y <= 345
+                assert 0 <= angle <= 30
+        if len(tile.pipe_balls) >= PIPE_CAPACITY and exits:
+            break
+    assert exits, "shuttle never released a ball through R0"
+    assert len(tile.pipe_balls) >= PIPE_CAPACITY - 1
+
+
+def test_full_flow_validation_passes_with_recycling_spawners():
+    result = validate_tile_flow(LaserTurret, name="laser turret")
+    assert result.ok, result.to_dict()

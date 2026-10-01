@@ -18,6 +18,35 @@ BLAST_SECONDS = 0.45
 BLAST_RAYS = 10
 RING_SEGMENTS = 48
 
+# Recycled supply: exploded balls are paused into an invisible stockpile. The
+# first wave needs PRIME_STOCK balls; later waves fire every WAVE_SECONDS when
+# at least WAVE_COST balls remain, otherwise the supply must re-prime.
+WAVE_SECONDS = 2.5
+PRIME_STOCK = 3
+WAVE_COST = 2
+
+# B0 spawner: a box just above the exit. A recycled ball fades in on the
+# closed hatch; when fully visible the hatch opens and the ball drops out.
+BOX_SPAWN = (225.0, 370.0)
+BOX_FADE_SECONDS = 0.9
+BOX_OPEN_SECONDS = 0.3
+
+# R0 spawner: a one-ball-wide pipe from the tile top down to a sliding
+# shuttle at y~240. The shuttle carries the bottom ball sideways and drops it
+# onto a triangle that bounces it out through R0. The shuttle releases one
+# ball per wave, but only while the pipe is full.
+PIPE_X = 337.0
+PIPE_CAPACITY = 6
+PIPE_TOP_SPAWN = (337.0, 25.0)
+PIPE_CLEAR_Y = 55.0
+SHUTTLE_HOME_X = 337.0
+SHUTTLE_DROP_X = 373.0
+SHUTTLE_SPEED = 120.0
+SHUTTLE_DROP_SECONDS = 0.25
+SHUTTLE_REFILL_SECONDS = 0.25
+BALL_FILL = (22, 114, 212, 255)
+BALL_STROKE = (12, 63, 143, 255)
+
 STEEL = (58, 64, 76, 255)
 STEEL_DARK = (30, 33, 40, 255)
 EYE = (198, 40, 30, 255)
@@ -29,15 +58,18 @@ BEAM_GLOW = (255, 90, 40, 120)
 NO_BEAM = (255, 90, 40, 0)
 RAY = (255, 150, 45, 230)
 NO_RAY = (255, 150, 45, 0)
+CRATE = (115, 76, 168, 255)
+MECH = (220, 140, 35, 255)
+PIPE = (49, 90, 168, 255)
 
 
 class LaserTurret(TileBase):
-    """A turret tracks balls inside its sensor circle and shoots them; hit balls explode."""
+    """A turret tracks balls inside its sensor circle and shoots them; hit balls
+    explode and are recycled into the B0 spawn box and the R0 pipe, which release
+    them in synchronized clock-driven waves."""
 
     author = "Pi"
-    # Exploded balls never reach an output, which breaks the flow contract
-    # until the output respawn mechanism exists. Editor-only until then.
-    enabled = False
+    enabled = True
 
     def build(self, b: TileBuilder) -> None:
         self.queue = []
@@ -51,6 +83,17 @@ class LaserTurret(TileBase):
         self.angle = math.atan2(
             SENSOR_CENTER[1] - TURRET[1], SENSOR_CENTER[0] - TURRET[0]
         )
+        self.stockpile = []
+        self.primed = False
+        self.wave_t = 0.0
+        self.box_ball = None
+        self.box_t = 0.0
+        self.hatch_open = False
+        self.hatch_t = 0.0
+        self.pipe_balls = []
+        self.pending_spawn = []
+        self.shuttle_phase = "home"
+        self.shuttle_t = 0.0
 
         sensor = b.sensor_circle(SENSOR_CENTER, SENSOR_RADIUS)
 
@@ -93,16 +136,55 @@ class LaserTurret(TileBase):
             for _ in range(BLAST_RAYS)
         ]
 
+        # B0 spawner: an open-topped box whose floor is a pausable hatch.
+        b.static_segment((195, 345), (195, 391), 3, friction=0, elasticity=0,
+                         fill_color=CRATE)
+        b.static_segment((255, 345), (255, 391), 3, friction=0, elasticity=0,
+                         fill_color=CRATE)
+        self.hatch = b.static_segment((198, 388), (252, 388), 3,
+                                      friction=0.2, elasticity=0, fill_color=MECH)
+
+        # R0 spawner: a one-ball-wide pipe from the top edge down to the
+        # shuttle channel. The right wall has a slot at channel height.
+        b.static_segment((318, 8), (318, 258), 3, friction=0.05, elasticity=0,
+                         fill_color=PIPE)
+        b.static_segment((356, 8), (356, 218), 3, friction=0.05, elasticity=0,
+                         fill_color=PIPE)
+        b.static_segment((356, 218), (396, 218), 3, friction=0.05, elasticity=0,
+                         fill_color=PIPE)
+        b.static_segment((320, 258), (354, 258), 3, friction=0.05, elasticity=0,
+                         fill_color=PIPE)
+
+        # The shuttle: a sliding holder with a ball-sized gap. At home the gap
+        # aligns with the pipe bore; slid right it carries the bottom ball over
+        # the drop slot while its top plate blocks the column above.
+        self.shuttle = b.kinematic_body((SHUTTLE_HOME_X, 240))
+        b.segment_shape(self.shuttle, (-18, -12), (-18, 12), 2,
+                        friction=0.05, elasticity=0, fill_color=MECH)
+        b.segment_shape(self.shuttle, (18, -12), (18, 12), 2,
+                        friction=0.05, elasticity=0, fill_color=MECH)
+        b.segment_shape(self.shuttle, (-18, -14), (18, -14), 2,
+                        friction=0.05, elasticity=0, fill_color=MECH)
+
+        # The triangle bounces the dropped ball out through R0.
+        b.static_polygon(((283, 335), (340, 285), (397, 335)),
+                         friction=0.05, elasticity=0.85, fill_color=CRATE)
+
+        # Near-stationary L0 arrivals hug the left wall and slide past the
+        # sensor's leftmost reach by half a unit. A small ledge inside the
+        # kill zone catches them; the turret recycles them like the rest.
+        b.static_segment((3, 150), (60, 165), 3, friction=0.05, elasticity=0)
+
         def enter(event):
             ball = event.ball
-            if ball is not self.target and ball not in self.queue:
+            if ball != self.target and ball not in self.queue:
                 self.queue.append(ball)
 
         def leave(event):
             ball = event.ball
             if ball in self.queue:
                 self.queue.remove(ball)
-            if ball is self.target:
+            if ball == self.target:
                 self.target = None
 
         b.on_ball_contact(sensor, begin=enter, separate=leave)
@@ -146,6 +228,114 @@ class LaserTurret(TileBase):
                 if self.aim <= 0 and self.cooldown == 0 and _distance(position, SENSOR_CENTER) <= FIRE_DEPTH:
                     self._fire(position)
         self.barrel.set_segment_points(TURRET, self._tip(self.angle, BARREL_LENGTH))
+        wave_fired = self._update_supply(dt)
+        self._update_box(dt)
+        self._update_pipe(dt, wave_fired)
+
+    def _update_supply(self, dt: float) -> bool:
+        """Advance the shared wave clock; return True when a wave fired."""
+        self._prune(self.stockpile)
+        if not self.primed:
+            if len(self.stockpile) >= PRIME_STOCK:
+                self.primed = True
+                self.wave_t = 0.0
+            else:
+                return False
+        self.wave_t -= dt
+        if self.wave_t > 0:
+            return False
+        if len(self.stockpile) < WAVE_COST:
+            self.primed = False
+            return False
+        self.wave_t = WAVE_SECONDS
+        self._box_start(self.stockpile.pop(0))
+        self.pending_spawn.append(self.stockpile.pop(0))
+        return True
+
+    def _box_start(self, ball) -> None:
+        ball.set_position(BOX_SPAWN)
+        ball.set_velocity((0, 0))
+        ball.set_fill_color(BALL_FILL[:3] + (0,))
+        ball.set_stroke_color(BALL_STROKE[:3] + (0,))
+        ball.resume()
+        self.box_ball = ball
+        self.box_t = 0.0
+
+    def _update_box(self, dt: float) -> None:
+        if self.box_ball is not None and not self.hatch_open:
+            self.box_t += dt
+            if self.box_t >= BOX_FADE_SECONDS:
+                self.hatch.pause()
+                self.hatch_open = True
+                self.hatch_t = 0.0
+            else:
+                alpha = int(255 * self.box_t / BOX_FADE_SECONDS)
+                try:
+                    self.box_ball.set_fill_color(BALL_FILL[:3] + (alpha,))
+                    self.box_ball.set_stroke_color(BALL_STROKE[:3] + (alpha,))
+                except PermissionError:
+                    self.box_ball = None
+        if self.hatch_open:
+            self.hatch_t += dt
+            if self.hatch_t >= BOX_OPEN_SECONDS:
+                self.hatch.resume()
+                self.hatch_open = False
+                self.box_ball = None
+
+    def _update_pipe(self, dt: float, wave_fired: bool) -> None:
+        self._prune(self.pipe_balls)
+        if self.pending_spawn:
+            top_clear = True
+            for ball in self.pipe_balls:
+                try:
+                    if ball.position[1] < PIPE_CLEAR_Y:
+                        top_clear = False
+                        break
+                except PermissionError:
+                    pass
+            if top_clear:
+                ball = self.pending_spawn.pop(0)
+                ball.set_position(PIPE_TOP_SPAWN)
+                ball.set_velocity((0, 0))
+                ball.resume()
+                self.pipe_balls.append(ball)
+        if (
+            wave_fired
+            and self.shuttle_phase == "home"
+            and len(self.pipe_balls) >= PIPE_CAPACITY
+        ):
+            self.shuttle_phase = "carry"
+            self.shuttle.set_velocity((SHUTTLE_SPEED, 0))
+            self.pipe_balls.pop(0)
+        x = self.shuttle.position[0]
+        if self.shuttle_phase == "carry" and x >= SHUTTLE_DROP_X:
+            self.shuttle.set_velocity((0, 0))
+            self.shuttle_phase = "drop"
+            self.shuttle_t = SHUTTLE_DROP_SECONDS
+        elif self.shuttle_phase == "drop":
+            self.shuttle_t -= dt
+            if self.shuttle_t <= 0:
+                self.shuttle_phase = "return"
+                self.shuttle.set_velocity((-SHUTTLE_SPEED, 0))
+        elif self.shuttle_phase == "return" and x <= SHUTTLE_HOME_X:
+            self.shuttle.set_velocity((0, 0))
+            self.shuttle_phase = "refill"
+            self.shuttle_t = SHUTTLE_REFILL_SECONDS
+        elif self.shuttle_phase == "refill":
+            self.shuttle_t -= dt
+            if self.shuttle_t <= 0:
+                self.shuttle_phase = "home"
+
+    @staticmethod
+    def _prune(balls) -> None:
+        kept = []
+        for ball in balls:
+            try:
+                ball.position
+            except PermissionError:
+                continue
+            kept.append(ball)
+        balls[:] = kept
 
     def _fire(self, position) -> None:
         ball = self.target
@@ -163,8 +353,10 @@ class LaserTurret(TileBase):
             segment.set_fill_color(RING_FLASH)
         self.flash_t = 0.25
         # The explosion destroys the ball: it leaves physics and rendering but
-        # stays owned, ready to be respawned at an output later.
+        # stays owned in the invisible stockpile, ready to be recycled into an
+        # output spawner by the next wave.
         ball.pause()
+        self.stockpile.append(ball)
 
     def _draw_blast(self) -> None:
         if self.blast_t <= 0:
