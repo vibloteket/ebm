@@ -246,7 +246,17 @@ def _canvas_color(color):
 
 def _draw_sensor_overlay(ctx, shape, sx, sy, scale):
     """Draw editor-only sensor geometry without changing production rendering."""
-    if type(shape).__name__ != "Poly":
+    kind = type(shape).__name__
+    if kind == "Circle":
+        center = shape.body.local_to_world(shape.offset)
+        ctx.save()
+        ctx.beginPath(); ctx.arc(sx(center.x), sy(center.y), shape.radius * scale, 0, math.tau)
+        ctx.fillStyle = "rgba(71,85,105,.13)"; ctx.fill()
+        ctx.strokeStyle = "rgba(71,85,105,.62)"; ctx.lineWidth = max(1, 1.5 * scale)
+        ctx.setLineDash([max(3, 8 * scale), max(2, 5 * scale)]); ctx.stroke()
+        ctx.restore()
+        return
+    if kind != "Poly":
         return
     points = [shape.body.local_to_world(vertex) for vertex in shape.get_vertices()]
     if not points:
