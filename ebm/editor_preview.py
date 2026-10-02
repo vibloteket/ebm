@@ -39,11 +39,16 @@ class EditorPreview:
     def configure(self, mode):
         if editor_runtime._runtime.tile_class is None:
             raise RuntimeError("Run valid tile source first")
-        for ball in list(self.balls):
-            self.remove_ball(ball)
+        # Destroy owners before removing balls. Destruction restores the
+        # tile's paused (stockpiled) balls into the space; removing balls
+        # afterwards clears those too. The reverse order leaves resurrected
+        # balls behind as invisible ghosts that the fresh tile immediately
+        # interacts with again.
         for owner, _, _ in self.owners:
             self.registry.destroy_owner(owner)
         self.owners = []
+        for ball in list(self.balls):
+            self.remove_ball(ball)
         self.tile_class = editor_runtime._runtime.tile_class
         self.mode = "repeat" if str(mode) == "repeat" else "single"
         size = 3 if self.mode == "repeat" else 1
