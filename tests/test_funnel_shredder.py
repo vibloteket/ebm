@@ -158,7 +158,7 @@ def test_minis_rain_into_the_tray_and_stay_contained():
         assert MINI_RADIUS <= x <= 400 - MINI_RADIUS
         assert MINI_RADIUS <= y <= 400 - MINI_RADIUS
         assert vx * vx + vy * vy <= (MINI_MAX_SPEED + 600) ** 2
-        if 110 <= x <= 290 and y > 285:
+        if 110 <= x <= 290 and y > 265:
             tray += 1
     # Most minis settle in the tray; a few strays may rest on the side gutters.
     assert tray >= expected * 0.6, f"only {tray}/{expected} minis in the tray"
@@ -167,12 +167,14 @@ def test_minis_rain_into_the_tray_and_stay_contained():
 def test_pool_recycles_calm_tray_minis_when_exhausted():
     space, registry, builder, tile = _world()
     total = 0
-    for _ in range(7):  # 6+7+8+9+7+6+8 = 51 minis > MAX_MINIS
+    drops = 11  # Cycled counts: 6+7+8+9+7+6+8+5+6+7+8 = 77 minis > MAX_MINIS
+    for _ in range(drops):
         _drop_ball(space, registry, builder, tile)
         _step(space, registry, builder, tile, 90)
         total += 1
 
-    assert sum(MINI_COUNTS[:7]) > MAX_MINIS
+    expected_minis = sum(MINI_COUNTS[i % len(MINI_COUNTS)] for i in range(drops))
+    assert expected_minis > MAX_MINIS
     assert len(tile.minis) == MAX_MINIS
     assert not tile.mini_pool
     assert len(tile.stockpile) == total

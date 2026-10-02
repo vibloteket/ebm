@@ -11,7 +11,7 @@ from ebm import TileBase, TileBuilder
 # once the pool is exhausted. Stage 2 will add splitter buckets that convert a
 # full load of minis back into stockpiled balls at the outputs.
 
-WHEEL = (200.0, 150.0)
+WHEEL = (200.0, 120.0)
 SPOKES = 10
 SPOKE_INNER = 12.0
 SPOKE_OUTER = 62.0
@@ -21,16 +21,18 @@ WHEEL_RATE = 2.5
 
 # Geometry contract: every path from the inputs to the throat passes within
 # SPOKE_OUTER of the wheel hub. The bowl walls guide wall-hugging balls to
-# ~53 units from the hub and the free-fall cone from T0 crosses the swept
+# ~56 units from the hub and the free-fall cone from T0 crosses the swept
 # disc, so no ball can reach the throat without touching a spoke.
-BOWL_LEFT = ((30.0, 30.0), (170.0, 225.0))
-BOWL_RIGHT = ((370.0, 30.0), (230.0, 225.0))
+# The bowl wall tops stay at the inputs while the throat sits one ball higher
+# than the first design, which makes the funnel sides less steep on purpose.
+BOWL_LEFT = ((30.0, 30.0), (170.0, 195.0))
+BOWL_RIGHT = ((370.0, 30.0), (230.0, 195.0))
 # The chute reaches below the tray wall tops so exiting minis are already
 # between the tray walls; sideways hops over the tray walls cannot happen.
-CHUTE_LEFT = ((170.0, 225.0), (170.0, 300.0))
-CHUTE_RIGHT = ((230.0, 225.0), (230.0, 300.0))
-TRAY_LEFT = ((110.0, 295.0), (110.0, 392.0))
-TRAY_RIGHT = ((290.0, 295.0), (290.0, 392.0))
+CHUTE_LEFT = ((170.0, 195.0), (170.0, 270.0))
+CHUTE_RIGHT = ((230.0, 195.0), (230.0, 270.0))
+TRAY_LEFT = ((110.0, 265.0), (110.0, 392.0))
+TRAY_RIGHT = ((290.0, 265.0), (290.0, 392.0))
 FLOOR_LEFT = ((4.0, 386.0), (200.0, 393.0))
 FLOOR_RIGHT = ((200.0, 393.0), (396.0, 386.0))
 # Edge guards seal everything except the two input apertures. The top guards
@@ -52,7 +54,7 @@ BALL_RETURN_POINT = (200.0, 60.0)
 MINI_RADIUS = 5.0
 MINI_DENSITY = 0.002
 MINI_MAX_SPEED = 470.0
-MAX_MINIS = 40
+MAX_MINIS = 70
 # Deterministic shatter sizes, averaging 7 minis per ball.
 MINI_COUNTS = (6, 7, 8, 9, 7, 6, 8, 5)
 
@@ -258,7 +260,7 @@ class FunnelShredder(TileBase):
         # (they are the visual mess), then the calmest one in the tray pile.
         def score(body):
             x, y = body.position
-            in_tray = 1 if (110 <= x <= 290 and y > 285) else 0
+            in_tray = 1 if (110 <= x <= 290 and y > 265) else 0
             vx, vy = body.velocity
             return (in_tray, vx * vx + vy * vy)
 
