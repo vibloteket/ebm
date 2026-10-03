@@ -8,9 +8,10 @@
  *
  * Wire format (see scene_export.py):
  *   events:  nested arrays, e.g. ["tile_add", owner, ox, oy, statics, dynVisuals, dynBodies]
- *   shapes:  [0, x1, y1, x2, y2, r, fill, stroke]  segment
- *            [1, x, y, r, fill, stroke]            circle
- *            [2, r, fill, stroke, [x1, y1, ...]]   polygon
+ *   shapes:  [0, x1, y1, x2, y2, r, fill, stroke, fg]  segment
+ *            [1, x, y, r, fill, stroke, fg]            circle
+ *            [2, r, fill, stroke, [x1, y1, ...], fg]   polygon
+ *   fg=1 marks foreground graphics, drawn after balls so they can occlude.
  *   colors:  [r, g, b, a] integers 0..255
  *   poses:   ids (Uint32Array, idStride lanes per body) + floats (Float64Array
  *            x, y, angle per body), parallel arrays.
@@ -53,9 +54,9 @@
   }
 
   function makeShape(e) {
-    if (e[0] === 0) return { t: 0, x1: e[1], y1: e[2], x2: e[3], y2: e[4], r: e[5], fill: css(e[6]), stroke: css(e[7]) };
-    if (e[0] === 1) return { t: 1, x: e[1], y: e[2], r: e[3], fill: css(e[4]), stroke: css(e[5]) };
-    return { t: 2, r: e[1], fill: css(e[2]), stroke: css(e[3]), pts: e[4] };
+    if (e[0] === 0) return { t: 0, x1: e[1], y1: e[2], x2: e[3], y2: e[4], r: e[5], fill: css(e[6]), stroke: css(e[7]), fg: !!e[8] };
+    if (e[0] === 1) return { t: 1, x: e[1], y: e[2], r: e[3], fill: css(e[4]), stroke: css(e[5]), fg: !!e[6] };
+    return { t: 2, r: e[1], fill: css(e[2]), stroke: css(e[3]), pts: e[4], fg: !!e[5] };
   }
 
   function unregisterTileBodies(owner) {
@@ -182,6 +183,7 @@
       if (!tileVisible(tile, vx, vy, vw, vh)) continue;
       const ox = tile.ox, oy = tile.oy;
       for (const s of tile.statics) {
+        if (s.fg) continue;  // Foreground statics draw in the dynamic pass, after balls.
         if (s.t === 0) {
           if (s.stroke) segmentPath(groupPath(halos, `${s.stroke}|${s.r}`, s.stroke, Math.max(3, s.r * 2 + 2)).path, ox + s.x1, oy + s.y1, ox + s.x2, oy + s.y2);
           if (s.fill) segmentPath(groupPath(fills, `${s.fill}|${s.r}`, s.fill, Math.max(3, s.r * 2)).path, ox + s.x1, oy + s.y1, ox + s.x2, oy + s.y2);
@@ -215,6 +217,45 @@
     if (s.stroke) { ctx.strokeStyle = s.stroke; ctx.lineWidth = 2; ctx.stroke(); }
   }
 
+  // Draw one shape with world offset (ox, oy); used for foreground statics,
+  // which skip the cached static canvas so they can render above balls.
+  function drawShape(ctx, s, ox, oy) {
+    if (s.t === 0) {
+      if (s.stroke) { ctx.strokeStyle = s.stroke; ctx.lineWidth = Math.max(2, s.r * 2 + 2); ctx.beginPath(); segmentPath(ctx, ox + s.x1, oy + s.y1, ox + s.x2, oy + s.y2); ctx.stroke(); }
+      if (s.fill) { ctx.strokeStyle = s.fill; ctx.lineWidth = Math.max(2, s.r * 2); ctx.beginPath(); segmentPath(ctx, ox + s.x1, oy + s.y1, ox + s.x2, oy + s.y2); ctx.stroke(); }
+    } else if (s.t === 1) {
+      ctx.beginPath(); ctx.arc(ox + s.x, oy + s.y, s.r, 0, TAU);
+      if (s.fill) { ctx.fillStyle = s.fill; ctx.fill(); }
+      if (s.stroke) { ctx.strokeStyle = s.stroke; ctx.lineWidth = 2; ctx.stroke(); }
+    } else {
+      drawPoly(ctx, s, ox, oy);
+    }
+  }
+
+  function drawBodyShape(ctx, shape, px, py, c, s) {
+    if (shape.t === 0) {
+      const x1 = px + shape.x1 * c - shape.y1 * s, y1 = py + shape.x1 * s + shape.y1 * c;
+      const x2 = px + shape.x2 * c - shape.y2 * s, y2 = py + shape.x2 * s + shape.y2 * c;
+      if (shape.stroke) { ctx.strokeStyle = shape.stroke; ctx.lineWidth = Math.max(2, shape.r * 2 + 2); ctx.beginPath(); segmentPath(ctx, x1, y1, x2, y2); ctx.stroke(); }
+      if (shape.fill) { ctx.strokeStyle = shape.fill; ctx.lineWidth = Math.max(2, shape.r * 2); ctx.beginPath(); segmentPath(ctx, x1, y1, x2, y2); ctx.stroke(); }
+    } else if (shape.t === 1) {
+      const cx = px + shape.x * c - shape.y * s, cy = py + shape.x * s + shape.y * c;
+      ctx.beginPath(); ctx.arc(cx, cy, shape.r, 0, TAU);
+      if (shape.fill) { ctx.fillStyle = shape.fill; ctx.fill(); }
+      if (shape.stroke) { ctx.strokeStyle = shape.stroke; ctx.lineWidth = 2; ctx.stroke(); }
+    } else {
+      const pts = shape.pts;
+      ctx.beginPath();
+      for (let j = 0; j + 1 < pts.length; j += 2) {
+        const lx = px + pts[j] * c - pts[j + 1] * s, ly = py + pts[j] * s + pts[j + 1] * c;
+        if (j === 0) ctx.moveTo(lx, ly); else ctx.lineTo(lx, ly);
+      }
+      ctx.closePath();
+      if (shape.fill) { ctx.fillStyle = shape.fill; ctx.fill(); }
+      if (shape.stroke) { ctx.strokeStyle = shape.stroke; ctx.lineWidth = 2; ctx.stroke(); }
+    }
+  }
+
   function renderDynamic() {
     const w = dynamicCanvas.width, h = dynamicCanvas.height;
     const zoom = vp.zoom;
@@ -229,6 +270,7 @@
     for (const tile of tiles.values()) {
       if (!tile.dynVisuals.length || !tileVisible(tile, vx, vy, vw, vh)) continue;
       for (const s of tile.dynVisuals) {
+        if (s.fg) continue;
         if (s.stroke) { dctx.strokeStyle = s.stroke; dctx.lineWidth = Math.max(2, s.r * 2 + 2); dctx.beginPath(); segmentPath(dctx, tile.ox + s.x1, tile.oy + s.y1, tile.ox + s.x2, tile.oy + s.y2); dctx.stroke(); }
         if (s.fill) { dctx.strokeStyle = s.fill; dctx.lineWidth = Math.max(2, s.r * 2); dctx.beginPath(); segmentPath(dctx, tile.ox + s.x1, tile.oy + s.y1, tile.ox + s.x2, tile.oy + s.y2); dctx.stroke(); }
       }
@@ -241,27 +283,8 @@
       const px = poseFloats[3 * i], py = poseFloats[3 * i + 1], angle = poseFloats[3 * i + 2];
       const c = Math.cos(angle), s = Math.sin(angle);
       for (const shape of record.shapes) {
-        if (shape.t === 0) {
-          const x1 = px + shape.x1 * c - shape.y1 * s, y1 = py + shape.x1 * s + shape.y1 * c;
-          const x2 = px + shape.x2 * c - shape.y2 * s, y2 = py + shape.x2 * s + shape.y2 * c;
-          if (shape.stroke) { dctx.strokeStyle = shape.stroke; dctx.lineWidth = Math.max(2, shape.r * 2 + 2); dctx.beginPath(); segmentPath(dctx, x1, y1, x2, y2); dctx.stroke(); }
-          if (shape.fill) { dctx.strokeStyle = shape.fill; dctx.lineWidth = Math.max(2, shape.r * 2); dctx.beginPath(); segmentPath(dctx, x1, y1, x2, y2); dctx.stroke(); }
-        } else if (shape.t === 1) {
-          const cx = px + shape.x * c - shape.y * s, cy = py + shape.x * s + shape.y * c;
-          dctx.beginPath(); dctx.arc(cx, cy, shape.r, 0, TAU);
-          if (shape.fill) { dctx.fillStyle = shape.fill; dctx.fill(); }
-          if (shape.stroke) { dctx.strokeStyle = shape.stroke; dctx.lineWidth = 2; dctx.stroke(); }
-        } else {
-          const pts = shape.pts;
-          dctx.beginPath();
-          for (let j = 0; j + 1 < pts.length; j += 2) {
-            const lx = px + pts[j] * c - pts[j + 1] * s, ly = py + pts[j] * s + pts[j + 1] * c;
-            if (j === 0) dctx.moveTo(lx, ly); else dctx.lineTo(lx, ly);
-          }
-          dctx.closePath();
-          if (shape.fill) { dctx.fillStyle = shape.fill; dctx.fill(); }
-          if (shape.stroke) { dctx.strokeStyle = shape.stroke; dctx.lineWidth = 2; dctx.stroke(); }
-        }
+        if (shape.fg) continue;
+        drawBodyShape(dctx, shape, px, py, c, s);
       }
     }
 
@@ -280,6 +303,26 @@
     for (const group of groups.values()) {
       if (group.fill) { dctx.fillStyle = group.fill; dctx.fill(group.path); }
       if (group.stroke) { dctx.strokeStyle = group.stroke; dctx.lineWidth = 2; dctx.stroke(group.path); }
+    }
+
+    // Foreground layer: everything flagged fg draws after balls, so it can
+    // occlude them. Same relative order as the background band.
+    for (const tile of tiles.values()) {
+      if (!tileVisible(tile, vx, vy, vw, vh)) continue;
+      for (const s of tile.statics) { if (s.fg) drawShape(dctx, s, tile.ox, tile.oy); }
+      for (const s of tile.dynVisuals) { if (s.fg) drawShape(dctx, s, tile.ox, tile.oy); }
+    }
+    for (let i = 0; i < poseCount; i++) {
+      const record = dynBodies.get(poseId(i));
+      if (!record) continue;
+      let hasFg = false;
+      for (const shape of record.shapes) if (shape.fg) { hasFg = true; break; }
+      if (!hasFg) continue;
+      const px = poseFloats[3 * i], py = poseFloats[3 * i + 1], angle = poseFloats[3 * i + 2];
+      const c = Math.cos(angle), s = Math.sin(angle);
+      for (const shape of record.shapes) {
+        if (shape.fg) drawBodyShape(dctx, shape, px, py, c, s);
+      }
     }
   }
 

@@ -140,13 +140,10 @@ def test_l0_ball_is_swallowed_by_the_box_and_exits_r0():
     space, registry, builder, tile = _world()
     body, shape = _ball(space, (16, 100), (200, 0))
 
-    min_alpha = 255
     exited = False
     exit_angle = None
     for _ in range(900):
         _step(space, registry, builder, tile, 1)
-        if not registry.ball_is_paused(body):
-            min_alpha = min(min_alpha, shape.ebm_fill_color[3])
         if body.position.x - BALL_RADIUS >= 400:
             exited = True
             vx, vy = body.velocity
@@ -154,19 +151,15 @@ def test_l0_ball_is_swallowed_by_the_box_and_exits_r0():
             break
 
     assert exited, "ball never crossed R0"
-    # It faded out inside the swallow box, and the exit leaves it opaque.
-    assert min_alpha < 100
     assert 255 <= body.position.y <= 345
     assert body.velocity.x > 0
     assert exit_angle <= 30, f"R0 exit angle {exit_angle}° exceeds the port cone"
     # Teleported, not shredded: no stockpile, no minis.
     assert not tile.stockpile
     assert not tile.minis
-
-    # Once fully emerged the ball shows its full colors again, and the tile
-    # releases ownership after the complete ball crosses the edge.
+    # The tile never recolors the ball, and ownership is released at the edge.
     assert registry._balls.get(body) is None or registry._balls[body]["owner"] is None
-    assert shape.ebm_fill_color[3] == 255
+    assert shape.ebm_fill_color == (22, 114, 212, 255)
 
 
 def test_minis_rain_into_the_tray_and_stay_contained():

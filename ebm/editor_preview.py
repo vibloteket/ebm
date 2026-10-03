@@ -11,7 +11,7 @@ from .ball_physics import INPUT_SPAWN_INTERVAL, configure_ball_body, limit_space
 from .editor_console import console_muted, console_phase
 from .debug_demo import Ball, _draw_port_overlays
 from .ports import BALL_RADIUS, COLUMN_OFFSET, MAX_EXIT_ANGLE_DEGREES, Port, PORT_SPECS, TILE_SIZE, entry_velocity, tile_origin
-from .tile_api import BALL_COLLISION_TYPE, BALL_ELASTICITY, BALL_FRICTION, TileBuilder, TileResourceRegistry, VisualSegment, ball_shape_filter
+from .tile_api import BALL_COLLISION_TYPE, BALL_ELASTICITY, BALL_FRICTION, TileBuilder, TileResourceRegistry, VisualPolygon, VisualSegment, ball_shape_filter
 
 
 _preview = None
@@ -277,6 +277,38 @@ def _draw_sensor_overlay(ctx, shape, sx, sy, scale):
     ctx.restore()
 
 
+def _draw_tile_items(ctx, builder, sx, sy, scale, *, foreground):
+    """Draw one tile's visual items in the given band (background or foreground)."""
+    bx, by = builder.origin
+    for shape, style in builder.visual_items:
+        if style.foreground != foreground:
+            continue
+        fill=_canvas_color(style.fill_color);stroke=_canvas_color(style.stroke_color)
+        if isinstance(shape,VisualSegment):
+            if style.stroke_color[3]:ctx.beginPath();ctx.moveTo(sx(bx+shape.a[0]),sy(by+shape.a[1]));ctx.lineTo(sx(bx+shape.b[0]),sy(by+shape.b[1]));ctx.strokeStyle=stroke;ctx.lineWidth=max(2,(shape.radius*2+2)*scale);ctx.stroke()
+            ctx.beginPath();ctx.moveTo(sx(bx+shape.a[0]),sy(by+shape.a[1]));ctx.lineTo(sx(bx+shape.b[0]),sy(by+shape.b[1]));ctx.strokeStyle=fill;ctx.lineWidth=max(2,shape.radius*2*scale);ctx.stroke()
+        elif isinstance(shape,VisualPolygon):
+            ctx.beginPath();ctx.moveTo(sx(bx+shape.points[0][0]),sy(by+shape.points[0][1]))
+            for point in shape.points[1:]:ctx.lineTo(sx(bx+point[0]),sy(by+point[1]))
+            ctx.closePath();ctx.fillStyle=fill;ctx.fill()
+            if style.stroke_color[3]:ctx.strokeStyle=stroke;ctx.lineWidth=2;ctx.stroke()
+        elif getattr(shape,"ebm_hidden",False):
+            continue
+        elif type(shape).__name__ == "Segment":
+            a,b=shape.body.local_to_world(shape.a),shape.body.local_to_world(shape.b)
+            if style.stroke_color[3]:ctx.beginPath();ctx.moveTo(sx(a.x),sy(a.y));ctx.lineTo(sx(b.x),sy(b.y));ctx.strokeStyle=stroke;ctx.lineWidth=max(2,(shape.radius*2+2)*scale);ctx.stroke()
+            ctx.beginPath();ctx.moveTo(sx(a.x),sy(a.y));ctx.lineTo(sx(b.x),sy(b.y));ctx.strokeStyle=fill;ctx.lineWidth=max(2,shape.radius*2*scale);ctx.stroke()
+        elif type(shape).__name__ == "Circle":
+            p=shape.body.local_to_world(shape.offset)
+            ctx.beginPath();ctx.arc(sx(p.x),sy(p.y),shape.radius*scale,0,math.tau);ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=stroke;ctx.lineWidth=2;ctx.stroke()
+        elif type(shape).__name__ == "Poly":
+            points=[shape.body.local_to_world(vertex) for vertex in shape.get_vertices()]
+            if points:
+                ctx.beginPath();ctx.moveTo(sx(points[0].x),sy(points[0].y))
+                for point in points[1:]:ctx.lineTo(sx(point.x),sy(point.y))
+                ctx.closePath();ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=stroke;ctx.lineWidth=2;ctx.stroke()
+
+
 def draw(canvas, preview):
     ctx = canvas.getContext("2d")
     width, height = canvas.width, canvas.height
@@ -298,26 +330,7 @@ def draw(canvas, preview):
             for shape in builder.visual_objects:
                 if getattr(shape, "ebm_hidden", False):
                     _draw_sensor_overlay(ctx, shape, sx, sy, scale)
-        for shape, style in builder.visual_items:
-            fill=_canvas_color(style.fill_color);stroke=_canvas_color(style.stroke_color)
-            if isinstance(shape,VisualSegment):
-                if style.stroke_color[3]:ctx.beginPath();ctx.moveTo(sx(bx+shape.a[0]),sy(by+shape.a[1]));ctx.lineTo(sx(bx+shape.b[0]),sy(by+shape.b[1]));ctx.strokeStyle=stroke;ctx.lineWidth=max(2,(shape.radius*2+2)*scale);ctx.stroke()
-                ctx.beginPath();ctx.moveTo(sx(bx+shape.a[0]),sy(by+shape.a[1]));ctx.lineTo(sx(bx+shape.b[0]),sy(by+shape.b[1]));ctx.strokeStyle=fill;ctx.lineWidth=max(2,shape.radius*2*scale);ctx.stroke()
-            elif getattr(shape,"ebm_hidden",False):
-                continue
-            elif type(shape).__name__ == "Segment":
-                a,b=shape.body.local_to_world(shape.a),shape.body.local_to_world(shape.b)
-                if style.stroke_color[3]:ctx.beginPath();ctx.moveTo(sx(a.x),sy(a.y));ctx.lineTo(sx(b.x),sy(b.y));ctx.strokeStyle=stroke;ctx.lineWidth=max(2,(shape.radius*2+2)*scale);ctx.stroke()
-                ctx.beginPath();ctx.moveTo(sx(a.x),sy(a.y));ctx.lineTo(sx(b.x),sy(b.y));ctx.strokeStyle=fill;ctx.lineWidth=max(2,shape.radius*2*scale);ctx.stroke()
-            elif type(shape).__name__ == "Circle":
-                p=shape.body.local_to_world(shape.offset)
-                ctx.beginPath();ctx.arc(sx(p.x),sy(p.y),shape.radius*scale,0,math.tau);ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=stroke;ctx.lineWidth=2;ctx.stroke()
-            elif type(shape).__name__ == "Poly":
-                points=[shape.body.local_to_world(vertex) for vertex in shape.get_vertices()]
-                if points:
-                    ctx.beginPath();ctx.moveTo(sx(points[0].x),sy(points[0].y))
-                    for point in points[1:]:ctx.lineTo(sx(point.x),sy(point.y))
-                    ctx.closePath();ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=stroke;ctx.lineWidth=2;ctx.stroke()
+        _draw_tile_items(ctx, builder, sx, sy, scale, foreground=False)
     if preview.mode == "single":
         _draw_port_overlays(ctx, sx, sy, scale)
     for ball in preview.balls:
@@ -325,6 +338,9 @@ def draw(canvas, preview):
         p=ball.body.position;ctx.beginPath();ctx.arc(sx(p.x),sy(p.y),BALL_RADIUS*scale,0,math.tau)
         ctx.fillStyle=_canvas_color(getattr(ball.shape,"ebm_fill_color",(22,114,212,255)));ctx.fill()
         ctx.strokeStyle=_canvas_color(getattr(ball.shape,"ebm_stroke_color",(12,63,143,255)));ctx.lineWidth=1.5;ctx.stroke()
+    # Foreground graphics draw after balls so they can occlude them.
+    for _, _, builder in preview.owners:
+        _draw_tile_items(ctx, builder, sx, sy, scale, foreground=True)
     replay = _replay_position(float(window.performance.now())) if _view == "validation" else None
     if replay is not None and preview.mode == "single":
         x, y, finished = replay

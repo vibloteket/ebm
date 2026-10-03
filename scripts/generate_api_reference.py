@@ -59,7 +59,7 @@ def build_reference() -> dict:
             "methods": method_reference(TileBuilder, (
                 "static_segment", "static_circle", "static_polygon", "static_box", "dynamic_body", "kinematic_body",
                 "circle_shape", "segment_shape", "polygon_shape", "box_shape", "pivot", "spring", "rope", "motor",
-                "sensor_segment", "sensor_circle", "sensor_polygon", "sensor_box", "on_ball_contact", "visual_segment", "remove",
+                "sensor_segment", "sensor_circle", "sensor_polygon", "sensor_box", "on_ball_contact", "visual_segment", "visual_polygon", "visual_box", "remove",
             )),
         },
         "handles": [

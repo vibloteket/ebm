@@ -15,9 +15,12 @@ Two data flows:
 Event payloads are nested lists (never dicts) so ``to_js`` yields plain JS
 arrays. Shape encodings, tile-local coordinates:
 
-* segment: ``[0, x1, y1, x2, y2, radius, fill, stroke]``
-* circle:  ``[1, x, y, radius, fill, stroke]``
-* polygon: ``[2, radius, fill, stroke, [x1, y1, ...]]``
+* segment: ``[0, x1, y1, x2, y2, radius, fill, stroke, fg]``
+* circle:  ``[1, x, y, radius, fill, stroke, fg]``
+* polygon: ``[2, radius, fill, stroke, [x1, y1, ...], fg]``
+
+``fg`` is 1 when the shape is foreground graphics, drawn after balls so it
+can occlude them.
 
 Dynamic shapes attached to tile-owned bodies use body-local coordinates and
 are grouped under their body id; balls are keyed by body id as well. Colors
@@ -31,7 +34,7 @@ import struct
 import pymunk
 import pymunk.batch
 
-from .tile_api import DEFAULT_BALL_FILL, DEFAULT_BALL_STROKE, VisualSegment
+from .tile_api import DEFAULT_BALL_FILL, DEFAULT_BALL_STROKE, VisualPolygon, VisualSegment
 
 _POSE_FIELDS = (
     pymunk.batch.BodyFields.BODY_ID
@@ -125,6 +128,7 @@ class SceneExporter:
                 result.append([
                     0, float(shape.a[0]), float(shape.a[1]), float(shape.b[0]), float(shape.b[1]),
                     float(shape.radius), _color(style.fill_color), _color(style.stroke_color),
+                    1 if style.foreground else 0,
                 ])
         return result
 
@@ -137,19 +141,26 @@ class SceneExporter:
         for shape, style in builder.visual_items:
             fill = _color(style.fill_color)
             stroke = _color(style.stroke_color)
+            fg = 1 if style.foreground else 0
+            if isinstance(shape, VisualPolygon):
+                points: list[float] = []
+                for px, py in shape.points:
+                    points += [float(px), float(py)]
+                statics.append([2, float(shape.radius), fill, stroke, points, fg])
+                continue
             if isinstance(shape, VisualSegment):
-                entry = [0, float(shape.a[0]), float(shape.a[1]), float(shape.b[0]), float(shape.b[1]), float(shape.radius), fill, stroke]
+                entry = [0, float(shape.a[0]), float(shape.a[1]), float(shape.b[0]), float(shape.b[1]), float(shape.radius), fill, stroke, fg]
                 (dyn_visuals if shape.dynamic else statics).append(entry)
                 continue
             body = getattr(shape, "body", None)
             if body is None or getattr(shape, "ebm_hidden", False):
                 continue
             if body.body_type == pymunk.Body.STATIC:
-                entry = self._static_entry(shape, body, ox, oy, fill, stroke)
+                entry = self._static_entry(shape, body, ox, oy, fill, stroke, fg)
                 if entry is not None:
                     statics.append(entry)
                 continue
-            entry = self._local_entry(shape, fill, stroke)
+            entry = self._local_entry(shape, fill, stroke, fg)
             if entry is not None:
                 dyn_bodies.setdefault(body.id, []).append(entry)
         return [
@@ -163,35 +174,35 @@ class SceneExporter:
         ]
 
     @staticmethod
-    def _static_entry(shape, body, ox: float, oy: float, fill, stroke):
+    def _static_entry(shape, body, ox: float, oy: float, fill, stroke, fg):
         name = type(shape).__name__
         if name == "Segment":
             a = body.local_to_world(shape.a)
             b = body.local_to_world(shape.b)
-            return [0, float(a.x) - ox, float(a.y) - oy, float(b.x) - ox, float(b.y) - oy, float(shape.radius), fill, stroke]
+            return [0, float(a.x) - ox, float(a.y) - oy, float(b.x) - ox, float(b.y) - oy, float(shape.radius), fill, stroke, fg]
         if name == "Circle":
             p = body.local_to_world(shape.offset)
-            return [1, float(p.x) - ox, float(p.y) - oy, float(shape.radius), fill, stroke]
+            return [1, float(p.x) - ox, float(p.y) - oy, float(shape.radius), fill, stroke, fg]
         if name == "Poly":
             points: list[float] = []
             for vertex in shape.get_vertices():
                 w = body.local_to_world(vertex)
                 points += [float(w.x) - ox, float(w.y) - oy]
-            return [2, float(shape.radius), fill, stroke, points]
+            return [2, float(shape.radius), fill, stroke, points, fg]
         return None
 
     @staticmethod
-    def _local_entry(shape, fill, stroke):
+    def _local_entry(shape, fill, stroke, fg):
         name = type(shape).__name__
         if name == "Segment":
-            return [0, float(shape.a[0]), float(shape.a[1]), float(shape.b[0]), float(shape.b[1]), float(shape.radius), fill, stroke]
+            return [0, float(shape.a[0]), float(shape.a[1]), float(shape.b[0]), float(shape.b[1]), float(shape.radius), fill, stroke, fg]
         if name == "Circle":
-            return [1, float(shape.offset[0]), float(shape.offset[1]), float(shape.radius), fill, stroke]
+            return [1, float(shape.offset[0]), float(shape.offset[1]), float(shape.radius), fill, stroke, fg]
         if name == "Poly":
             points: list[float] = []
             for vertex in shape.get_vertices():
                 points += [float(vertex[0]), float(vertex[1])]
-            return [2, float(shape.radius), fill, stroke, points]
+            return [2, float(shape.radius), fill, stroke, points, fg]
         return None
 
     def frame(self):

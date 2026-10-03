@@ -7,10 +7,11 @@ from ebm import TileBase, TileBuilder
 # A funnel collects T0 into a bowl where a rotating spiked wheel shreds
 # incoming balls into a handful of small balls (minis) that rain through the
 # throat into a catch tray. L0 instead opens into a teleport box: the ball
-# rolls in, fades out as it is "swallowed", and reappears in a matching box
-# just left of R0, rolling out through the exit. (Renderers always draw balls
-# above tile graphics, so the box cannot literally occlude the ball; the
-# alpha fade sells the occlusion.) Stage 1 keeps shredded balls in an
+# rolls in, slides behind the
+# box's foreground plate, and reappears behind a matching plate just left of
+# R0, rolling out through the exit. (Foreground graphics draw after balls, so
+# the plates genuinely occlude them; no fade tricks.) Stage 1 keeps shredded
+# balls in an
 # invisible stockpile; stage 2 adds splitter buckets that convert a full tray
 # load back into stockpiled balls at the outputs.
 
@@ -45,7 +46,6 @@ FLOOR_RIGHT = ((200.0, 393.0), (396.0, 386.0))
 SWALLOW_CEILING = ((4.0, 29.0), (55.0, 37.0))
 SWALLOW_BACK = ((55.0, 37.0), (55.0, 167.0))
 SWALLOW_FLOOR = ((4.0, 167.0), (55.0, 167.0))
-SWALLOW_SENSOR = (4.0, 40.0, 50.0, 160.0)
 
 # The exit box just left of R0 emits swallowed balls through the exit band.
 EXIT_CEILING = ((345.0, 232.0), (396.0, 232.0))
@@ -56,6 +56,11 @@ EXIT_SPAWN = (368.0, 311.0)
 # Fast enough that free fall past the floor lip keeps the R0 exit within the
 # 30 degree port cone when the ball is classified outside the edge.
 EXIT_VELOCITY = (280.0, 0.0)
+# Solid foreground plates occlude the box interiors: the swallowed ball is
+# fully hidden before it teleports, and the emerged ball stays hidden until
+# it rolls out from behind the exit plate.
+SWALLOW_PLATE = (2.0, 24.0, 57.0, 176.0)
+EXIT_PLATE = (339.0, 226.0, 397.0, 384.0)
 
 # Edge guards seal everything except the two port apertures. The top guards
 # stop 6 units short of the T0 cone; the remaining gaps are narrower than a
@@ -94,8 +99,7 @@ HUB_FILL = (58, 64, 76, 255)
 HUB_STROKE = (30, 33, 40, 255)
 MINI_FILL = (96, 165, 250, 255)
 MINI_STROKE = (37, 99, 235, 255)
-BALL_FILL = (22, 114, 212)
-BALL_STROKE = (12, 63, 143)
+PLATE_STROKE = (70, 46, 104, 255)
 RAY = (255, 150, 45, 230)
 NO_RAY = (255, 150, 45, 0)
 
@@ -111,9 +115,7 @@ class FunnelShredder(TileBase):
     def build(self, b: TileBuilder) -> None:
         self.pending = {}
         self.returning = set()
-        self.swallowing = set()
         self.swallowed = set()
-        self.emerging = set()
         self.stockpile = []
         self.minis = []
         self.mini_pool = []
@@ -184,17 +186,9 @@ class FunnelShredder(TileBase):
                                      fill_color=TRAY)
             b.on_ball_contact(shape, begin=return_ball)
 
-        # The swallow box at L0. The mouth sensor claims entering balls for
-        # the fade; the back wall contact swallows them.
-        mouth = b.sensor_box(*SWALLOW_SENSOR)
-
-        def track_swallow(event):
-            self.swallowing.add(event.ball)
-
-        def untrack_swallow(event):
-            self.swallowing.discard(event.ball)
-
-        b.on_ball_contact(mouth, begin=track_swallow, separate=untrack_swallow)
+        # The swallow box at L0: the sloped ceiling catches upward-angled
+        # arrivals, the floor drags balls to the back wall, and back-wall
+        # contact swallows them.
         b.static_segment(*SWALLOW_CEILING, 4, friction=0.1, elasticity=0.1,
                          fill_color=TRAY)
         b.static_segment(*SWALLOW_FLOOR, 4, friction=0.1, elasticity=0.1,
@@ -207,6 +201,8 @@ class FunnelShredder(TileBase):
             return False  # The wall absorbs the ball instead of bouncing it.
 
         b.on_ball_contact(back, begin=swallow_ball)
+        b.visual_box(*SWALLOW_PLATE, fill_color=TRAY, stroke_color=PLATE_STROKE,
+                     foreground=True)
 
         # The exit box just left of R0: a false-bottom crate whose floor
         # carries emerged balls out through the exit band.
@@ -218,6 +214,8 @@ class FunnelShredder(TileBase):
                          surface_velocity=(280.0, 0.0), fill_color=TRAY)
         b.static_segment(*EXIT_BOTTOM, 4, friction=0.1, elasticity=0.1,
                          fill_color=TRAY)
+        b.visual_box(*EXIT_PLATE, fill_color=TRAY, stroke_color=PLATE_STROKE,
+                     foreground=True)
 
         # The mini pool: pre-created paused bodies. Creating bodies mid-run
         # would not emit scene events, so the web renderer would never show
@@ -242,38 +240,13 @@ class FunnelShredder(TileBase):
     def update(self, b: TileBuilder, dt: float) -> None:
         for ball in tuple(self.swallowed):
             self.swallowed.discard(ball)
-            self.swallowing.discard(ball)
             try:
                 ball.pause()
                 ball.set_position(EXIT_SPAWN)
                 ball.set_velocity(EXIT_VELOCITY)
                 ball.resume()
-                ball.set_fill_color(BALL_FILL + (0,))
-                ball.set_stroke_color(BALL_STROKE + (0,))
             except (PermissionError, ValueError, RuntimeError):
                 continue
-            self.emerging.add(ball)
-        for ball in tuple(self.swallowing):
-            try:
-                x, _ = ball.position
-                alpha = _fade(34.0 - x, 15.0)
-                ball.set_fill_color(BALL_FILL + (alpha,))
-                ball.set_stroke_color(BALL_STROKE + (alpha,))
-            except (PermissionError, ValueError):
-                self.swallowing.discard(ball)
-        for ball in tuple(self.emerging):
-            try:
-                x, _ = ball.position
-                alpha = _fade(x - 363.0, 25.0)
-                if alpha >= 255:
-                    ball.set_fill_color(BALL_FILL + (255,))
-                    ball.set_stroke_color(BALL_STROKE + (255,))
-                    self.emerging.discard(ball)
-                    continue
-                ball.set_fill_color(BALL_FILL + (alpha,))
-                ball.set_stroke_color(BALL_STROKE + (alpha,))
-            except (PermissionError, ValueError):
-                self.emerging.discard(ball)
         for ball in tuple(self.returning):
             self.returning.discard(ball)
             try:
@@ -386,10 +359,6 @@ class FunnelShredder(TileBase):
                 _clamp((cx + outer * ux, cy + outer * uy)),
             )
             ray.set_fill_color((RAY[0], RAY[1], RAY[2], alpha))
-
-
-def _fade(amount: float, span: float) -> int:
-    return max(0, min(255, int(255 * amount / span)))
 
 
 def _clamp(point):
