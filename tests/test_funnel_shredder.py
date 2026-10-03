@@ -45,6 +45,8 @@ def _ball(space, position, velocity):
     shape = pymunk.Circle(body, BALL_RADIUS)
     shape.friction = BALL_FRICTION
     shape.elasticity = BALL_ELASTICITY
+    shape.ebm_fill_color = (22, 114, 212, 255)
+    shape.ebm_stroke_color = (12, 63, 143, 255)
     shape.collision_type = BALL_COLLISION_TYPE
     shape.filter = ball_shape_filter()
     space.add(body, shape)
@@ -134,11 +136,37 @@ def test_t0_ball_is_shredded_into_minis():
     assert registry._styles[tile.spokes[0].id].fill_color == SPOKE_FILL
 
 
-def test_l0_ball_slides_down_the_wall_into_the_wheel():
+def test_l0_ball_is_swallowed_by_the_box_and_exits_r0():
     space, registry, builder, tile = _world()
-    _drop_ball(space, registry, builder, tile, position=(16, 100), velocity=(180, 0))
-    assert len(tile.stockpile) == 1
-    assert len(tile.minis) == MINI_COUNTS[0]
+    body, shape = _ball(space, (16, 100), (200, 0))
+
+    min_alpha = 255
+    exited = False
+    exit_angle = None
+    for _ in range(900):
+        _step(space, registry, builder, tile, 1)
+        if not registry.ball_is_paused(body):
+            min_alpha = min(min_alpha, shape.ebm_fill_color[3])
+        if body.position.x - BALL_RADIUS >= 400:
+            exited = True
+            vx, vy = body.velocity
+            exit_angle = abs(math.degrees(math.atan2(vy, vx)))
+            break
+
+    assert exited, "ball never crossed R0"
+    # It faded out inside the swallow box, and the exit leaves it opaque.
+    assert min_alpha < 100
+    assert 255 <= body.position.y <= 345
+    assert body.velocity.x > 0
+    assert exit_angle <= 30, f"R0 exit angle {exit_angle}° exceeds the port cone"
+    # Teleported, not shredded: no stockpile, no minis.
+    assert not tile.stockpile
+    assert not tile.minis
+
+    # Once fully emerged the ball shows its full colors again, and the tile
+    # releases ownership after the complete ball crosses the edge.
+    assert registry._balls.get(body) is None or registry._balls[body]["owner"] is None
+    assert shape.ebm_fill_color[3] == 255
 
 
 def test_minis_rain_into_the_tray_and_stay_contained():
@@ -183,13 +211,11 @@ def test_pool_recycles_calm_tray_minis_when_exhausted():
     assert not registry.runtime_errors
 
 
-def test_fast_and_angled_entries_are_shredded_and_contained():
+def test_fast_and_angled_t0_entries_are_shredded_and_contained():
     cases = [
         ((155, 20), (104, 591)),   # T0 left edge, 600 u/s at 10°
         ((245, 20), (-104, 591)),  # T0 right edge, mirrored
-        ((16, 55), (520, -300)),   # L0 high, fast upward angle
-        ((16, 145), (520, 300)),   # L0 low, fast downward angle
-        ((16, 100), (600, 0)),     # L0 straight fast
+        ((200, 12), (0, 600)),     # T0 straight down, max speed
     ]
     for position, velocity in cases:
         space, registry, builder, tile = _world()
@@ -203,14 +229,40 @@ def test_fast_and_angled_entries_are_shredded_and_contained():
         assert not registry.runtime_errors
 
 
+def test_fast_and_angled_l0_entries_teleport_to_r0():
+    cases = [
+        ((16, 55), (520, -300)),   # L0 high, fast upward angle
+        ((16, 145), (520, 300)),   # L0 low, fast downward angle
+        ((16, 100), (600, 0)),     # L0 straight fast
+        ((16, 100), (1, 0)),       # L0 crawl: the floor drag delivers it
+    ]
+    for position, velocity in cases:
+        space, registry, builder, tile = _world()
+        body, _shape = _ball(space, position, velocity)
+        exited = False
+        for _ in range(3600):
+            _step(space, registry, builder, tile, 1)
+            if body.position.x - BALL_RADIUS >= 400:
+                exited = True
+                break
+        assert exited, f"{position} {velocity} never exited R0"
+        assert 255 <= body.position.y <= 345
+        assert body.velocity.x > 0
+        vx, vy = body.velocity
+        assert abs(math.degrees(math.atan2(vy, vx))) <= 30
+        assert not tile.stockpile and not tile.minis
+        assert not registry.runtime_errors
+
+
 def test_no_runtime_errors_across_a_busy_run():
     space, registry, builder, tile = _world()
-    bodies = [
+    shredded = [
         _ball(space, (180, 15), (40, 500))[0],
         _ball(space, (220, 15), (-40, 500))[0],
-        _ball(space, (16, 80), (300, 100))[0],
     ]
-    for _ in range(1200):
+    teleported = [_ball(space, (16, 80), (300, 100))[0]]
+    for _ in range(3600):
         _step(space, registry, builder, tile, 1)
-    assert all(registry.ball_is_paused(body) for body in bodies)
+    assert all(registry.ball_is_paused(body) for body in shredded)
+    assert all(body.position.x - BALL_RADIUS >= 400 for body in teleported)
     assert not registry.runtime_errors
