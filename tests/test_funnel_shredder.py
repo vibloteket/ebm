@@ -15,6 +15,7 @@ from ebm.tile_api import (
 from ebm.tiles.contributed.funnel_shredder import (
     BLAST_RAYS,
     FunnelShredder,
+    HATCH_CLOSED_X,
     MAX_MINIS,
     MINI_COUNTS,
     MINI_MAX_SPEED,
@@ -79,13 +80,14 @@ def test_build_layout_pool_and_hidden_effects():
         for key, obj in registry._objects.items()
         if registry._owner.get(key) == 1
     }
-    wheels = [obj for obj in owned.values() if type(obj).__name__ == "Body" and obj.body_type == pymunk.Body.KINEMATIC]
-    assert len(wheels) == 1
-    assert abs(wheels[0].angular_velocity - 2.5) < 1e-9
+    kinematics = [obj for obj in owned.values() if type(obj).__name__ == "Body" and obj.body_type == pymunk.Body.KINEMATIC]
+    assert len(kinematics) == 3  # wheel + two airlock bolts
+    wheel = [k for k in kinematics if abs(k.angular_velocity - 2.5) < 1e-9]
+    assert len(wheel) == 1
 
     spoke_shapes = [
         obj for obj in owned.values()
-        if type(obj).__name__ == "Segment" and obj.body is wheels[0]
+        if type(obj).__name__ == "Segment" and obj.body is wheel[0]
     ]
     assert len(spoke_shapes) == SPOKES
 
@@ -162,45 +164,57 @@ def test_l0_ball_is_swallowed_by_the_box_and_exits_r0():
     assert shape.ebm_fill_color == (22, 114, 212, 255)
 
 
-def test_minis_rain_into_the_tray_and_stay_contained():
+def test_minis_rain_into_the_pipe_and_stay_contained():
     space, registry, builder, tile = _world()
-    for _ in range(3):
-        _drop_ball(space, registry, builder, tile)
-        _step(space, registry, builder, tile, 60)
+    _drop_ball(space, registry, builder, tile)
 
-    expected = sum(MINI_COUNTS[:3])
+    expected = MINI_COUNTS[0]
     assert len(tile.minis) == expected
 
-    _step(space, registry, builder, tile, 720)  # 6 s to settle
-    tray = 0
+    _step(space, registry, builder, tile, 480)  # 4 s to settle
+    in_pipe = 0
     for body in tile.minis:
         x, y = body.position
         vx, vy = body.velocity
         assert MINI_RADIUS <= x <= 400 - MINI_RADIUS
         assert MINI_RADIUS <= y <= 400 - MINI_RADIUS
         assert vx * vx + vy * vy <= (MINI_MAX_SPEED + 600) ** 2
-        if 110 <= x <= 290 and y > 265:
-            tray += 1
-    # Most minis settle in the tray; a few strays may rest on the side gutters.
-    assert tray >= expected * 0.6, f"only {tray}/{expected} minis in the tray"
+        if 165 <= x <= 235 and y > 195:
+            in_pipe += 1
+    # Most minis settle in the pipe on the closed lower bolt; the chamber
+    # threshold is not reached, so no cycle starts.
+    assert in_pipe >= expected - 1, f"only {in_pipe}/{expected} minis in the pipe"
+    assert tile.phase == "fill"
+    assert tile.top_open and not tile.bottom_open
 
 
-def test_pool_recycles_calm_tray_minis_when_exhausted():
+def test_airlock_fuses_chamber_minis_into_b0_balls():
     space, registry, builder, tile = _world()
-    total = 0
-    drops = 11  # Cycled counts: 6+7+8+9+7+6+8+5+6+7+8 = 77 minis > MAX_MINIS
-    for _ in range(drops):
-        _drop_ball(space, registry, builder, tile)
-        _step(space, registry, builder, tile, 90)
-        total += 1
-
-    expected_minis = sum(MINI_COUNTS[i % len(MINI_COUNTS)] for i in range(drops))
-    assert expected_minis > MAX_MINIS
-    assert len(tile.minis) == MAX_MINIS
-    assert not tile.mini_pool
-    assert len(tile.stockpile) == total
-    _step(space, registry, builder, tile, 480)
-    assert len(tile.minis) == MAX_MINIS
+    fed = []
+    exits = []
+    upper_max = HATCH_CLOSED_X
+    lower_min = HATCH_CLOSED_X
+    for frame in range(120 * 40):  # up to 40 s
+        if len(fed) < 5 and frame % 240 == 0:
+            fed.append(_ball(space, (200, 16), (0, 140))[0])
+        _step(space, registry, builder, tile, 1)
+        upper_max = max(upper_max, tile.upper_hatch.position[0])
+        lower_min = min(lower_min, tile.lower_hatch.position[0])
+        for body in fed:
+            if id(body) not in exits and not registry.ball_is_paused(body):
+                if body.position.y - BALL_RADIUS >= 400:
+                    exits.append(id(body))
+                    x, _y = body.position
+                    assert 155 <= x <= 245, f"B0 exit outside the aperture: {x}"
+                    assert body.velocity.y > 0
+    # Five balls in (~37 minis) drive several chamber cycles at 9 minis each;
+    # every fused ball falls out through B0, and the bolts visibly slid out.
+    assert len(exits) >= 3, f"exits: {len(exits)}"
+    assert upper_max > 260 and lower_min < 140
+    _step(space, registry, builder, tile, 240)
+    assert tile.phase == "fill"
+    # Conservation: every fed ball is either stockpiled or exited.
+    assert len(tile.stockpile) + len(exits) == len(fed)
     assert not registry.runtime_errors
 
 
@@ -256,6 +270,13 @@ def test_no_runtime_errors_across_a_busy_run():
     teleported = [_ball(space, (16, 80), (300, 100))[0]]
     for _ in range(3600):
         _step(space, registry, builder, tile, 1)
-    assert all(registry.ball_is_paused(body) for body in shredded)
+    for body in shredded:
+        assert registry.ball_is_paused(body) or body.position.y - BALL_RADIUS >= 400
     assert all(body.position.x - BALL_RADIUS >= 400 for body in teleported)
     assert not registry.runtime_errors
+
+
+def test_full_flow_validation_passes_with_the_airlock():
+    from ebm.validator import validate_tile_flow
+    result = validate_tile_flow(FunnelShredder, name="funnel shredder")
+    assert result.ok, result.to_dict()

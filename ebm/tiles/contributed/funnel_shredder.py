@@ -5,15 +5,16 @@ import math
 from ebm import TileBase, TileBuilder
 
 # A funnel collects T0 into a bowl where a rotating spiked wheel shreds
-# incoming balls into a handful of small balls (minis) that rain through the
-# throat into a catch tray. L0 instead opens into a teleport box: the ball
-# rolls in, slides behind the
-# box's foreground plate, and reappears behind a matching plate just left of
-# R0, rolling out through the exit. (Foreground graphics draw after balls, so
-# the plates genuinely occlude them; no fade tricks.) Stage 1 keeps shredded
-# balls in an
-# invisible stockpile; stage 2 adds splitter buckets that convert a full tray
-# load back into stockpiled balls at the outputs.
+# incoming balls into a handful of small balls (minis) that rain into a
+# full-height pipe running down to B0. Near the bottom the pipe is an
+# airlock: two bolts that slide out sideways. The lower bolt starts closed
+# and the upper open; once enough minis rest in the chamber between them the
+# upper bolt closes, the chamber minis fuse back into a stockpiled ball, the
+# lower bolt opens and the ball drops out through B0. L0 instead opens into
+# a teleport box: the ball rolls in, slides behind the box's foreground
+# plate, and reappears behind a matching plate just left of R0, rolling out
+# through the exit. (Foreground graphics draw after balls, so the plates
+# genuinely occlude them; no fade tricks.)
 
 WHEEL = (200.0, 120.0)
 SPOKES = 10
@@ -31,14 +32,28 @@ WHEEL_RATE = 2.5
 # steep after the funnel was raised one ball.
 BOWL_LEFT = ((60.0, 70.0), (170.0, 195.0))
 BOWL_RIGHT = ((340.0, 70.0), (230.0, 195.0))
-# The chute reaches below the tray wall tops so exiting minis are already
-# between the tray walls; sideways hops over the tray walls cannot happen.
-CHUTE_LEFT = ((170.0, 195.0), (170.0, 270.0))
-CHUTE_RIGHT = ((230.0, 195.0), (230.0, 270.0))
-TRAY_LEFT = ((110.0, 265.0), (110.0, 392.0))
-TRAY_RIGHT = ((290.0, 265.0), (290.0, 392.0))
-FLOOR_LEFT = ((4.0, 386.0), (200.0, 393.0))
-FLOOR_RIGHT = ((200.0, 393.0), (396.0, 386.0))
+# The throat becomes a full-height pipe down to the B0 airlock.
+PIPE_LEFT = ((170.0, 195.0), (170.0, 392.0))
+PIPE_RIGHT = ((230.0, 195.0), (230.0, 392.0))
+# The side gutters are the only floor; the pipe mouth stays open for B0.
+GUTTER_LEFT = ((4.0, 386.0), (172.0, 390.0))
+GUTTER_RIGHT = ((228.0, 390.0), (396.0, 386.0))
+
+# The airlock: two bolts sliding out sideways. The chamber between them is a
+# little more than one ball tall, as specified.
+UPPER_Y = 343.0
+LOWER_Y = 388.0
+HATCH_HALF = 34.0
+HATCH_CLOSED_X = 200.0
+UPPER_OPEN_X = 268.0   # slides right
+LOWER_OPEN_X = 132.0   # slides left
+HATCH_SPEED = 500.0
+# The chamber region used for counting and fusing minis.
+CHAMBER = (172.0, UPPER_Y + 4.0, 228.0, LOWER_Y - 4.0)
+# ~9 minis (a bit over one shredded ball) keeps the recycled outflow close
+# to the inflow, so the stockpile stays within the flow validator capacity.
+CHAMBER_MINIS = 8
+BALL_SPAWN = (200.0, 365.0)
 
 # The swallow box covers the L0 aperture. Its sloped ceiling catches
 # upward-angled arrivals and guides them inside; the floor drags balls to the
@@ -62,9 +77,9 @@ EXIT_VELOCITY = (280.0, 0.0)
 SWALLOW_PLATE = (2.0, 24.0, 57.0, 176.0)
 EXIT_PLATE = (339.0, 226.0, 397.0, 384.0)
 
-# Edge guards seal everything except the two port apertures. The top guards
-# stop 6 units short of the T0 cone; the remaining gaps are narrower than a
-# mini is wide. The right guard splits around the exit box.
+# Edge guards seal everything except the port apertures. The top guards stop
+# short of the T0 cone; the remaining gaps are narrower than a mini is wide.
+# The right guard splits around the exit box.
 GUARD_LEFT = ((4.0, 174.0), (4.0, 392.0))
 GUARD_RIGHT_TOP = ((396.0, 4.0), (396.0, 232.0))
 GUARD_RIGHT_BOTTOM = ((396.0, 382.0), (396.0, 392.0))
@@ -72,11 +87,12 @@ GUARD_CORNER = ((4.0, 4.0), (4.0, 30.0))
 GUARD_TOP_LEFT = ((4.0, 4.0), (135.0, 4.0))
 GUARD_TOP_RIGHT = ((265.0, 4.0), (396.0, 4.0))
 
-# Minis straying this close to an edge are dropped back into the tray; the
+# Minis straying this close to an edge are dropped back into the pipe; the
 # port bands must stay physically open, so this invisible backstop covers
-# them. Real balls touching the floor or guards are tossed back into the
+# them. Real balls touching the gutters or guards are tossed back into the
 # bowl instead: the frame is lava.
 MINI_EDGE_MARGIN = 30.0
+MINI_RETURN_POINT = (200.0, 300.0)
 BALL_RETURN_POINT = (200.0, 60.0)
 
 MINI_RADIUS = 5.0
@@ -100,14 +116,15 @@ HUB_STROKE = (30, 33, 40, 255)
 MINI_FILL = (96, 165, 250, 255)
 MINI_STROKE = (37, 99, 235, 255)
 PLATE_STROKE = (70, 46, 104, 255)
+MECH = (220, 140, 35, 255)
 RAY = (255, 150, 45, 230)
 NO_RAY = (255, 150, 45, 0)
 
 
 class FunnelShredder(TileBase):
     """T0 falls into a funnel where a spiked wheel shreds balls into small
-    balls raining into a catch tray; L0 balls roll into a teleport box and
-    re-emerge from a matching box at R0. Stage 1: no B0 output yet."""
+    balls; a double-bolt airlock at B0 fuses a chamber full of minis back
+    into a ball. L0 balls roll into a teleport box and re-emerge at R0."""
 
     author = "Pi"
     enabled = False
@@ -165,26 +182,38 @@ class FunnelShredder(TileBase):
             if ball not in self.pending:
                 self.returning.add(ball)
 
-        # Funnel bowl, throat chute, catch tray and a full-width safety floor.
-        # Walls are radius 4 so a speed-capped mini can never tunnel. Bowl
-        # walls are nearly dead so incoming balls slide in instead of
-        # bouncing back out through the open sides.
+        # Funnel bowl and the full-height pipe. Walls are radius 4 so a
+        # speed-capped mini can never tunnel. Bowl walls are nearly dead so
+        # incoming balls slide in instead of bouncing back out.
         for a, end in (BOWL_LEFT, BOWL_RIGHT):
             b.static_segment(a, end, 4, friction=0.05, elasticity=0.05,
                              fill_color=WALL)
-        for a, end in (CHUTE_LEFT, CHUTE_RIGHT):
+        for a, end in (PIPE_LEFT, PIPE_RIGHT):
             b.static_segment(a, end, 4, friction=0.05, elasticity=0.2,
                              fill_color=WALL)
-        for a, end in (TRAY_LEFT, TRAY_RIGHT):
-            b.static_segment(a, end, 4, friction=0.5, elasticity=0.15,
-                             fill_color=TRAY)
-        lava = (FLOOR_LEFT, FLOOR_RIGHT, GUARD_LEFT, GUARD_RIGHT_TOP,
+        lava = (GUTTER_LEFT, GUTTER_RIGHT, GUARD_LEFT, GUARD_RIGHT_TOP,
                 GUARD_RIGHT_BOTTOM, GUARD_CORNER, GUARD_TOP_LEFT,
                 GUARD_TOP_RIGHT)
         for a, end in lava:
             shape = b.static_segment(a, end, 4, friction=0.6, elasticity=0.2,
                                      fill_color=TRAY)
             b.on_ball_contact(shape, begin=return_ball)
+
+        # The airlock bolts: kinematic pins sliding sideways through the pipe
+        # walls. Lower starts closed, upper starts open.
+        self.upper_hatch = b.kinematic_body((HATCH_CLOSED_X, UPPER_Y))
+        b.segment_shape(self.upper_hatch, (-HATCH_HALF, 0), (HATCH_HALF, 0), 3,
+                        density=0.01, friction=0.1, elasticity=0.1,
+                        fill_color=MECH)
+        self.lower_hatch = b.kinematic_body((HATCH_CLOSED_X, LOWER_Y))
+        b.segment_shape(self.lower_hatch, (-HATCH_HALF, 0), (HATCH_HALF, 0), 3,
+                        density=0.01, friction=0.1, elasticity=0.1,
+                        fill_color=MECH)
+        self.top_open = True
+        self.bottom_open = False
+        self.phase = "fill"
+        self.out_ball = None
+        self.drain_t = 0.0
 
         # The swallow box at L0: the sloped ceiling catches upward-angled
         # arrivals, the floor drags balls to the back wall, and back-wall
@@ -238,6 +267,7 @@ class FunnelShredder(TileBase):
         ]
 
     def update(self, b: TileBuilder, dt: float) -> None:
+        self._update_airlock(dt)
         for ball in tuple(self.swallowed):
             self.swallowed.discard(ball)
             try:
@@ -284,7 +314,7 @@ class FunnelShredder(TileBase):
         for body in self.minis:
             x, y = body.position
             if x < MINI_EDGE_MARGIN or (x > 375 and y < 370) or y < 20:
-                body.set_position((200.0, 320.0))
+                body.set_position(MINI_RETURN_POINT)
                 body.set_velocity((0.0, 0.0))
                 body.set_angular_velocity(0.0)
                 continue
@@ -295,6 +325,86 @@ class FunnelShredder(TileBase):
             if squared > MINI_MAX_SPEED * MINI_MAX_SPEED:
                 scale = MINI_MAX_SPEED / math.sqrt(squared)
                 body.set_velocity((vx * scale, vy * scale))
+
+    def _update_airlock(self, dt: float) -> None:
+        self._drive(self.upper_hatch, UPPER_OPEN_X if self.top_open else HATCH_CLOSED_X, dt)
+        self._drive(self.lower_hatch, LOWER_OPEN_X if self.bottom_open else HATCH_CLOSED_X, dt)
+
+        if self.phase == "fill":
+            if self._chamber_count() >= CHAMBER_MINIS and self.stockpile:
+                self.top_open = False
+                self.phase = "closing_top"
+        elif self.phase == "closing_top":
+            if abs(self.upper_hatch.position[0] - HATCH_CLOSED_X) > 0.5:
+                return
+            self._fuse_chamber()
+            self.bottom_open = True
+            self.phase = "drain"
+            self.drain_t = 0.0
+        elif self.phase == "drain":
+            self.drain_t += dt
+            gone = self.drain_t > 2.0
+            if self.out_ball is not None and not gone:
+                try:
+                    gone = self.out_ball.position[1] > 396
+                except PermissionError:
+                    gone = True
+            if gone:
+                self.out_ball = None
+                self.bottom_open = False
+                self.phase = "closing_bottom"
+        elif self.phase == "closing_bottom":
+            if abs(self.lower_hatch.position[0] - HATCH_CLOSED_X) <= 0.5:
+                self.top_open = True
+                self.phase = "opening_top"
+        elif self.phase == "opening_top":
+            if abs(self.upper_hatch.position[0] - UPPER_OPEN_X) <= 0.5:
+                self.phase = "fill"
+
+    @staticmethod
+    def _drive(hatch, target_x: float, dt: float) -> None:
+        """Servo the bolt toward its target without overshoot at any speed."""
+        x, y = hatch.position
+        delta = target_x - x
+        if abs(delta) <= 0.5:
+            hatch.set_velocity((0.0, 0.0))
+            if x != target_x:
+                hatch.set_position((target_x, y))
+            return
+        step = max(dt, 1 / 240)
+        if abs(delta) <= HATCH_SPEED * step:
+            hatch.set_velocity((delta / step, 0.0))  # Arrive exactly this frame.
+        else:
+            hatch.set_velocity((math.copysign(HATCH_SPEED, delta), 0.0))
+
+    def _chamber_count(self) -> int:
+        left, top, right, bottom = CHAMBER
+        count = 0
+        for body in self.minis:
+            x, y = body.position
+            if left <= x <= right and top <= y <= bottom:
+                count += 1
+        return count
+
+    def _fuse_chamber(self) -> None:
+        """Pause the chamber minis back to the pool; release a stockpiled ball."""
+        left, top, right, bottom = CHAMBER
+        kept = []
+        for body in self.minis:
+            x, y = body.position
+            if left <= x <= right and top <= y <= bottom:
+                body.pause()
+                self.mini_pool.append(body)
+            else:
+                kept.append(body)
+        self.minis[:] = kept
+        ball = self.stockpile.pop(0)
+        ball.set_position(BALL_SPAWN)
+        ball.set_velocity((0.0, 0.0))
+        ball.resume()
+        self.out_ball = ball
+        self.blast_center = BALL_SPAWN
+        self.blast_t = BLAST_SECONDS
 
     def _shatter(self, position: tuple[float, float]) -> None:
         count = MINI_COUNTS[self.shatters % len(MINI_COUNTS)]
@@ -328,13 +438,14 @@ class FunnelShredder(TileBase):
     def _take_mini(self):
         if self.mini_pool:
             return self.mini_pool.pop()
-        # Pool exhausted: recycle a stray mini resting outside the tray first
-        # (they are the visual mess), then the calmest one in the tray pile.
+        # Pool exhausted (a burst outran the airlock): recycle a stray first,
+        # then waiting pipe minis, and only then chamber minis.
         def score(body):
             x, y = body.position
-            in_tray = 1 if (110 <= x <= 290 and y > 265) else 0
+            in_pipe = 170 <= x <= 230 and y > 195
+            in_chamber = in_pipe and y > CHAMBER[1]
             vx, vy = body.velocity
-            return (in_tray, vx * vx + vy * vy)
+            return (2 if in_chamber else 1 if in_pipe else 0, vx * vx + vy * vy)
 
         body = min(self.minis, key=score)
         self.minis.remove(body)
