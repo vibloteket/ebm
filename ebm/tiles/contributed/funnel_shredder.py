@@ -19,7 +19,7 @@ from ebm import TileBase, TileBuilder
 WHEEL = (200.0, 120.0)
 SPOKES = 10
 SPOKE_INNER = 12.0
-SPOKE_OUTER = 62.0
+SPOKE_OUTER = 55.0
 SPOKE_RADIUS = 3.0
 HUB_RADIUS = 12.0
 WHEEL_RATE = 2.5
@@ -27,17 +27,17 @@ WHEEL_RATE = 2.5
 # Geometry contract: every path from T0 to the throat passes within
 # SPOKE_OUTER of the wheel hub. The bowl walls guide wall-hugging balls to
 # ~56 units from the hub and the free-fall cone from T0 crosses the swept
-# disc, so no ball can reach the throat without touching a spoke. The bowl
-# wall tops sit clear of the swallow box; the sides are deliberately less
-# steep after the funnel was raised one ball.
-BOWL_LEFT = ((60.0, 70.0), (170.0, 195.0))
-BOWL_RIGHT = ((340.0, 70.0), (230.0, 195.0))
+# disc, so no ball can reach the throat without touching a spoke. Vertical
+# extensions run from the wall tops to the tile top edge, sealing the funnel
+# mouth so bouncing minis cannot leave it sideways. The spoke-to-wall gap is
+# ~13, wider than a mini, so minis are never pinched against the walls.
+BOWL_LEFT = ((66.0, 70.0), (170.0, 195.0))
+BOWL_RIGHT = ((334.0, 70.0), (230.0, 195.0))
+BOWL_LEFT_TOP = ((66.0, 4.0), (66.0, 70.0))
+BOWL_RIGHT_TOP = ((334.0, 4.0), (334.0, 70.0))
 # The throat becomes a full-height pipe down to the B0 airlock.
 PIPE_LEFT = ((170.0, 195.0), (170.0, 392.0))
 PIPE_RIGHT = ((230.0, 195.0), (230.0, 392.0))
-# The side gutters are the only floor; the pipe mouth stays open for B0.
-GUTTER_LEFT = ((4.0, 386.0), (172.0, 390.0))
-GUTTER_RIGHT = ((228.0, 390.0), (396.0, 386.0))
 
 # The airlock: two bolts sliding out sideways. The chamber between them is a
 # little more than one ball tall, as specified.
@@ -48,8 +48,10 @@ HATCH_CLOSED_X = 200.0
 UPPER_OPEN_X = 268.0   # slides right
 LOWER_OPEN_X = 132.0   # slides left
 HATCH_SPEED = 500.0
-# The chamber region used for counting and fusing minis.
-CHAMBER = (172.0, UPPER_Y + 4.0, 228.0, LOWER_Y - 4.0)
+# The chamber region used for counting and fusing minis spans the full
+# pipe interior below the upper bolt, so no wall-hugging mini can be left
+# behind to fall through the open lower bolt.
+CHAMBER = (168.0, UPPER_Y + 3.0, 232.0, 392.0)
 # ~9 minis (a bit over one shredded ball) keeps the recycled outflow close
 # to the inflow, so the stockpile stays within the flow validator capacity.
 CHAMBER_MINIS = 8
@@ -77,23 +79,11 @@ EXIT_VELOCITY = (280.0, 0.0)
 SWALLOW_PLATE = (2.0, 24.0, 57.0, 176.0)
 EXIT_PLATE = (339.0, 226.0, 397.0, 384.0)
 
-# Edge guards seal everything except the port apertures. The top guards stop
-# short of the T0 cone; the remaining gaps are narrower than a mini is wide.
-# The right guard splits around the exit box.
-GUARD_LEFT = ((4.0, 174.0), (4.0, 392.0))
-GUARD_RIGHT_TOP = ((396.0, 4.0), (396.0, 232.0))
-GUARD_RIGHT_BOTTOM = ((396.0, 382.0), (396.0, 392.0))
-GUARD_CORNER = ((4.0, 4.0), (4.0, 30.0))
-GUARD_TOP_LEFT = ((4.0, 4.0), (135.0, 4.0))
-GUARD_TOP_RIGHT = ((265.0, 4.0), (396.0, 4.0))
-
 # Minis straying this close to an edge are dropped back into the pipe; the
 # port bands must stay physically open, so this invisible backstop covers
-# them. Real balls touching the gutters or guards are tossed back into the
-# bowl instead: the frame is lava.
+# them. The sealed funnel mouth makes it rare.
 MINI_EDGE_MARGIN = 30.0
 MINI_RETURN_POINT = (200.0, 300.0)
-BALL_RETURN_POINT = (200.0, 60.0)
 
 MINI_RADIUS = 5.0
 MINI_DENSITY = 0.002
@@ -127,11 +117,10 @@ class FunnelShredder(TileBase):
     into a ball. L0 balls roll into a teleport box and re-emerge at R0."""
 
     author = "Pi"
-    enabled = False
+    enabled = True
 
     def build(self, b: TileBuilder) -> None:
         self.pending = {}
-        self.returning = set()
         self.swallowed = set()
         self.stockpile = []
         self.minis = []
@@ -177,27 +166,13 @@ class FunnelShredder(TileBase):
             b.on_ball_contact(spoke, begin=catch_ball)
         b.on_ball_contact(hub, begin=catch_ball)
 
-        def return_ball(event):
-            ball = event.ball
-            if ball not in self.pending:
-                self.returning.add(ball)
-
         # Funnel bowl and the full-height pipe. Walls are radius 4 so a
         # speed-capped mini can never tunnel. Bowl walls are nearly dead so
         # incoming balls slide in instead of bouncing back out.
-        for a, end in (BOWL_LEFT, BOWL_RIGHT):
-            b.static_segment(a, end, 4, friction=0.05, elasticity=0.05,
+        for a, end in (BOWL_LEFT, BOWL_RIGHT, BOWL_LEFT_TOP, BOWL_RIGHT_TOP,
+                       PIPE_LEFT, PIPE_RIGHT):
+            b.static_segment(a, end, 4, friction=0.05, elasticity=0.1,
                              fill_color=WALL)
-        for a, end in (PIPE_LEFT, PIPE_RIGHT):
-            b.static_segment(a, end, 4, friction=0.05, elasticity=0.2,
-                             fill_color=WALL)
-        lava = (GUTTER_LEFT, GUTTER_RIGHT, GUARD_LEFT, GUARD_RIGHT_TOP,
-                GUARD_RIGHT_BOTTOM, GUARD_CORNER, GUARD_TOP_LEFT,
-                GUARD_TOP_RIGHT)
-        for a, end in lava:
-            shape = b.static_segment(a, end, 4, friction=0.6, elasticity=0.2,
-                                     fill_color=TRAY)
-            b.on_ball_contact(shape, begin=return_ball)
 
         # The airlock bolts: kinematic pins sliding sideways through the pipe
         # walls. Lower starts closed, upper starts open.
@@ -277,19 +252,10 @@ class FunnelShredder(TileBase):
                 ball.resume()
             except (PermissionError, ValueError, RuntimeError):
                 continue
-        for ball in tuple(self.returning):
-            self.returning.discard(ball)
-            try:
-                if not ball.paused:
-                    ball.set_position(BALL_RETURN_POINT)
-                    ball.set_velocity((0.0, 120.0))
-            except (PermissionError, ValueError):
-                pass
         if self.pending:
             pending = list(self.pending.items())
             self.pending.clear()
             for ball, point in pending:
-                self.returning.discard(ball)
                 try:
                     position = ball.position
                     ball.pause()
