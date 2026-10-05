@@ -2,6 +2,7 @@ import { basicSetup } from "codemirror";
 import { python } from "@codemirror/lang-python";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { indentUnit } from "@codemirror/language";
+import { indentWithTab } from "@codemirror/commands";
 import { EditorState, StateEffect, StateField } from "@codemirror/state";
 import { Decoration, EditorView, keymap } from "@codemirror/view";
 
@@ -25,23 +26,40 @@ const errorLineField = StateField.define({
 
 window.createEbmCodeEditor = function createEbmCodeEditor(parent, options = {}) {
   let suppressChanges = false;
-  const runKeymap = keymap.of([{
-    key: "Mod-Enter",
-    run() {
-      options.onRun?.();
-      return true;
+  const editorKeymap = keymap.of([
+    {
+      key: "Mod-Enter",
+      run() {
+        options.onRun?.();
+        return true;
+      },
     },
-  }]);
+    {
+      key: "F1",
+      run() {
+        options.onHelp?.();
+        return true;
+      },
+    },
+    {
+      key: "Mod-/",
+      run() {
+        options.onHelp?.();
+        return true;
+      },
+    },
+    indentWithTab,
+  ]);
   const view = new EditorView({
     parent,
     state: EditorState.create({
       doc: options.doc || "",
       extensions: [
+        editorKeymap,
         basicSetup,
         python(),
         oneDark,
         errorLineField,
-        runKeymap,
         EditorView.lineWrapping,
         EditorState.tabSize.of(4),
         indentUnit.of("    "),

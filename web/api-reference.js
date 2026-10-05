@@ -24,7 +24,7 @@ class MyTile(TileBase):
     def update(self, b: TileBuilder, dt: float):
         pass</code></pre>`;
   const sections=[
-    ["start","Getting started",`<p>A tile is a self-contained ${reference.tileSize} × ${reference.tileSize} mechanism running on Python 3.14. A source file defines exactly one <code>TileBase</code> subclass. Its class name is the display name; <code>author</code> is required. Optional <code>enabled = False</code> keeps a tile in this editor but excludes it from the published machine and automatic flow checks.</p>${skeleton}<p>Press <strong>Run</strong> to preview changes, then <strong>Validate flow</strong> to check the tile contract.</p><h4>Common types</h4>${propertyTable(reference.commonTypes)}`],
+    ["start","Getting started",`<p>A tile is a self-contained ${reference.tileSize} × ${reference.tileSize} mechanism running on Python 3.14. A source file defines exactly one <code>TileBase</code> subclass. Its class name is the display name; <code>author</code> is required. Optional <code>enabled = False</code> keeps a tile in this editor but excludes it from the published machine and automatic flow checks.</p>${skeleton}<p>Press <strong>Run</strong> to preview changes, then <strong>Validate flow</strong> to check the tile contract.</p><h4>Keyboard shortcuts</h4><table class="api-table"><tbody><tr><td><code>Ctrl/⌘ + Enter</code></td><td>Run the current source (works anywhere on the page)</td></tr><tr><td><code>F1</code> or <code>Ctrl/⌘ + /</code></td><td>Open or close this help panel</td></tr><tr><td><code>Esc</code></td><td>Close this help panel</td></tr><tr><td><code>Tab</code> / <code>Shift + Tab</code></td><td>Indent / dedent the current line or selection in the editor</td></tr></tbody></table><h4>Common types</h4>${propertyTable(reference.commonTypes)}`],
     ["publishing","Publishing tiles",`<p>Save each tile as a separate <code>.py</code> file in <a href="https://github.com/vibloteket/ebm/tree/main/ebm/tiles/contributed" target="_blank" rel="noopener noreferrer"><code>ebm/tiles/contributed/</code></a> in the GitHub repository. For example: <code>ebm/tiles/contributed/my_scanner.py</code>. Use a Python filename without spaces or hyphens; names starting with <code>_</code> are reserved for helpers.</p><p>When the tile is ready, use <strong>Download .py</strong> in this editor, then <strong>Add file → Upload files</strong> in that GitHub folder and commit to <code>main</code>. New files are discovered automatically. The pipeline validates enabled tiles and publishes the updated machine to GitHub Pages only when all checks pass.</p><p>Each file must define one <code>TileBase</code> subclass with an <code>author</code>. Set <code>enabled = False</code> to keep unfinished work in the editor without including it in the machine or automatic flow validation. The file must still be valid Python and import successfully.</p>`],
     ["ports","Ports & coordinates",`${coordinateMap(reference)}<p>Coordinates are local to the tile. <code>(0, 0)</code> is the upper-left corner; x increases to the right and y increases downward. Green ports are inputs and red ports are outputs.</p><h4>Port positions and openings</h4><table class="api-table"><thead><tr><th>Port</th><th>Kind</th><th>Center</th><th>Full opening</th><th>Ball-center range</th></tr></thead><tbody>${reference.ports.map(port=>`<tr><td><code>${port.name}</code></td><td>${port.kind}</td><td><code>(${port.point[0]}, ${port.point[1]})</code></td><td><code>${portRange(port,rules.aperture)}</code></td><td><code>${centerRange(port,rules.centerRange)}</code></td></tr>`).join("")}</tbody></table><p>The full opening includes the whole ${rules.aperture}-unit gap. Since a ball has radius ${rules.ballRadius}, its center uses the narrower range shown in the last column.</p><h4>Ball size and arrival</h4>${list([
       `Every ball has radius ${rules.ballRadius} and diameter ${rules.ballDiameter} tile units.`,
@@ -101,11 +101,17 @@ function highlightMatches(content,query){
   return marks;
 }
 
-export async function initializeApiReference(){
+export function initializeApiReference(){
   const drawer=document.getElementById("api-reference"),backdrop=document.getElementById("api-backdrop"),search=document.getElementById("api-search"),content=document.getElementById("api-content"),hitsLabel=document.getElementById("api-hits");
   const setOpen=open=>{drawer.classList.toggle("open",open);backdrop.classList.toggle("open",open);drawer.setAttribute("aria-hidden",String(!open));document.getElementById("api-button").setAttribute("aria-expanded",String(open));if(open)setTimeout(()=>search.focus(),210)};
-  document.getElementById("api-button").onclick=()=>setOpen(true);document.getElementById("api-close").onclick=()=>setOpen(false);backdrop.onclick=()=>setOpen(false);document.addEventListener("keydown",event=>{if(event.key==="Escape")setOpen(false)});
-  try{const response=await fetch("./api-reference.json",{cache:"no-store"});if(!response.ok)throw new Error(`HTTP ${response.status}`);render(await response.json())}catch(error){content.innerHTML=`<p class="api-empty">Could not load tile help: ${escapeHtml(error.message)}</p>`}
+  const api={
+    isOpen:()=>drawer.classList.contains("open"),
+    open:()=>setOpen(true),
+    close:()=>setOpen(false),
+    toggle:()=>setOpen(!drawer.classList.contains("open")),
+  };
+  document.getElementById("api-button").onclick=()=>api.toggle();document.getElementById("api-close").onclick=()=>setOpen(false);backdrop.onclick=()=>setOpen(false);document.addEventListener("keydown",event=>{if(event.key==="Escape")setOpen(false)});
+  fetch("./api-reference.json",{cache:"no-store"}).then(async response=>{if(!response.ok)throw new Error(`HTTP ${response.status}`);render(await response.json())}).catch(error=>{content.innerHTML=`<p class="api-empty">Could not load tile help: ${escapeHtml(error.message)}</p>`});
   let hits=[],current=-1;
   const updateLabel=()=>{hitsLabel.textContent=!search.value.trim()?"":hits.length?`${current+1} / ${hits.length}`:"No matches"};
   const goTo=index=>{
@@ -118,4 +124,5 @@ export async function initializeApiReference(){
   };
   search.oninput=()=>{const query=search.value.trim().toLowerCase();clearHighlights(content);hits=highlightMatches(content,query);current=-1;goTo(0)};
   search.onkeydown=event=>{if(event.key==="Enter"){event.preventDefault();goTo(current+(event.shiftKey?-1:1))}};
+  return api;
 }

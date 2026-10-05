@@ -5,7 +5,7 @@
     <link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Tile Editor — Endless Ball Machine</title>
-  <link rel="stylesheet" href="./editor.css?v=0.72">
+  <link rel="stylesheet" href="./editor.css?v=0.73">
   <script src="https://cdn.jsdelivr.net/pyodide/v314.0.4/full/pyodide.js"></script>
   <script data-goatcounter="https://ebm.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </head>
@@ -17,8 +17,8 @@
     <input id="import-file" type="file" accept=".py,text/x-python" hidden>
     <button id="reset-button" type="button">Reset</button>
     <button id="download-button" type="button">Download .py</button>
-    <button id="api-button" type="button" aria-controls="api-reference" aria-expanded="false">Help</button>
-    <button id="run-button" type="button" class="primary">▶ Run</button>
+    <button id="api-button" type="button" aria-controls="api-reference" aria-expanded="false" title="Tile authoring guide (F1 or Ctrl+/)">Help</button>
+    <button id="run-button" type="button" class="primary" title="Build and preview tile (Ctrl+Enter)">▶ Run</button>
   </div>
 </header>
 <main class="workspace">
@@ -47,7 +47,7 @@
       <header><button id="console-toggle" type="button" aria-expanded="true">Console <span id="console-count">0</span></button><div><button id="console-expand" type="button" aria-pressed="false">Expand</button><button id="console-copy" type="button">Copy</button><button id="console-clear" type="button">Clear</button></div></header>
       <div id="console-output" role="log" aria-live="polite"><div class="console-empty">Output from print() will appear here.</div></div>
     </section>
-    <footer><span id="cursor-position">Ln 1, Col 1</span><span>Local autosave</span></footer>
+    <footer><span id="cursor-position">Ln 1, Col 1</span><span class="shortcut-hint">Tab indent · Shift+Tab dedent · Ctrl+Enter run · F1 help</span><span>Local autosave</span></footer>
   </section>
 </main>
 <aside id="api-reference" class="api-drawer" aria-hidden="true" aria-label="Tile authoring guide">
@@ -58,7 +58,7 @@
 </aside>
 <div id="api-backdrop" class="api-backdrop"></div>
 <div id="loading"><div><h2>Starting Tile Editor</h2><p>Loading Pyodide and pymunk…</p></div></div>
-<script src="./vendor/codemirror/editor-codemirror.js?v=0.61"></script>
-<script type="module" src="./editor.js?v=0.85"></script>
+<script src="./vendor/codemirror/editor-codemirror.js?v=0.62"></script>
+<script type="module" src="./editor.js?v=0.86"></script>
 </body>
 </html>
