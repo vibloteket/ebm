@@ -42,7 +42,7 @@ def build_reference() -> dict:
         "commonTypes": [
             {"name": "Point", "type": "tuple[float, float]", "description": "Tile-local (x, y) coordinates in tile units."},
             {"name": "Vector", "type": "tuple[float, float]", "description": "Velocity (x, y) in tile units per second."},
-            {"name": "Color", "type": "tuple[int, int, int, int]", "description": "RGBA components, each an integer from 0 to 255."},
+            {"name": "Color", "type": "tuple[int, int, int, int]", "description": "RGBA components, each an integer from 0 to 255. Wherever a fill_color or stroke_color is accepted, None leaves that layer unpainted: fill_color=None draws a hollow outline, stroke_color=None draws no outline."},
             {"name": "ShapeHandle", "type": "handle", "description": "Ownership-safe reference to a physical shape or sensor."},
             {"name": "BallHandle", "type": "handle", "description": "Tile-bound ball reference available during a contact callback."},
         ],

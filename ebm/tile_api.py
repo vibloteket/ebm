@@ -28,11 +28,18 @@ DEFAULT_BALL_STROKE: Color = (12, 63, 143, 255)
 
 
 def _validate_color(color) -> Color:
+    if color is None:
+        return (0, 0, 0, 0)  # None means "do not paint this layer".
     if not isinstance(color, (tuple, list)) or len(color) != 4:
-        raise ValueError("color must be an RGBA tuple of four integers")
+        raise ValueError("color must be an RGBA tuple of four integers, or None to leave the layer unpainted")
     if any(not isinstance(value, int) or isinstance(value, bool) or not 0 <= value <= 255 for value in color):
         raise ValueError("RGBA color components must be integers from 0 to 255")
     return tuple(color)
+
+
+# Sentinel distinguishing "argument omitted" from an explicit None (which
+# clears the paint layer) in style setters.
+_UNSET: Any = object()
 
 
 def _validate_flag(value, name: str) -> bool:
@@ -64,12 +71,12 @@ class ResourceHandle:
 
 @dataclass(frozen=True)
 class StyledHandle(ResourceHandle):
-    def set_fill_color(self, color: Color) -> None:
-        """Set this object's fill RGBA tuple (four integers from 0 to 255)."""
+    def set_fill_color(self, color: Color | None) -> None:
+        """Set this object's fill RGBA tuple (four integers from 0 to 255), or None for no fill."""
         self._registry.set_style(self._owner, self, fill_color=color)
 
-    def set_stroke_color(self, color: Color) -> None:
-        """Set this object's outline RGBA tuple (four integers from 0 to 255)."""
+    def set_stroke_color(self, color: Color | None) -> None:
+        """Set this object's outline RGBA tuple (four integers from 0 to 255), or None for no outline."""
         self._registry.set_style(self._owner, self, stroke_color=color)
 
 
@@ -210,10 +217,12 @@ class BallHandle:
         """Whether the ball is outside physics and normal rendering."""
         return self._registry.ball_paused(self)
 
-    def set_fill_color(self, color: Color) -> None:
+    def set_fill_color(self, color: Color | None) -> None:
+        """Set the ball's fill RGBA tuple (four integers from 0 to 255), or None for no fill."""
         self._registry.set_ball_style(self, fill_color=color)
 
-    def set_stroke_color(self, color: Color) -> None:
+    def set_stroke_color(self, color: Color | None) -> None:
+        """Set the ball's outline RGBA tuple (four integers from 0 to 255), or None for no outline."""
         self._registry.set_ball_style(self, stroke_color=color)
 
     def set_friction(self, friction: float) -> None:
@@ -623,16 +632,16 @@ class TileResourceRegistry:
         self._visual_revisions[owner] = self._visual_revisions.get(owner, 0) + 1
         self._emit_scene("visual", owner)
 
-    def set_style(self, owner: int, handle, *, fill_color=None, stroke_color=None):
+    def set_style(self, owner: int, handle, *, fill_color=_UNSET, stroke_color=_UNSET):
         obj = self.resolve(owner, handle)
         style = self._styles.get(handle.id)
         if style is None:
             raise TypeError("resource has no visual style")
         changed = False
-        if fill_color is not None:
+        if fill_color is not _UNSET:
             value = _validate_color(fill_color)
             if style.fill_color != value: style.fill_color = value; changed = True
-        if stroke_color is not None:
+        if stroke_color is not _UNSET:
             value = _validate_color(stroke_color)
             if style.stroke_color != value: style.stroke_color = value; changed = True
         if changed:
@@ -642,7 +651,7 @@ class TileResourceRegistry:
                 self._visual_revisions[owner] = self._visual_revisions.get(owner, 0) + 1
                 self._emit_scene("visual", owner)
 
-    def add_visual(self, owner: int, visual: Any, fill_color: Color, stroke_color: Color, foreground: bool = False):
+    def add_visual(self, owner: int, visual: Any, fill_color: Color | None, stroke_color: Color | None, foreground: bool = False):
         if isinstance(visual, VisualPolygon):
             bounds = points_bounds(visual.points, visual.radius)
         else:
@@ -658,7 +667,7 @@ class TileResourceRegistry:
         self._emit_scene("visual", owner)
         return handle
 
-    def set_object_style(self, handle, fill_color: Color, stroke_color: Color, foreground: bool = False):
+    def set_object_style(self, handle, fill_color: Color | None, stroke_color: Color | None, foreground: bool = False):
         self._styles[handle.id] = VisualStyle(_validate_color(fill_color), _validate_color(stroke_color), _validate_flag(foreground, "foreground"))
 
     def set_visual_segment_points(self, owner: int, handle, a, b) -> None:
@@ -770,10 +779,10 @@ class TileResourceRegistry:
     def ball_paused(self, handle):
         return bool(self._ball_record(handle)["paused"])
 
-    def set_ball_style(self, handle, *, fill_color=None, stroke_color=None):
+    def set_ball_style(self, handle, *, fill_color=_UNSET, stroke_color=_UNSET):
         record = self._ball_record(handle); shape = record["shape"]
-        if fill_color is not None: shape.ebm_fill_color = _validate_color(fill_color)
-        if stroke_color is not None: shape.ebm_stroke_color = _validate_color(stroke_color)
+        if fill_color is not _UNSET: shape.ebm_fill_color = _validate_color(fill_color)
+        if stroke_color is not _UNSET: shape.ebm_stroke_color = _validate_color(stroke_color)
         self._emit_scene("ball", record["body"].id)
 
     def set_ball_material(self, handle, *, friction=None, elasticity=None):
@@ -868,7 +877,7 @@ class TileBuilder:
         check_bounds(points_bounds(((x, y),)), label="tile point")
         return self.origin[0] + x, self.origin[1] + y
 
-    def static_segment(self, a: Point, b: Point, radius: float = 2, *, friction: float = .8, elasticity: float = .2, surface_velocity: Vector = (0, 0), fill_color: Color = DEFAULT_SEGMENT_FILL, stroke_color: Color = DEFAULT_SEGMENT_STROKE, foreground: bool = False) -> ShapeHandle:
+    def static_segment(self, a: Point, b: Point, radius: float = 2, *, friction: float = .8, elasticity: float = .2, surface_velocity: Vector = (0, 0), fill_color: Color | None = DEFAULT_SEGMENT_FILL, stroke_color: Color | None = DEFAULT_SEGMENT_STROKE, foreground: bool = False) -> ShapeHandle:
         """Build a fixed physical rail from local point a to b; return its ShapeHandle.
 
         foreground=True draws the shape after balls, so it can occlude them."""
@@ -883,7 +892,7 @@ class TileBuilder:
         self._registry.set_object_style(handle, fill_color, stroke_color, foreground)
         return handle
 
-    def static_circle(self, center: Point, radius: float, *, friction: float = .4, elasticity: float = .75, fill_color: Color = DEFAULT_CIRCLE_FILL, stroke_color: Color = DEFAULT_CIRCLE_STROKE, foreground: bool = False) -> ShapeHandle:
+    def static_circle(self, center: Point, radius: float, *, friction: float = .4, elasticity: float = .75, fill_color: Color | None = DEFAULT_CIRCLE_FILL, stroke_color: Color | None = DEFAULT_CIRCLE_STROKE, foreground: bool = False) -> ShapeHandle:
         """Build a fixed physical circle in local coordinates; return its ShapeHandle. foreground=True draws it after balls."""
         import pymunk
 
@@ -897,7 +906,7 @@ class TileBuilder:
         self._registry.set_object_style(handle, fill_color, stroke_color, foreground)
         return handle
 
-    def static_polygon(self, points: list[Point] | tuple[Point, ...], *, radius: float = 0, friction: float = .8, elasticity: float = .2, fill_color: Color = DEFAULT_SEGMENT_FILL, stroke_color: Color = DEFAULT_SEGMENT_STROKE, foreground: bool = False) -> ShapeHandle:
+    def static_polygon(self, points: list[Point] | tuple[Point, ...], *, radius: float = 0, friction: float = .8, elasticity: float = .2, fill_color: Color | None = DEFAULT_SEGMENT_FILL, stroke_color: Color | None = DEFAULT_SEGMENT_STROKE, foreground: bool = False) -> ShapeHandle:
         """Build a fixed convex polygon from tile-local points. foreground=True draws it after balls."""
         import pymunk
 
@@ -908,7 +917,7 @@ class TileBuilder:
         self._registry.set_object_style(handle, fill_color, stroke_color, foreground)
         return handle
 
-    def static_box(self, left: float, top: float, right: float, bottom: float, *, radius: float = 0, friction: float = .8, elasticity: float = .2, fill_color: Color = DEFAULT_SEGMENT_FILL, stroke_color: Color = DEFAULT_SEGMENT_STROKE, foreground: bool = False) -> ShapeHandle:
+    def static_box(self, left: float, top: float, right: float, bottom: float, *, radius: float = 0, friction: float = .8, elasticity: float = .2, fill_color: Color | None = DEFAULT_SEGMENT_FILL, stroke_color: Color | None = DEFAULT_SEGMENT_STROKE, foreground: bool = False) -> ShapeHandle:
         """Build a fixed physical rectangle from tile-local extents; return its ShapeHandle. foreground=True draws it after balls."""
         return self.static_polygon(
             ((left, top), (right, top), (right, bottom), (left, bottom)),
@@ -934,7 +943,7 @@ class TileBuilder:
         body.angle = self._registry._number(angle, "angle")
         return self._registry.add(self._owner, body, BodyHandle)
 
-    def circle_shape(self, body: BodyHandle, center: Point, radius: float, *, density: float = .01, friction: float = .8, elasticity: float = .2, fill_color: Color = DEFAULT_CIRCLE_FILL, stroke_color: Color = DEFAULT_CIRCLE_STROKE, foreground: bool = False) -> ShapeHandle:
+    def circle_shape(self, body: BodyHandle, center: Point, radius: float, *, density: float = .01, friction: float = .8, elasticity: float = .2, fill_color: Color | None = DEFAULT_CIRCLE_FILL, stroke_color: Color | None = DEFAULT_CIRCLE_STROKE, foreground: bool = False) -> ShapeHandle:
         """Attach a physical circle to a body using body-local coordinates. foreground=True draws it after balls."""
         import pymunk
 
@@ -944,7 +953,7 @@ class TileBuilder:
         shape = pymunk.Circle(raw, radius, tuple(map(float, center)))
         return self._add_attached_shape(body, shape, density, friction, elasticity, fill_color, stroke_color, foreground)
 
-    def segment_shape(self, body: BodyHandle, a: Point, b: Point, radius: float = 2, *, density: float = .01, friction: float = .8, elasticity: float = .2, surface_velocity: Vector = (0, 0), fill_color: Color = DEFAULT_SEGMENT_FILL, stroke_color: Color = DEFAULT_SEGMENT_STROKE, foreground: bool = False) -> ShapeHandle:
+    def segment_shape(self, body: BodyHandle, a: Point, b: Point, radius: float = 2, *, density: float = .01, friction: float = .8, elasticity: float = .2, surface_velocity: Vector = (0, 0), fill_color: Color | None = DEFAULT_SEGMENT_FILL, stroke_color: Color | None = DEFAULT_SEGMENT_STROKE, foreground: bool = False) -> ShapeHandle:
         """Attach a physical segment to a body using body-local coordinates. foreground=True draws it after balls."""
         import pymunk
 
@@ -955,7 +964,7 @@ class TileBuilder:
         shape = pymunk.Segment(raw, a, b, radius); shape.surface_velocity = tuple(map(float, surface_velocity))
         return self._add_attached_shape(body, shape, density, friction, elasticity, fill_color, stroke_color, foreground)
 
-    def polygon_shape(self, body: BodyHandle, points: list[Point] | tuple[Point, ...], *, radius: float = 0, density: float = .01, friction: float = .8, elasticity: float = .2, fill_color: Color = DEFAULT_SEGMENT_FILL, stroke_color: Color = DEFAULT_SEGMENT_STROKE, foreground: bool = False) -> ShapeHandle:
+    def polygon_shape(self, body: BodyHandle, points: list[Point] | tuple[Point, ...], *, radius: float = 0, density: float = .01, friction: float = .8, elasticity: float = .2, fill_color: Color | None = DEFAULT_SEGMENT_FILL, stroke_color: Color | None = DEFAULT_SEGMENT_STROKE, foreground: bool = False) -> ShapeHandle:
         """Attach a convex polygon to a body using body-local points. foreground=True draws it after balls."""
         import pymunk
 
@@ -964,7 +973,7 @@ class TileBuilder:
         shape = pymunk.Poly(raw, local, radius=radius)
         return self._add_attached_shape(body, shape, density, friction, elasticity, fill_color, stroke_color, foreground)
 
-    def box_shape(self, body: BodyHandle, left: float, top: float, right: float, bottom: float, *, radius: float = 0, density: float = .01, friction: float = .8, elasticity: float = .2, fill_color: Color = DEFAULT_SEGMENT_FILL, stroke_color: Color = DEFAULT_SEGMENT_STROKE, foreground: bool = False) -> ShapeHandle:
+    def box_shape(self, body: BodyHandle, left: float, top: float, right: float, bottom: float, *, radius: float = 0, density: float = .01, friction: float = .8, elasticity: float = .2, fill_color: Color | None = DEFAULT_SEGMENT_FILL, stroke_color: Color | None = DEFAULT_SEGMENT_STROKE, foreground: bool = False) -> ShapeHandle:
         """Attach a physical rectangle to a body using body-local extents. foreground=True draws it after balls."""
         return self.polygon_shape(
             body, ((left, top), (right, top), (right, bottom), (left, bottom)),
@@ -1112,7 +1121,7 @@ class TileBuilder:
             raise ValueError("at least one contact callback is required")
         self._registry.on_contact(self._owner, shape, callbacks)
 
-    def visual_segment(self, a: Point, b: Point, radius: float = 6, *, fill_color: Color = DEFAULT_SEGMENT_FILL, stroke_color: Color = DEFAULT_SEGMENT_STROKE, dynamic: bool = False, foreground: bool = False) -> VisualHandle:
+    def visual_segment(self, a: Point, b: Point, radius: float = 6, *, fill_color: Color | None = DEFAULT_SEGMENT_FILL, stroke_color: Color | None = DEFAULT_SEGMENT_STROKE, dynamic: bool = False, foreground: bool = False) -> VisualHandle:
         """Build a non-physical line. Use dynamic=True for moving cords, drawn without rebuilding the static tile cache.
 
         foreground=True draws the segment after balls, so it can occlude them."""
@@ -1123,7 +1132,7 @@ class TileBuilder:
         local_a=(float(a[0]),float(a[1]));local_b=(float(b[0]),float(b[1]))
         return self._registry.add_visual(self._owner,VisualSegment(local_a,local_b,radius_value(radius),dynamic),fill_color,stroke_color,foreground)
 
-    def visual_polygon(self, points: list[Point] | tuple[Point, ...], *, radius: float = 0, fill_color: Color = DEFAULT_SEGMENT_FILL, stroke_color: Color = DEFAULT_SEGMENT_STROKE, foreground: bool = False) -> VisualHandle:
+    def visual_polygon(self, points: list[Point] | tuple[Point, ...], *, radius: float = 0, fill_color: Color | None = DEFAULT_SEGMENT_FILL, stroke_color: Color | None = DEFAULT_SEGMENT_STROKE, foreground: bool = False) -> VisualHandle:
         """Build a non-physical filled convex polygon from tile-local points.
 
         foreground=True draws the polygon after balls, so it can occlude them;
@@ -1132,7 +1141,7 @@ class TileBuilder:
         _validate_flag(foreground, "foreground")
         return self._registry.add_visual(self._owner, VisualPolygon(tuple(local), radius), fill_color, stroke_color, foreground)
 
-    def visual_box(self, left: float, top: float, right: float, bottom: float, *, radius: float = 0, fill_color: Color = DEFAULT_SEGMENT_FILL, stroke_color: Color = DEFAULT_SEGMENT_STROKE, foreground: bool = False) -> VisualHandle:
+    def visual_box(self, left: float, top: float, right: float, bottom: float, *, radius: float = 0, fill_color: Color | None = DEFAULT_SEGMENT_FILL, stroke_color: Color | None = DEFAULT_SEGMENT_STROKE, foreground: bool = False) -> VisualHandle:
         """Build a non-physical filled rectangle from tile-local extents; see visual_polygon."""
         return self.visual_polygon(
             ((left, top), (right, top), (right, bottom), (left, bottom)),
