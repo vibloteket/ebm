@@ -297,6 +297,11 @@ class TileResourceRegistry:
         self._body_geometry_radii: dict[Any, float] = {}
         self._checked_static_poses: dict[int, Any] = {}
         self._checked_visuals: dict[int, VisualSegment] = {}
+        self._ball_constraints: dict[Any, list[int]] = {}
+        self._filter_groups: dict[Any, int] = {}
+        self._filter_group_members: dict[int, set[Any]] = {}
+        self._next_filter_group = 1
+        self._constraint_endpoints: dict[int, set[int]] = {}
         self._scene_listeners: list[Callable[[str, int], None]] = []
         self.runtime_errors: list[dict[str, Any]] = []
         self._install_dispatcher()
@@ -581,9 +586,11 @@ class TileResourceRegistry:
         if max_force is not None: motor.max_force = self._number(max_force, "max_force", minimum=0)
 
     def _resource_group(self, resource_id: int) -> set[int]:
-        if resource_id in self._body_members:
-            return {resource_id, *self._body_members[resource_id]}
-        return {resource_id}
+        group = {resource_id, *self._body_members.get(resource_id, ())}
+        for cid, endpoints in self._constraint_endpoints.items():
+            if endpoints & group:
+                group.add(cid)
+        return group
 
     @staticmethod
     def _removal_priority(obj) -> int:
@@ -598,6 +605,9 @@ class TileResourceRegistry:
         group = self._resource_group(handle.id)
         if group & self._paused_resources:
             raise RuntimeError("object or one of its dependencies is already paused")
+        pinned = {cid for ids in self._ball_constraints.values() for cid in ids}
+        if group & pinned:
+            raise RuntimeError("object pins a ball; remove the pin before pausing")
         removable = [key for key in group if key not in self._visuals.get(owner, ())]
         try:
             for key in sorted(removable, key=lambda item: self._removal_priority(self._objects[item])):
@@ -747,6 +757,7 @@ class TileResourceRegistry:
                 float(shape.friction), float(shape.elasticity),
                 getattr(shape, "ebm_fill_color", DEFAULT_BALL_FILL),
                 getattr(shape, "ebm_stroke_color", DEFAULT_BALL_STROKE),
+                shape.filter,
             )
         return BallHandle(owner, self, body, record["generation"])
 
@@ -800,6 +811,8 @@ class TileResourceRegistry:
         record = self._ball_record(handle)
         if record["paused"]:
             raise RuntimeError("ball is already paused")
+        if record["body"] in self._ball_constraints:
+            raise RuntimeError("ball is pinned; remove the pin before pausing it")
         # Contact can begin while an incoming ball still straddles a port edge.
         # Ownership already prevents another tile from claiming it, so allow
         # capture as long as some part of the ball overlaps this tile.
@@ -827,18 +840,104 @@ class TileResourceRegistry:
         self._emit_scene("ball", record["body"].id)
 
     def _release_ball(self, record):
+        body = record["body"]
+        self._drop_ball_constraints(body)
+        group = self._filter_groups.pop(body, None)
+        if group is not None:
+            members = self._filter_group_members.get(group)
+            if members is not None:
+                members.discard(body)
         if record["paused"]:
             self._restore_ball(record)
-        friction, elasticity, fill, stroke = record["snapshot"]
+        friction, elasticity, fill, stroke, shape_filter = record["snapshot"]
         shape = record["shape"]
         shape.friction, shape.elasticity = friction, elasticity
         shape.ebm_fill_color, shape.ebm_stroke_color = fill, stroke
+        shape.filter = shape_filter
         record["owner"] = None; record["generation"] += 1
         self._emit_scene("ball", record["body"].id)
 
     def ball_is_paused(self, body) -> bool:
         record = self._balls.get(body)
         return bool(record and record["paused"])
+
+    def _pin_body(self, owner: int, handle):
+        """Resolve a BodyHandle or an owned BallHandle to its raw pymunk body."""
+        if isinstance(handle, BallHandle):
+            return self._ball_record(handle)["body"]
+        return self.resolve(owner, handle)
+
+    def _track_ball_constraint(self, handle: BallHandle, constraint_id: int) -> None:
+        record = self._ball_record(handle)
+        self._ball_constraints.setdefault(record["body"], []).append(constraint_id)
+
+    def _drop_ball_constraints(self, body) -> None:
+        """Break every pin holding this ball (handoff, teardown, ball removal)."""
+        for resource_id in self._ball_constraints.pop(body, ()):
+            self._purge_resource(resource_id)
+
+    @staticmethod
+    def _set_shape_group(shape, group: int) -> None:
+        import pymunk
+        current = shape.filter
+        shape.filter = pymunk.ShapeFilter(group=group, categories=current.categories, mask=current.mask)
+
+    def _merge_filter_group(self, bodies) -> None:
+        """Put all given bodies into one collision group so they never collide.
+
+        Merging is transitive: pinning link1-link2 and then link2-link3 leaves
+        the whole chain in a single group.
+        """
+        groups = {self._filter_groups[body] for body in bodies if body in self._filter_groups}
+        if groups:
+            target = min(groups)
+        else:
+            target = self._next_filter_group
+            self._next_filter_group += 1
+        members = set(bodies)
+        for old in groups - {target}:
+            members |= self._filter_group_members.pop(old, set())
+        self._filter_group_members.setdefault(target, set()).update(members)
+        for body in members:
+            self._filter_groups[body] = target
+            for shape in body.shapes:
+                self._set_shape_group(shape, target)
+
+    def remove_resource(self, owner: int, handle) -> None:
+        """Remove an owned resource and its bookkeeping; the handle is dead afterwards."""
+        self.resolve(owner, handle)
+        for body, ids in list(self._ball_constraints.items()):
+            if handle.id in ids:
+                ids.remove(handle.id)
+                if not ids:
+                    del self._ball_constraints[body]
+        self._purge_resource(handle.id)
+
+    def _purge_resource(self, resource_id: int) -> None:
+        obj = self._objects.pop(resource_id, None)
+        if obj is None:
+            return
+        self._owner.pop(resource_id, None)
+        try:
+            self.space.remove(obj)
+        except Exception:
+            pass
+        self._callbacks.pop(obj, None)
+        self._shape_handles.pop(obj, None)
+        self._static_shape_bodies.pop(resource_id, None)
+        self._shape_geometries.pop(resource_id, None)
+        self._checked_static_poses.pop(resource_id, None)
+        self._checked_visuals.pop(resource_id, None)
+        self._styles.pop(resource_id, None)
+        self._paused_resources.discard(resource_id)
+        self._resource_resumes.pop(resource_id, None)
+        self._constraint_endpoints.pop(resource_id, None)
+        body_id = self._body_for_object.pop(resource_id, None)
+        if body_id is not None:
+            members = self._body_members.get(body_id)
+            if members is not None:
+                members.discard(resource_id)
+        self._body_members.pop(resource_id, None)
 
     def advance(self, dt: float) -> None:
         dt = max(0.0, float(dt))
@@ -981,13 +1080,61 @@ class TileBuilder:
             fill_color=fill_color, stroke_color=stroke_color, foreground=foreground,
         )
 
-    def pivot(self, body: BodyHandle, anchor: Point) -> ConstraintHandle:
-        """Pin a body to the static world at a tile-local pivot point."""
+    def pivot(self, a: BodyHandle | BallHandle, b: BodyHandle | BallHandle | Point, point: Point | None = None, *, collide: bool = False) -> ConstraintHandle:
+        """Pin bodies and owned balls together at a pivot point.
+
+        pivot(body, anchor) pins a body to the static world at a tile-local point.
+        pivot(a, b, point) pins two owned bodies (or balls) so the given tile-local
+        point stays coincident on both — chain such pins to build ropes.
+        pivot(body, ball) without a point glues the ball where it is: the ball's
+        center is pinned at its current position relative to the other body, with
+        no visible jump. With a point, the ball's center snaps to that tile-local
+        point instead. collide=False (default) merges the pair into a shared
+        collision group so jointed bodies never collide; chaining pins extends the
+        group transitively. builder.remove(handle) detaches the pair.
+        """
         import pymunk
 
-        raw = self._registry.resolve(self._owner, body)
-        constraint = pymunk.PivotJoint(self._registry.space.static_body, raw, self._point(anchor))
-        return self._registry.add(self._owner, constraint, ConstraintHandle, body=body)
+        registry = self._registry
+        if not isinstance(b, (BodyHandle, BallHandle)):
+            if point is not None:
+                raise ValueError("point is only valid when pinning two handles")
+            if collide:
+                raise ValueError("collide only applies when pinning two handles")
+            raw = registry.resolve(self._owner, a)
+            constraint = pymunk.PivotJoint(registry.space.static_body, raw, self._point(b))
+            return registry.add(self._owner, constraint, ConstraintHandle, body=a)
+        if not isinstance(a, (BodyHandle, BallHandle)):
+            raise TypeError("pivot expects handles or a tile-local anchor point")
+        raw_a = registry._pin_body(self._owner, a)
+        raw_b = registry._pin_body(self._owner, b)
+        if raw_a is raw_b:
+            raise ValueError("cannot pin a body to itself")
+        balls = [side for side in (a, b) if isinstance(side, BallHandle)]
+        if point is None:
+            if len(balls) != 1:
+                raise ValueError("point is required unless exactly one side is a ball")
+            ball_raw, other_raw = (raw_a, raw_b) if isinstance(a, BallHandle) else (raw_b, raw_a)
+            anchor_ball, anchor_other = (0.0, 0.0), other_raw.world_to_local(ball_raw.position)
+            anchors = (anchor_ball, anchor_other) if isinstance(a, BallHandle) else (anchor_other, anchor_ball)
+            constraint = pymunk.PivotJoint(raw_a, raw_b, *anchors)
+        elif len(balls) == 1:
+            # Snap glue: the ball's center is pulled onto the given point.
+            world = self._point(point)
+            ball_raw, other_raw = (raw_a, raw_b) if isinstance(a, BallHandle) else (raw_b, raw_a)
+            anchor_ball, anchor_other = (0.0, 0.0), other_raw.world_to_local(world)
+            anchors = (anchor_ball, anchor_other) if isinstance(a, BallHandle) else (anchor_other, anchor_ball)
+            constraint = pymunk.PivotJoint(raw_a, raw_b, *anchors)
+        else:
+            constraint = pymunk.PivotJoint(raw_a, raw_b, self._point(point))
+        if not collide:
+            registry._merge_filter_group((raw_a, raw_b))
+        parent = a if isinstance(a, BodyHandle) else (b if isinstance(b, BodyHandle) else None)
+        handle = registry.add(self._owner, constraint, ConstraintHandle, body=parent)
+        registry._constraint_endpoints[handle.id] = {side.id for side in (a, b) if isinstance(side, BodyHandle)}
+        for side in balls:
+            registry._track_ball_constraint(side, handle.id)
+        return handle
 
     def spring(self, body: BodyHandle, anchor: Point, attachment: Point, *, rest_length: float, stiffness: float, damping: float) -> ConstraintHandle:
         """Suspend a body from a tile-local anchor; attachment is body-local. No collision geometry is created."""
@@ -1150,9 +1297,8 @@ class TileBuilder:
         )
 
     def remove(self, handle: ResourceHandle) -> None:
-        """Remove an owned resource from the simulation before normal cleanup."""
-        obj=self._registry.resolve(self._owner,handle)
-        self._registry.space.remove(obj)
+        """Remove an owned resource (e.g. a pin) from the simulation; the handle is dead afterwards."""
+        self._registry.remove_resource(self._owner, handle)
 
     @property
     def visual_objects(self):

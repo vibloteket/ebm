@@ -329,6 +329,7 @@ class Engine:
         return ball
 
     def remove_ball(self, ball: Ball) -> None:
+        self.registry._drop_ball_constraints(ball.body)
         try:
             self.space.remove(ball.shape, ball.body)
         except Exception:

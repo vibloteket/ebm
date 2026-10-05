@@ -136,6 +136,7 @@ class EditorPreview:
         self.balls.append(Ball(body, shape))
 
     def remove_ball(self, ball):
+        self.registry._drop_ball_constraints(ball.body)
         try: self.space.remove(ball.shape, ball.body)
         except Exception: pass
         try: self.balls.remove(ball)
