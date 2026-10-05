@@ -43,6 +43,7 @@ B0_HATCH_CLEAR_Y = 410.0
 EXIT_VX = 340.0
 DASHES_PER_PIPE = 3
 PIPE_HALF = 7.0         # Pipe wall offset from centerline; interior fits the dashes.
+PIPE_CAP_HEIGHT = 12
 FILL_LAYERS = 12
 FILL_ALPHA = 210
 
@@ -50,7 +51,7 @@ FILL_ALPHA = 210
 # a hatch that slides right to open. The pipe top starts below the floor's
 # top face so its rounded cap never pokes into the pool.
 B0_PIPE_X = 200.0
-B0_PIPE_TOP = POOL_FLOOR + 1.0
+B0_PIPE_TOP = POOL_FLOOR + 8.0
 B0_BOX_LEFT = 181.0
 B0_BOX_RIGHT = 219.0
 B0_BOX_TOP = 351.0
@@ -100,8 +101,8 @@ class WaterPool(TileBase):
     ball-sized boxes that condense the water back into balls at B0 and R0,
     strictly alternating."""
 
-    author = "Pi"
-    enabled = False  # Editor-only until the user asks to enable.
+    author = "Victor"
+    enabled = True  # Editor-only until the user asks to enable.
 
     def build(self, b: TileBuilder) -> None:
         self.stockpile = []
@@ -160,12 +161,28 @@ class WaterPool(TileBase):
 
         b.on_ball_contact(sensor, begin=enter, separate=leave)
 
+        def pipe_cap(x:float, y:float, horizontal:bool):
+            """Make a pipe cap at x,y"""
+            h = 10 if horizontal else 0
+            v = 10 if not horizontal else 0
+            left = x - PIPE_HALF - h
+            top = y - PIPE_HALF - v
+            right = x + PIPE_HALF + h
+            bottom = y + PIPE_HALF + v
+            b.visual_box(left,top, right, bottom,fill_color=TUBE, foreground=True)
+        
         # B0 pipe: two vertical walls from just under the pool floor to the
         # crate top.
-        b.visual_segment((B0_PIPE_X - PIPE_HALF, B0_PIPE_TOP), (B0_PIPE_X - PIPE_HALF, B0_BOX_TOP), 3,
+        b.visual_segment((B0_PIPE_X - PIPE_HALF, B0_PIPE_TOP), (B0_PIPE_X - PIPE_HALF, B0_BOX_TOP-2), 3,
                          fill_color=TUBE, stroke_color=TUBE)
-        b.visual_segment((B0_PIPE_X + PIPE_HALF, B0_PIPE_TOP), (B0_PIPE_X + PIPE_HALF, B0_BOX_TOP), 3,
+        b.visual_segment((B0_PIPE_X + PIPE_HALF, B0_PIPE_TOP), (B0_PIPE_X + PIPE_HALF, B0_BOX_TOP-2), 3,
                          fill_color=TUBE, stroke_color=TUBE)
+
+
+            
+        pipe_cap(B0_PIPE_X, B0_PIPE_TOP+3, True)
+        pipe_cap(B0_PIPE_X, B0_BOX_TOP-10, True)
+        
         # B0 crate: ceiling with a pipe-width gap, sliding hatch floor.
         b.static_segment((B0_BOX_LEFT, B0_BOX_TOP), (B0_BOX_LEFT, 391.0), 3,
                          friction=0.1, elasticity=0.05, fill_color=CRATE)
@@ -183,14 +200,18 @@ class WaterPool(TileBase):
         # R0 pipe: horizontal run from the pool wall, then an elbow down into
         # the box ceiling. The vertical run's left wall starts at the
         # horizontal pipe's bottom wall, its right wall at its top wall.
-        b.visual_segment((POOL_RIGHT, R0_PIPE_Y - PIPE_HALF), (R0_PIPE_X + PIPE_HALF, R0_PIPE_Y - PIPE_HALF), 3,
+        b.visual_segment((POOL_RIGHT+7, R0_PIPE_Y - PIPE_HALF), (R0_PIPE_X + PIPE_HALF, R0_PIPE_Y - PIPE_HALF), 3,
                          fill_color=TUBE, stroke_color=TUBE)
-        b.visual_segment((POOL_RIGHT, R0_PIPE_Y + PIPE_HALF), (R0_PIPE_X - PIPE_HALF, R0_PIPE_Y + PIPE_HALF), 3,
+        b.visual_segment((POOL_RIGHT+7, R0_PIPE_Y + PIPE_HALF), (R0_PIPE_X - PIPE_HALF, R0_PIPE_Y + PIPE_HALF), 3,
                          fill_color=TUBE, stroke_color=TUBE)
         b.visual_segment((R0_PIPE_X - PIPE_HALF, R0_PIPE_Y + PIPE_HALF), (R0_PIPE_X - PIPE_HALF, R0_CEIL_Y), 3,
                          fill_color=TUBE, stroke_color=TUBE)
         b.visual_segment((R0_PIPE_X + PIPE_HALF, R0_PIPE_Y - PIPE_HALF), (R0_PIPE_X + PIPE_HALF, R0_CEIL_Y), 3,
                          fill_color=TUBE, stroke_color=TUBE)
+
+        pipe_cap(POOL_RIGHT+10, R0_PIPE_Y, False)
+        pipe_cap(R0_PIPE_X, R0_CEIL_Y-10, True)
+        
         # R0 crate: ceiling segments on both sides of the pipe (same style as
         # the B0 ceiling), conveyor floor, gate that slides up to open.
         b.static_segment((R0_BOX_LEFT, R0_CEIL_Y), (R0_BOX_LEFT, R0_FLOOR_Y), 3,
@@ -228,7 +249,7 @@ class WaterPool(TileBase):
                 "phase": "idle", "t": 0.0, "ball": None,
                 "spawn": B0_SPAWN, "kick": None,
                 "fill_segs": fill_stack(184.0, 216.0, 385.0, 355.0),
-                "path": ((B0_PIPE_X, POOL_FLOOR + 4), (B0_PIPE_X, B0_BOX_TOP - 7)),
+                "path": ((B0_PIPE_X, POOL_FLOOR + 20), (B0_PIPE_X, B0_BOX_TOP - 7)),
                 "dashes": [dash((B0_PIPE_X, POOL_FLOOR + 4), 3.5, NO_DASH) for _ in range(DASHES_PER_PIPE)],
                 "glints": [dash((B0_PIPE_X, POOL_FLOOR + 4), 2.0, NO_GLINT) for _ in range(DASHES_PER_PIPE)],
                 "gate": b0_hatch,
@@ -241,7 +262,7 @@ class WaterPool(TileBase):
                 "phase": "idle", "t": 0.0, "ball": None,
                 "spawn": R0_SPAWN, "kick": (EXIT_VX, 0.0),
                 "fill_segs": fill_stack(360.0, 390.0, 327.0, 297.0),
-                "path": ((POOL_RIGHT + 4, R0_PIPE_Y), (R0_PIPE_X, R0_PIPE_Y),
+                "path": ((POOL_RIGHT + 20, R0_PIPE_Y), (R0_PIPE_X, R0_PIPE_Y),
                          (R0_PIPE_X, R0_CEIL_Y - 5)),
                 "dashes": [dash((POOL_RIGHT + 4, R0_PIPE_Y), 3.5, NO_DASH) for _ in range(DASHES_PER_PIPE)],
                 "glints": [dash((POOL_RIGHT + 4, R0_PIPE_Y), 2.0, NO_GLINT) for _ in range(DASHES_PER_PIPE)],
