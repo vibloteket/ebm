@@ -1,7 +1,4 @@
-from __future__ import annotations
-
 from ebm import TileBase, TileBuilder, Vec2d
-
 
 class SpringBucket(TileBase):
     """A spring-hung bucket; only its one-ball bottom hatch is controlled."""

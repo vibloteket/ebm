@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import math
 
 MAX_BALL_SPEED = 600.0
@@ -7,7 +5,6 @@ MAX_BALL_SPEED = 600.0
 # Nominal source cadence: 0.8 balls/second across the two tile inputs.
 TILE_SPAWN_INTERVAL = 1.25
 INPUT_SPAWN_INTERVAL = 2 * TILE_SPAWN_INTERVAL
-
 
 def limit_ball_speed(body, _gravity=None, _damping=None, _dt=None) -> None:
     """Clamp a body's velocity vector without changing its direction."""
@@ -18,7 +15,6 @@ def limit_ball_speed(body, _gravity=None, _damping=None, _dt=None) -> None:
     scale = MAX_BALL_SPEED / math.sqrt(speed_squared)
     body.velocity = vx * scale, vy * scale
 
-
 def ball_velocity_func(body, gravity, damping, dt) -> None:
     """Pymunk velocity callback that integrates normally, then applies the cap."""
     import pymunk
@@ -26,10 +22,8 @@ def ball_velocity_func(body, gravity, damping, dt) -> None:
     pymunk.Body.update_velocity(body, gravity, damping, dt)
     limit_ball_speed(body)
 
-
 def configure_ball_body(body) -> None:
     body.velocity_func = ball_velocity_func
-
 
 def limit_space_ball_speeds(balls) -> None:
     """Re-apply after collision callbacks that may directly change velocity."""

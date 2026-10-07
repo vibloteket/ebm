@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import math
 import random
 
@@ -13,7 +11,6 @@ from .debug_demo import Ball, _draw_port_overlays
 from .ports import BALL_RADIUS, COLUMN_OFFSET, MAX_EXIT_ANGLE_DEGREES, Port, PORT_SPECS, TILE_SIZE, entry_velocity, tile_origin
 from .tile_api import BALL_COLLISION_TYPE, BALL_ELASTICITY, BALL_FRICTION, TileBuilder, TileResourceRegistry, VisualPolygon, VisualSegment, ball_shape_filter
 
-
 _preview = None
 _canvas = None
 _last_ts = None
@@ -22,7 +19,6 @@ _view = "simulation"
 _failure_replay = None
 _replay_started = None
 _proxies = []
-
 
 class EditorPreview:
     def __init__(self, mode="single"):
@@ -142,7 +138,6 @@ class EditorPreview:
         try: self.balls.remove(ball)
         except ValueError: pass
 
-
 def start(canvas):
     global _preview, _canvas, _last_ts
     _canvas = canvas
@@ -177,7 +172,6 @@ def start(canvas):
     frame_proxy = create_proxy(frame); _proxies.append(frame_proxy)
     window.requestAnimationFrame(frame_proxy)
 
-
 def refresh(mode="single"):
     global _preview
     if _preview is None:
@@ -188,14 +182,12 @@ def refresh(mode="single"):
     if _canvas is not None:
         draw(_canvas, _preview)
 
-
 def set_paused(paused):
     """Pause physics and drawing while keeping the animation callback lightweight."""
     global _paused, _last_ts
     _paused = bool(paused)
     _last_ts = None
     return _paused
-
 
 def set_view(view):
     """Switch between live simulation and a stationary validation replay stage."""
@@ -210,7 +202,6 @@ def set_view(view):
             _preview.remove_ball(ball)
     return _view
 
-
 def replay_failure(detail_json):
     """Overlay one validator trajectory without replacing the live preview."""
     global _failure_replay, _replay_started
@@ -224,7 +215,6 @@ def replay_failure(detail_json):
     if _canvas is not None and _preview is not None:
         draw(_canvas, _preview)
     return True
-
 
 def _replay_position(now):
     global _replay_started
@@ -244,11 +234,9 @@ def _replay_position(now):
         previous = point
     return points[-1][1], points[-1][2], True
 
-
 def _canvas_color(color):
     r,g,b,a=color
     return f"rgba({r},{g},{b},{a/255:.4f})"
-
 
 def _draw_sensor_overlay(ctx, shape, sx, sy, scale):
     """Draw editor-only sensor geometry without changing production rendering."""
@@ -276,7 +264,6 @@ def _draw_sensor_overlay(ctx, shape, sx, sy, scale):
     ctx.strokeStyle = "rgba(71,85,105,.62)"; ctx.lineWidth = max(1, 1.5 * scale)
     ctx.setLineDash([max(3, 8 * scale), max(2, 5 * scale)]); ctx.stroke()
     ctx.restore()
-
 
 def _draw_tile_items(ctx, builder, sx, sy, scale, *, foreground):
     """Draw one tile's visual items in the given band (background or foreground)."""
@@ -308,7 +295,6 @@ def _draw_tile_items(ctx, builder, sx, sy, scale, *, foreground):
                 ctx.beginPath();ctx.moveTo(sx(points[0].x),sy(points[0].y))
                 for point in points[1:]:ctx.lineTo(sx(point.x),sy(point.y))
                 ctx.closePath();ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=stroke;ctx.lineWidth=2;ctx.stroke()
-
 
 def draw(canvas, preview):
     ctx = canvas.getContext("2d")

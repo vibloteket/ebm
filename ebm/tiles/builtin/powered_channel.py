@@ -1,7 +1,4 @@
-from __future__ import annotations
-
 from ebm import Port, TileBase
-
 
 class PoweredChannelTile(TileBase):
     """Flow tile that distributes incoming balls across both outputs."""
@@ -29,14 +26,12 @@ class PoweredChannelTile(TileBase):
         for entry, output in zip((Port.T0, Port.L0), outputs):
             builder.visual_segment(_inside(entry), _inside(output), 6)
 
-
 def _inside(port: Port):
     x, y = port.point
     if port == Port.T0: return x, y + 20
     if port == Port.B0: return x, y - 20
     if port == Port.L0: return x + 20, y
     return x - 20, y
-
 
 def _steer(ball, output):
     x, y = ball.position

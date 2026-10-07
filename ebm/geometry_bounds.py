@@ -3,7 +3,6 @@
 Physics shapes are measured from their current transform, never a cached BB.
 Balls are not tile-owned geometry and must not be passed to these checks.
 """
-from __future__ import annotations
 
 import math
 
@@ -12,19 +11,16 @@ from .ports import TILE_SIZE
 GEOMETRY_EPSILON = 1e-7  # Floating-point noise only, not an authoring margin.
 MAX_SHAPE_RADIUS = 20.0  # Independent of the tile's strict spatial bounds.
 
-
 class GeometryBoundsError(ValueError):
     def __init__(self, message, **details):
         super().__init__(message)
         self.details = details
-
 
 def radius_value(radius, *, maximum=None):
     radius = float(radius)
     if not math.isfinite(radius) or radius < 0 or (maximum is not None and radius > maximum):
         raise ValueError(f"radius must be finite and between 0 and {maximum if maximum is not None else 'infinity'}")
     return radius
-
 
 def points_bounds(points, radius=0):
     radius = radius_value(radius)
@@ -33,7 +29,6 @@ def points_bounds(points, radius=0):
         raise ValueError("geometry coordinates must be finite")
     xs, ys = zip(*points)
     return min(xs) - radius, min(ys) - radius, max(xs) + radius, max(ys) + radius
-
 
 def check_bounds(bounds, *, label="geometry", **details):
     left, top, right, bottom = bounds
@@ -46,7 +41,6 @@ def check_bounds(bounds, *, label="geometry", **details):
                 f"(bounds={tuple(round(value, 9) for value in bounds)}, allowed=0..{TILE_SIZE})",
                 **details, edge=edge, overflow=overflow, bounds=list(bounds),
             )
-
 
 def local_shape_geometry(shape):
     """Read immutable shape-local data once; public shape handles cannot edit it."""
@@ -62,7 +56,6 @@ def local_shape_geometry(shape):
         raise TypeError(f"unsupported geometry: {type(shape).__name__}")
     return tuple(tuple(point) for point in points), float(shape.radius)
 
-
 def transformed_bounds(geometry, pose, origin):
     """Measure current world bounds without repeated Python/CFFI shape calls."""
     points, radius = geometry
@@ -72,7 +65,6 @@ def transformed_bounds(geometry, pose, origin):
     x, y = position
     return points_bounds(((x + c * px - s * py - ox, y + s * px + c * py - oy)
                           for px, py in points), radius)
-
 
 def shape_bounds(shape, origin):
     points, radius = local_shape_geometry(shape)

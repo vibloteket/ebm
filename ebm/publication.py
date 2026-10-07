@@ -1,10 +1,8 @@
 """Deterministic publication checks: each enabled tile, never random mixtures."""
-from __future__ import annotations
 
 from .repeat_validation import validate_repeated_flow
 from .tile_catalog import all_tiles
 from .validator import validate_tile_flow
-
 
 def validate_publication(registrations=None):
     registrations = all_tiles() if registrations is None else tuple(registrations)

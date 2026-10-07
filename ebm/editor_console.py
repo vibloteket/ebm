@@ -1,14 +1,10 @@
-from __future__ import annotations
-
 from contextlib import contextmanager
 import json
 import sys
 import time
 
-
 MAX_LINES = 500
 MAX_LINES_PER_SECOND = 50
-
 
 class EditorConsole:
     """Bounded stdout/stderr capture used only by the browser tile editor."""
@@ -63,7 +59,6 @@ class EditorConsole:
         self._pending = {"stdout": "", "stderr": ""}
         self._suppressed = 0
 
-
 class _ConsoleWriter:
     def __init__(self, console: EditorConsole, stream: str):
         self.console = console
@@ -80,10 +75,8 @@ class _ConsoleWriter:
     def isatty(self) -> bool:
         return False
 
-
 console = EditorConsole()
 _installed = False
-
 
 def install_console() -> None:
     """Route ordinary print() calls to the editor's bounded output buffer."""
@@ -94,7 +87,6 @@ def install_console() -> None:
     sys.stderr = console.writer("stderr")
     _installed = True
 
-
 @contextmanager
 def console_phase(name: str):
     previous = console.phase
@@ -104,7 +96,6 @@ def console_phase(name: str):
     finally:
         console.phase = previous
 
-
 @contextmanager
 def console_muted():
     console.mute_depth += 1
@@ -113,10 +104,8 @@ def console_muted():
     finally:
         console.mute_depth -= 1
 
-
 def drain_console() -> str:
     return console.drain()
-
 
 def clear_console() -> None:
     console.clear()

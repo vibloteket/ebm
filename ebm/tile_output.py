@@ -1,7 +1,4 @@
-from __future__ import annotations
-
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
-
 
 class _NullWriter:
     def write(self, text) -> int:
@@ -10,9 +7,7 @@ class _NullWriter:
     def flush(self) -> None:
         pass
 
-
 _NULL = _NullWriter()
-
 
 @contextmanager
 def suppress_tile_output():

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import math
 import random
 
@@ -12,7 +10,6 @@ from .tile_api import BALL_COLLISION_TYPE, BALL_ELASTICITY, BALL_FRICTION, TileB
 from .tile_catalog import default_tile
 from .validator import validate_tile_flow
 
-
 class _FlowContract:
     entries = (Port.T0, Port.L0)
     exits = (Port.B0, Port.R0)
@@ -20,12 +17,10 @@ class _FlowContract:
     def __str__(self):
         return "Any input → any output"
 
-
 FLOW_CONTRACT = _FlowContract()
 _debug = None
 _last_ts: float | None = None
 _proxies = []
-
 
 class DebugEngine:
     def __init__(self, contract_index: int = 0):
@@ -150,12 +145,10 @@ class DebugEngine:
         except ValueError:
             pass
 
-
 class Ball:
     def __init__(self, body, shape):
         self.body = body
         self.shape = shape
-
 
 def start(canvas, select, title_el=None, validation_el=None):
     global _debug, _last_ts
@@ -201,7 +194,6 @@ def start(canvas, select, title_el=None, validation_el=None):
     _proxies.append(frame_proxy)
     window.requestAnimationFrame(frame_proxy)
 
-
 def _populate_select(select, title_el, validation_el=None) -> None:
     select.innerHTML = ""
     for i, contract in enumerate((FLOW_CONTRACT,)):
@@ -212,11 +204,9 @@ def _populate_select(select, title_el, validation_el=None) -> None:
     _update_title(title_el)
     _update_validation(validation_el)
 
-
 def _update_title(title_el) -> None:
     if title_el is not None and _debug is not None:
         title_el.textContent = _contract_label(_debug.contract)
-
 
 def _update_validation(validation_el) -> None:
     if validation_el is None or _debug is None or _debug.validation is None:
@@ -230,12 +220,10 @@ def _update_validation(validation_el) -> None:
         f"peak {result.peak_active}, {result.invalid + result.lost} invalid/lost"
     )
 
-
 def _contract_label(contract) -> str:
     entries = ", ".join(port.name for port in contract.entries)
     exits = ", ".join(port.name for port in contract.exits)
     return f"{entries} → {exits}"
-
 
 def draw(canvas, debug: DebugEngine) -> None:
     ctx = canvas.getContext("2d")
@@ -286,20 +274,15 @@ def draw(canvas, debug: DebugEngine) -> None:
     ctx.fillStyle="rgba(54,45,35,.78)";ctx.font="12px system-ui, sans-serif"
     ctx.fillText(f"balls: {len(debug.balls)} | click tile to spawn",14,height-18)
 
-
-
-
 def _canvas_color(color):
     r,g,b,a=color
     return f"rgba({r},{g},{b},{a/255:.4f})"
-
 
 def _draw_port_overlays(ctx, sx, sy, scale) -> None:
     for port in (Port.T0, Port.L0):
         _draw_port_spec_zone(ctx, port, sx, sy, scale, kind="entry")
     for port in (Port.B0, Port.R0):
         _draw_port_spec_zone(ctx, port, sx, sy, scale, kind="exit")
-
 
 def _draw_port_spec_zone(ctx, port: Port, sx, sy, scale: float, kind: str) -> None:
     spec = PORT_SPECS.get(port)
@@ -377,5 +360,4 @@ def _draw_port_spec_zone(ctx, port: Port, sx, sy, scale: float, kind: str) -> No
     ctx.fillText(port.name, label_x, label_y)
     ctx.textAlign = "start"
     ctx.textBaseline = "alphabetic"
-
 

@@ -27,8 +27,6 @@ are grouped under their body id; balls are keyed by body id as well. Colors
 are ``[r, g, b, a]`` lists.
 """
 
-from __future__ import annotations
-
 import struct
 
 import pymunk
@@ -42,10 +40,8 @@ _POSE_FIELDS = (
     | pymunk.batch.BodyFields.ANGLE
 )
 
-
 def _color(color) -> list[int]:
     return [int(color[0]), int(color[1]), int(color[2]), int(color[3])]
-
 
 class SceneExporter:
     def __init__(self, engine) -> None:

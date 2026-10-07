@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import math
 
 from ebm import TileBase, TileBuilder, Vec2d
@@ -109,7 +107,6 @@ PLATE_STROKE = (70, 46, 104, 255)
 MECH = (220, 140, 35, 255)
 RAY = (255, 150, 45, 230)
 NO_RAY = (255, 150, 45, 0)
-
 
 class FunnelShredder(TileBase):
     """T0 falls into a funnel where a spiked wheel shreds balls into small
@@ -431,7 +428,6 @@ class FunnelShredder(TileBase):
                 _clamp(center + direction * outer),
             )
             ray.set_fill_color((RAY[0], RAY[1], RAY[2], alpha))
-
 
 def _clamp(point):
     return (

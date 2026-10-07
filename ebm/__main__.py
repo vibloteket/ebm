@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import argparse
 from contextlib import redirect_stdout
 from functools import partial
@@ -10,7 +8,6 @@ import subprocess
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import sys
 import webbrowser
-
 
 def serve(port: int, open_browser: bool) -> None:
     root = Path(__file__).resolve().parents[1]
@@ -26,7 +23,6 @@ def serve(port: int, open_browser: bool) -> None:
         server.serve_forever()
     except KeyboardInterrupt:
         print("\nStopping server")
-
 
 def validate(json_output: bool) -> int:
     try:
@@ -48,7 +44,6 @@ def validate(json_output: bool) -> int:
         print("Publication checks: " + ("PASS" if report["ok"] else "FAIL"))
     return 0 if report["ok"] else 1
 
-
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="python -m ebm")
     sub = parser.add_subparsers(dest="command")
@@ -67,7 +62,6 @@ def main(argv: list[str] | None = None) -> None:
         raise SystemExit(validate(args.json))
     else:
         parser.error(f"unknown command: {args.command}")
-
 
 if __name__ == "__main__":
     main()

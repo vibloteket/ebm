@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from dataclasses import dataclass
 import math
 import random
@@ -23,7 +21,6 @@ PHYSICS_DT = 1 / 60
 WORLD_SEED = "machine-tile-v1"
 MACHINE_TILE_IDS = tuple(registration.id for registration in active_tiles())
 
-
 @dataclass
 class Viewport:
     x: float = 0
@@ -40,19 +37,16 @@ class Viewport:
     def bottom(self) -> float:
         return self.y + self.height / self.zoom
 
-
 @dataclass
 class Ball:
     body: Any
     shape: Any
-
 
 @dataclass
 class ActiveTile:
     tile: Any
     builder: TileBuilder
     owner_id: int
-
 
 class Engine:
     def __init__(self, width: float = 1000, height: float = 700):

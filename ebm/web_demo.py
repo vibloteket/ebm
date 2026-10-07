@@ -6,8 +6,6 @@ one pose buffer per animation frame. Keeping canvas work in JavaScript avoids
 thousands of Pyodide proxy calls per second in the hot loop.
 """
 
-from __future__ import annotations
-
 import json
 import time
 
@@ -35,26 +33,21 @@ _render_profile = {
 }
 _proxies = []
 
-
 def zoom_at(cx, cy, factor):
     if _engine is not None:
         _engine.zoom_at(cx, cy, factor)
-
 
 def set_zoom(value):
     if _engine is not None:
         _engine.set_zoom_at(_engine.viewport.width/2, _engine.viewport.height/2, float(value))
 
-
 def zoom_value():
     return _engine.viewport.zoom if _engine is not None else .5
-
 
 def set_tile_profiling(enabled):
     """Toggle per-tile-type update() timing (enabled while the stats overlay shows)."""
     if _engine is not None:
         _engine.set_tile_profiling(bool(enabled))
-
 
 def performance_stats():
     """Return and reset one profiling window as JSON for the web overlay."""
@@ -77,7 +70,6 @@ def performance_stats():
     for key in list(_render_profile):
         _render_profile[key] = 0 if key.endswith(("frames", "calls", "events")) else 0.0
     return json.dumps(snapshot)
-
 
 def start(static_canvas, dynamic_canvas):
     global _engine, _exporter, _last_ts

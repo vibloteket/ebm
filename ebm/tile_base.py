@@ -1,13 +1,9 @@
-from __future__ import annotations
-
 import re
 from types import ModuleType
 
 from .tile_api import TileBuilder
 
-
 TILE_API_VERSION = 4
-
 
 class TileBase:
     """Contributor-facing flow tile interface."""
@@ -23,7 +19,6 @@ class TileBase:
         """Advance optional tile state; dt is elapsed simulation time in seconds."""
         pass
 
-
 def tile_has_frame_update(tile: TileBase) -> bool:
     """True when the tile's class overrides TileBase.update and needs per-frame calls.
 
@@ -31,7 +26,6 @@ def tile_has_frame_update(tile: TileBase) -> bool:
     which are the vast majority; the base implementation is a no-op anyway.
     """
     return type(tile).update is not TileBase.update
-
 
 def tile_class_from_module(module: ModuleType) -> type[TileBase]:
     """Return the one TileBase subclass defined by a tile module."""
@@ -51,7 +45,6 @@ def tile_class_from_module(module: ModuleType) -> type[TileBase]:
         names = ", ".join(candidate.__name__ for candidate in candidates)
         raise TypeError(f"Tile source must define exactly one TileBase subclass; found: {names}")
     return candidates[0]
-
 
 def tile_display_name(tile_class: type[TileBase]) -> str:
     """Turn a Python class name into the contributor-facing display name."""

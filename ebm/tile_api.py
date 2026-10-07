@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from dataclasses import dataclass, field
 import math
 import sys
@@ -28,7 +26,6 @@ DEFAULT_CIRCLE_STROKE: Color = (140, 67, 24, 255)
 DEFAULT_BALL_FILL: Color = (22, 114, 212, 255)
 DEFAULT_BALL_STROKE: Color = (12, 63, 143, 255)
 
-
 def _validate_color(color) -> Color:
     if color is None:
         return (0, 0, 0, 0)  # None means "do not paint this layer".
@@ -38,23 +35,19 @@ def _validate_color(color) -> Color:
         raise ValueError("RGBA color components must be integers from 0 to 255")
     return tuple(color)
 
-
 # Sentinel distinguishing "argument omitted" from an explicit None (which
 # clears the paint layer) in style setters.
 _UNSET: Any = object()
-
 
 def _validate_flag(value, name: str) -> bool:
     if type(value) is not bool:
         raise ValueError(f"{name} must be True or False")
     return value
 
-
 def ball_shape_filter():
     """Balls interact with tile shapes, sensors, and other balls."""
     import pymunk
     return pymunk.ShapeFilter(categories=BALL_CATEGORY)
-
 
 @dataclass(frozen=True)
 class ResourceHandle:
@@ -70,7 +63,6 @@ class ResourceHandle:
         """Restore a paused object, optionally after simulation-time seconds."""
         self._registry.resume_resource(self._owner, self, delay=delay)
 
-
 @dataclass(frozen=True)
 class StyledHandle(ResourceHandle):
     def set_fill_color(self, color: Color | None) -> None:
@@ -81,7 +73,6 @@ class StyledHandle(ResourceHandle):
         """Set this object's outline RGBA tuple (four integers from 0 to 255), or None for no outline."""
         self._registry.set_style(self._owner, self, stroke_color=color)
 
-
 @dataclass(frozen=True)
 class ShapeHandle(StyledHandle):
     def set_friction(self, friction: float) -> None:
@@ -91,7 +82,6 @@ class ShapeHandle(StyledHandle):
     def set_elasticity(self, elasticity: float) -> None:
         """Set this physical shape's elasticity from 0 to 1."""
         self._registry.set_shape_material(self._owner, self, elasticity=elasticity)
-
 
 @dataclass(frozen=True)
 class BodyHandle(ResourceHandle):
@@ -143,11 +133,9 @@ class BodyHandle(ResourceHandle):
         """Add torque to this body for the current simulation step."""
         self._registry.apply_body_torque(self._owner, self, torque)
 
-
 @dataclass(frozen=True)
 class ConstraintHandle(ResourceHandle):
     pass
-
 
 @dataclass(frozen=True)
 class MotorHandle(ConstraintHandle):
@@ -159,13 +147,11 @@ class MotorHandle(ConstraintHandle):
         """Set the maximum motor force."""
         self._registry.set_motor(self._owner, self, max_force=max_force)
 
-
 @dataclass(frozen=True)
 class VisualHandle(StyledHandle):
     def set_segment_points(self, a: Point, b: Point) -> None:
         """Move the endpoints of a visual segment in tile-local coordinates."""
         self._registry.set_visual_segment_points(self._owner, self, a, b)
-
 
 @dataclass
 class VisualStyle:
@@ -174,7 +160,6 @@ class VisualStyle:
     # Foreground graphics draw after balls, so they can occlude them.
     foreground: bool = False
 
-
 @dataclass(frozen=True)
 class VisualSegment:
     a: Point
@@ -182,13 +167,11 @@ class VisualSegment:
     radius: float
     dynamic: bool = False
 
-
 @dataclass(frozen=True)
 class VisualPolygon:
     """Non-physical filled polygon; tile-local points, immutable."""
     points: tuple[Point, ...]
     radius: float = 0.0
-
 
 @dataclass(frozen=True)
 class BallHandle:
@@ -248,7 +231,6 @@ class BallHandle:
         """Restore a paused ball, optionally after simulation-time seconds."""
         self._registry.resume_ball(self, delay=delay)
 
-
 @dataclass(frozen=True)
 class ContactEvent:
     """Safe tile-facing view of one ball/shape contact phase."""
@@ -260,10 +242,8 @@ class ContactEvent:
     impulse: Vector | None = None
     kinetic_energy: float | None = None
 
-
 type ContactCallback = Callable[[ContactEvent], None]
 type CollisionCallback = Callable[[ContactEvent], bool | None]
-
 
 @dataclass(frozen=True)
 class ContactCallbacks:
@@ -271,7 +251,6 @@ class ContactCallbacks:
     pre_solve: CollisionCallback | None = None
     post_solve: ContactCallback | None = None
     separate: ContactCallback | None = None
-
 
 class TileResourceRegistry:
     """Engine-owned Pymunk resources and contact dispatch for tile instances."""
@@ -962,7 +941,6 @@ class TileResourceRegistry:
             # matching the flow validator's geometry-based boundary rule.
             if x + radius <= ox or x - radius >= ox + TILE_SIZE or y + radius <= oy or y - radius >= oy + TILE_SIZE:
                 self._release_ball(record)
-
 
 class TileBuilder:
     """Tile-local, ownership-checked construction API; exposes no Space."""

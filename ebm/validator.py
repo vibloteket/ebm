@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from dataclasses import dataclass, field
 import math
 import random
@@ -25,7 +23,6 @@ SPAWN_INTERVAL = TILE_SPAWN_INTERVAL
 BOUNDS_EPSILON = 0.25
 MAX_EXIT_ANGLE_COSINE = math.cos(math.radians(MAX_EXIT_ANGLE_DEGREES))
 
-
 @dataclass
 class ValidationBall:
     id: int
@@ -35,7 +32,6 @@ class ValidationBall:
     spawned_at: float
     trajectory: list[list[float]] = field(default_factory=list)
     next_sample_at: float = 0.0
-
 
 @dataclass
 class ValidationResult:
@@ -93,7 +89,6 @@ class ValidationResult:
             "details": self.details,
             "runtime_errors": self.runtime_errors,
         }
-
 
 def validate_tile_flow(
     tile_factory: Callable[[], Any],
@@ -173,7 +168,6 @@ def validate_tile_flow(
     registry.destroy_owner(1)
     return result
 
-
 def _runtime_error(error: Exception, owner: int, phase: str, time: float = 0) -> dict[str, Any]:
     return {
         "owner": owner,
@@ -185,13 +179,11 @@ def _runtime_error(error: Exception, owner: int, phase: str, time: float = 0) ->
         **getattr(error, "details", {}),
     }
 
-
 # Keep the editor-facing name while the API transitions from sampled
 # single-ball validation to concurrent aggregate flow validation.
 def validate_tile_port_spec(tile_factory: Callable[[], Any], **kwargs) -> ValidationResult:
     kwargs.pop("duration", None)
     return validate_tile_flow(tile_factory, **kwargs)
-
 
 def _record_trajectories(active: list[ValidationBall], t: float) -> None:
     """Keep compact 20 FPS tracks so failed cases can be replayed in the editor."""
@@ -204,7 +196,6 @@ def _record_trajectories(active: list[ValidationBall], t: float) -> None:
             round(float(ball.body.position.y), 2),
         ])
         ball.next_sample_at = t + 0.05
-
 
 def _classify_active(space, active: list[ValidationBall], result: ValidationResult, t: float) -> None:
     for ball in list(active):
@@ -222,7 +213,6 @@ def _classify_active(space, active: list[ValidationBall], result: ValidationResu
             result.invalid += 1
         _remove_ball(space, ball)
         active.remove(ball)
-
 
 def _classify_ball(space, ball: ValidationBall) -> tuple[str, str | None] | None:
     registry = TileResourceRegistry.for_space(space)
@@ -248,7 +238,6 @@ def _classify_ball(space, ball: ValidationBall) -> tuple[str, str | None] | None
         return "invalid", "left"
     return None
 
-
 def _classify_exit(port, x, y, vx, vy):
     spec = PORT_SPECS[port]
     along = x if port == Port.B0 else y
@@ -267,11 +256,9 @@ def _classify_exit(port, x, y, vx, vy):
         return "invalid", f"bad-exit-angle:{port.name}"
     return "exited", port.name
 
-
 def _edge_label(port):
     if port == Port.B0: return "bottom"
     return "right"
-
 
 def _spawn_ball(space, ball_id, entry, t, dx, dy, vx, vy) -> ValidationBall:
     import pymunk
@@ -300,7 +287,6 @@ def _spawn_ball(space, ball_id, entry, t, dx, dy, vx, vy) -> ValidationBall:
     ball.next_sample_at = t + 0.05
     return ball
 
-
 def _failure_message(status, label, x, y, vx, vy):
     if status == "lost":
         return "Ball state was removed or became non-finite."
@@ -314,7 +300,6 @@ def _failure_message(status, label, x, y, vx, vy):
         angle = math.degrees(math.acos(max(-1.0, min(1.0, outward / max(math.hypot(vx, vy), 1e-12)))))
         return f"{port} exit angle was {angle:.1f}° from its outward direction (must be ≤ {MAX_EXIT_ANGLE_DEGREES:.0f}°)."
     return "Ball left outside the tile flow contract."
-
 
 def _detail(ball, status, label, t):
     x, y = float(ball.body.position.x), float(ball.body.position.y)
@@ -336,7 +321,6 @@ def _detail(ball, status, label, t):
         detail["message"] = _failure_message(status, label, x, y, vx, vy)
         detail["trajectory"] = ball.trajectory
     return detail
-
 
 def _remove_ball(space, ball):
     try:

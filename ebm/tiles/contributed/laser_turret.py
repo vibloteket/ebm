@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import math
 
 from ebm import TileBase, TileBuilder, Vec2d
@@ -61,7 +59,6 @@ NO_RAY = (255, 150, 45, 0)
 CRATE = (115, 76, 168, 255)
 MECH = (220, 140, 35, 255)
 PIPE = (49, 90, 168, 255)
-
 
 class LaserTurret(TileBase):
     """A turret tracks balls inside its sensor circle and shoots them; hit balls
@@ -369,7 +366,6 @@ class LaserTurret(TileBase):
     @staticmethod
     def _tip(angle: float, length: float):
         return TURRET + Vec2d(length, 0).rotated(angle)
-
 
 def _clamp(point):
     return (

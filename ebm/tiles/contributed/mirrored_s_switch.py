@@ -1,12 +1,8 @@
-from __future__ import annotations
-
 from ebm import TileBase, TileBuilder
-
 
 RAIL = (35, 104, 176, 255)
 GATE = (238, 147, 31, 255)
 PIVOT = (92, 54, 22, 255)
-
 
 class MirroredSSwitch(TileBase):
     """Passive gravity chutes with a freely pivoting physical switch."""
@@ -49,7 +45,6 @@ class MirroredSSwitch(TileBase):
             fill_color=PIVOT,
         )
         b.pivot(rotor, (205, 260))
-
 
 def _rail(b: TileBuilder, a, end, *, friction=0.15):
     return b.static_segment(

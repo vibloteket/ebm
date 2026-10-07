@@ -1,7 +1,4 @@
-from __future__ import annotations
-
 from ebm import TileBase, TileBuilder, Vec2d
-
 
 BELT_SPEED = 85.0
 PIN_SPACING = 38.0
@@ -11,7 +8,6 @@ EXIT_RAILS = (
     ((270, 250), (360, 325)), ((360, 325), (395, 325)),
     ((290, 210), (380, 290)), ((380, 290), (395, 290)),
 )
-
 
 class ConveyorLift(TileBase):
     """Independent L0→B0 chute and T0→R0 physical pin conveyor."""

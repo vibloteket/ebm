@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import math
 import random
 
@@ -19,7 +17,6 @@ TEXT = "rgba(54,45,35,.76)"
 
 _ball_sprites: dict[tuple[int, int], object] = {}
 
-
 def paper(ctx, width: float, height: float) -> None:
     ctx.fillStyle = PAPER
     ctx.fillRect(0, 0, width, height)
@@ -28,7 +25,6 @@ def paper(ctx, width: float, height: float) -> None:
     gradient.addColorStop(1, "rgba(111,76,30,.08)")
     ctx.fillStyle = gradient
     ctx.fillRect(0, 0, width, height)
-
 
 def grid(ctx, vx: float, vy: float, width: float, height: float, tile_size: int) -> None:
     start_x = math.floor(vx / tile_size) * tile_size
@@ -45,7 +41,6 @@ def grid(ctx, vx: float, vy: float, width: float, height: float, tile_size: int)
         sy = y - vy
         ctx.beginPath(); ctx.moveTo(0, sy); ctx.lineTo(width, sy); ctx.stroke()
         y += tile_size
-
 
 def segment(ctx, x1: float, y1: float, x2: float, y2: float, radius: float, seed: int, color: str = BLUE) -> None:
     """Deterministic V3-derived crayon stroke with a broken silhouette."""
@@ -91,7 +86,6 @@ def segment(ctx, x1: float, y1: float, x2: float, y2: float, radius: float, seed
             ctx.fill()
     ctx.globalAlpha = 1
 
-
 def circle(ctx, x: float, y: float, radius: float, seed: int, color: str = ORANGE, dark: str = ORANGE_DARK) -> None:
     rnd = random.Random(seed)
     ctx.save(); ctx.beginPath(); ctx.arc(x, y, radius, 0, math.tau); ctx.clip()
@@ -108,14 +102,12 @@ def circle(ctx, x: float, y: float, radius: float, seed: int, color: str = ORANG
             ctx.globalAlpha = rnd.uniform(.14, .42); ctx.fill()
     ctx.restore(); ctx.globalAlpha = 1
 
-
 def polygon(ctx, points, seed: int) -> None:
     if not points: return
     ctx.beginPath(); ctx.moveTo(*points[0])
     for point in points[1:]: ctx.lineTo(*point)
     ctx.closePath(); ctx.fillStyle = GREEN; ctx.globalAlpha = .66; ctx.fill()
     ctx.strokeStyle = GREEN_DARK; ctx.globalAlpha = .52; ctx.lineWidth = 2; ctx.stroke(); ctx.globalAlpha = 1
-
 
 def ball(ctx, x: float, y: float, radius: float, seed: int) -> None:
     key = (round(radius), int(seed))
@@ -132,7 +124,6 @@ def ball(ctx, x: float, y: float, radius: float, seed: int) -> None:
         ctx.drawImage(sprite, x - sprite.width/2, y - sprite.height/2)
     else:
         circle(ctx, x, y, radius, seed, "#176bd0", "#0d3d92")
-
 
 def text(ctx, value: str, x: float, y: float, size: float = 12) -> None:
     ctx.fillStyle = TEXT; ctx.font = f"{size}px system-ui, sans-serif"; ctx.fillText(value, x, y)

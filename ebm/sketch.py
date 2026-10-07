@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import math
 
 try:
@@ -24,9 +22,7 @@ POLY_FILL = "#469b71"
 POLY_EDGE = "#225d43"
 TEXT = "rgba(54, 45, 35, 0.78)"
 
-
 _rough_by_canvas = {}
-
 
 def draw_paper(ctx, width: float, height: float) -> None:
     ctx.fillStyle = PAPER
@@ -37,7 +33,6 @@ def draw_paper(ctx, width: float, height: float) -> None:
     gradient.addColorStop(1, "rgba(174,129,59,0.09)")
     ctx.fillStyle = gradient
     ctx.fillRect(0, 0, width, height)
-
 
 def draw_tile_grid(ctx, vx: float, vy: float, width: float, height: float, tile_size: int) -> None:
     start_x = math.floor(vx / tile_size) * tile_size
@@ -60,7 +55,6 @@ def draw_tile_grid(ctx, vx: float, vy: float, width: float, height: float, tile_
         ctx.lineTo(width, sy)
         ctx.stroke()
         y += tile_size
-
 
 def draw_segment(ctx, x1: float, y1: float, x2: float, y2: float, radius: float, scale: float = 1.0, color: str = RAIL, seed: int | None = None) -> None:
     rc = _rough_canvas(ctx)
@@ -97,7 +91,6 @@ def draw_segment(ctx, x1: float, y1: float, x2: float, y2: float, radius: float,
         "bowing": 1.2,
     }))
 
-
 def draw_ball(ctx, x: float, y: float, radius: float, scale: float = 1.0, seed: int | None = None) -> None:
     rc = _rough_canvas(ctx)
     seed = seed if seed is not None else _seed(round(x / 4), round(y / 4), radius)
@@ -121,7 +114,6 @@ def draw_ball(ctx, x: float, y: float, radius: float, scale: float = 1.0, seed: 
     ctx.fillStyle = BLUE_LIGHT
     ctx.fill()
 
-
 def draw_bumper(ctx, x: float, y: float, radius: float, scale: float = 1.0, seed: int | None = None) -> None:
     rc = _rough_canvas(ctx)
     seed = seed if seed is not None else _seed(x, y, radius, 33)
@@ -139,7 +131,6 @@ def draw_bumper(ctx, x: float, y: float, radius: float, scale: float = 1.0, seed
         "roughness": 1.25,
         "bowing": 1.0,
     }))
-
 
 def draw_poly(ctx, points: list[tuple[float, float]], scale: float = 1.0, seed: int | None = None) -> None:
     if not points:
@@ -169,12 +160,10 @@ def draw_poly(ctx, points: list[tuple[float, float]], scale: float = 1.0, seed: 
         "bowing": 0.8,
     }))
 
-
 def draw_text(ctx, text: str, x: float, y: float, size: int = 12) -> None:
     ctx.fillStyle = TEXT
     ctx.font = f"{size}px 'Comic Sans MS', 'Comic Sans', 'Marker Felt', 'Bradley Hand', system-ui, sans-serif"
     ctx.fillText(text, x, y)
-
 
 def _rough_canvas(ctx):
     if rough is None:
@@ -189,18 +178,15 @@ def _rough_canvas(ctx):
         _rough_by_canvas[key] = rc
     return rc
 
-
 def _opts(value: dict):
     if to_js is None or Object is None:
         return value
     return to_js(value, dict_converter=Object.fromEntries)
 
-
 def _points(points: list[tuple[float, float]]):
     if to_js is None:
         return points
     return to_js([[x, y] for x, y in points])
-
 
 def _fallback_line(ctx, x1: float, y1: float, x2: float, y2: float, width: float, color: str) -> None:
     ctx.beginPath()
@@ -211,7 +197,6 @@ def _fallback_line(ctx, x1: float, y1: float, x2: float, y2: float, width: float
     ctx.strokeStyle = color
     ctx.stroke()
 
-
 def _fallback_circle(ctx, x: float, y: float, radius: float, fill: str, edge: str) -> None:
     ctx.beginPath()
     ctx.arc(x, y, radius, 0, math.tau)
@@ -221,14 +206,12 @@ def _fallback_circle(ctx, x: float, y: float, radius: float, fill: str, edge: st
     ctx.strokeStyle = edge
     ctx.stroke()
 
-
 def stable_seed(*values: float) -> int:
     total = 0.0
     for i, value in enumerate(values):
         total += (i + 1) * 97.13 * round(float(value), 2)
     # rough.js wants a positive integer seed.
     return int(abs(math.sin(total) * 1_000_000)) + 1
-
 
 def _seed(*values: float) -> int:
     return stable_seed(*values)

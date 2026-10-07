@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from dataclasses import dataclass, field
 import math
 import random
@@ -9,7 +7,6 @@ from typing import Any, Callable
 from .ball_physics import INPUT_SPAWN_INTERVAL, configure_ball_body, limit_ball_speed
 from .ports import BALL_RADIUS, COLUMN_OFFSET, MAX_EXIT_ANGLE_DEGREES, PORT_SPECS, TILE_SIZE, Port, entry_velocity, tile_origin
 from .tile_api import BALL_COLLISION_TYPE, BALL_ELASTICITY, BALL_FRICTION, TileBuilder, TileResourceRegistry, ball_shape_filter
-
 
 @dataclass
 class RepeatValidationResult:
@@ -44,7 +41,6 @@ class RepeatValidationResult:
             "runtime_errors": self.runtime_errors,
             "ok": self.ok,
         }
-
 
 def validate_repeated_flow(
     tile_factory: Callable[[], Any],
@@ -144,7 +140,6 @@ def validate_repeated_flow(
         registry.destroy_owner(owner)
     return result
 
-
 def _spawn(space, boundary, rng):
     import pymunk
     port, ox, oy = boundary
@@ -165,7 +160,6 @@ def _spawn(space, boundary, rng):
     space.add(body, shape)
     return body, shape
 
-
 def _located(error, size):
     item = dict(error)
     owner = int(item.get("owner", 0))
@@ -174,10 +168,8 @@ def _located(error, size):
         item.update({"row": row, "col": col})
     return item
 
-
 def _error(error, owner, phase, size, time=0):
     return _located({"owner": owner, "phase": phase, "time": time, "type": type(error).__name__, "message": str(error), "traceback": "".join(traceback.format_exception(error)), **getattr(error, "details", {})}, size)
-
 
 def _remove(space, balls, ball):
     body, shape = ball

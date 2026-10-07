@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from dataclasses import dataclass
 from enum import Enum
 import math
@@ -12,7 +10,6 @@ PORT_CENTER_RANGE = (PORT_APERTURE - 2 * BALL_RADIUS) / 2
 MAX_EXIT_ANGLE_DEGREES = 30.0
 ENTRY_TEST_SPEEDS = (1.0, 300.0, 600.0)
 ENTRY_TEST_ANGLES = (-MAX_EXIT_ANGLE_DEGREES, 0.0, MAX_EXIT_ANGLE_DEGREES)
-
 
 @dataclass(frozen=True)
 class PortSpec:
@@ -40,7 +37,6 @@ class PortSpec:
         ]
         return [xs, ys, vxs, vys], samples
 
-
 class Port(Enum):
     # Inputs
     T0 = (200, 0)
@@ -55,7 +51,6 @@ class Port(Enum):
     def point(self) -> tuple[float, float]:
         x, y = self.value
         return float(x), float(y)
-
 
 INPUT_PORTS = frozenset({Port.T0, Port.L0})
 OUTPUT_PORTS = frozenset({Port.B0, Port.R0})
@@ -97,21 +92,17 @@ for _p1, _p2 in MIRROR_PORT.items():
     assert s1.entry_vx_range == s2.entry_vx_range
     assert s1.entry_vy_range == s2.entry_vy_range
 
-
 def tile_origin(row: int, col: int) -> tuple[int, int]:
     """Return the staggered world origin for a logical grid coordinate."""
     return col * TILE_SIZE, row * TILE_SIZE + (col & 1) * COLUMN_OFFSET
-
 
 def right_neighbor(row: int, col: int) -> tuple[int, int]:
     """Tile whose L0 receives this tile's R0."""
     return (row if col % 2 == 0 else row + 1), col + 1
 
-
 def left_neighbor(row: int, col: int) -> tuple[int, int]:
     """Tile whose R0 feeds this tile's L0."""
     return (row - 1 if col % 2 == 0 else row), col - 1
-
 
 def entry_velocity(port: Port, speed: float, angle_degrees: float) -> tuple[float, float]:
     """Return an inward velocity mirrored from the matching output cone."""
@@ -120,7 +111,6 @@ def entry_velocity(port: Port, speed: float, angle_degrees: float) -> tuple[floa
     nx, ny = outward_normal
     cosine, sine = math.cos(angle), math.sin(angle)
     return speed * (nx * cosine - ny * sine), speed * (nx * sine + ny * cosine)
-
 
 def entry_flow_samples(port: Port) -> list[tuple[float, float, float, float]]:
     spec = PORT_SPECS[port]
@@ -133,7 +123,6 @@ def entry_flow_samples(port: Port) -> list[tuple[float, float, float, float]]:
                 dx, dy = (offset, 0.0) if port == Port.T0 else (0.0, offset)
                 samples.append((dx, dy, vx, vy))
     return samples
-
 
 UNIFORM_INPUTS = (Port.T0, Port.L0)
 UNIFORM_OUTPUTS = (Port.B0, Port.R0)

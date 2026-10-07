@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """Generate the browser tile API reference from the public Python API."""
 
-from __future__ import annotations
-
 import inspect
 import json
 import sys
@@ -17,12 +15,10 @@ from ebm.tile_api import BUILD_MARGIN, BallHandle, BodyHandle, ConstraintHandle,
 from ebm.tile_base import TILE_API_VERSION, TileBase  # noqa: E402
 from ebm.validator import MAX_ACTIVE_BALLS, SPAWN_INTERVAL, VALIDATION_BALLS  # noqa: E402
 
-
 def public_signature(member) -> str:
     signature = str(inspect.signature(member, eval_str=True))
     signature = signature.replace("ebm.tile_api.", "").replace("NoneType", "None")
     return signature.replace("(self, ", "(").replace("(self)", "()")
-
 
 def method_reference(cls, names: tuple[str, ...]) -> list[dict[str, str]]:
     return [
@@ -33,7 +29,6 @@ def method_reference(cls, names: tuple[str, ...]) -> list[dict[str, str]]:
         }
         for name in names
     ]
-
 
 def build_reference() -> dict:
     return {
@@ -191,13 +186,11 @@ def build_reference() -> dict:
         },
     }
 
-
 def main() -> None:
     output = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "web" / "api-reference.json"
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(build_reference(), indent=2) + "\n")
     print(f"Generated {output}")
-
 
 if __name__ == "__main__":
     main()

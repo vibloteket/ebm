@@ -1,7 +1,4 @@
-from __future__ import annotations
-
 from ebm import TileBase, TileBuilder
-
 
 RAIL = (49, 90, 168, 255)
 BOX = (115, 76, 168, 255)
@@ -14,7 +11,6 @@ BUMPER_COLORS = (
 )
 BLUE_GATE = (35, 125, 235, 128)
 BLUE_BALL = (35, 125, 235, 255)
-
 
 class TeleportCollector(TileBase):
     """T0 falls through a pipe while L0 collects and teleports to R0."""
@@ -112,7 +108,6 @@ class TeleportCollector(TileBase):
         if self.magic_time == 0:
             self.portal.set_fill_color(BOX)
             self.beam.set_fill_color(MAGIC_OFF)
-
 
 def _rail(b: TileBuilder, a, end, *, color=RAIL, friction=0.2):
     return b.static_segment(

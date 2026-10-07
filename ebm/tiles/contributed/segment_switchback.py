@@ -1,11 +1,7 @@
-from __future__ import annotations
-
 from ebm import TileBase, TileBuilder
-
 
 RAIL = (49, 90, 168, 255)
 RAIL_ELASTICITY = 0.45
-
 
 class SegmentSwitchback(TileBase):
     """Two passive gravity chutes built exclusively from static segments."""
@@ -31,7 +27,6 @@ class SegmentSwitchback(TileBase):
         _rail(b, (65, 50), (115, 155))
         _rail(b, (115, 155), (255, 335))
         _rail(b, (255, 335), (255, 395))
-
 
 def _rail(b: TileBuilder, a, end, *, friction=0.15) -> None:
     b.static_segment(

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import json
 import sys
 import traceback
@@ -10,7 +8,6 @@ from .repeat_validation import validate_repeated_flow
 from .tile_api import TileBuilder, TileResourceRegistry
 from .tile_base import TileBase, tile_class_from_module, tile_display_name
 from .validator import validate_tile_flow
-
 
 class EditorRuntime:
     """Compile and validate an editor-provided flow tile."""
@@ -86,13 +83,10 @@ class EditorRuntime:
                     break
         return {"ok": False, "type": type(error).__name__, "message": str(error), "line": line}
 
-
 _runtime = EditorRuntime()
-
 
 def compile_source(source: str) -> str:
     return _runtime.compile(source)
-
 
 def validate_source() -> str:
     return _runtime.validate()

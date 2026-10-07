@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import math
 
 from ebm import TileBase, TileBuilder, Vec2d
@@ -95,7 +93,6 @@ GLINT_LAG = 0.09
 SPLASH = (170, 210, 255, 230)
 NO_SPLASH = (170, 210, 255, 0)
 
-
 class WaterPool(TileBase):
     """Balls splash into a pool and dissolve; pipe water fills two
     ball-sized boxes that condense the water back into balls at B0 and R0,
@@ -177,7 +174,6 @@ class WaterPool(TileBase):
                          fill_color=TUBE, stroke_color=TUBE)
         b.visual_segment((B0_PIPE_X + PIPE_HALF, B0_PIPE_TOP), (B0_PIPE_X + PIPE_HALF, B0_BOX_TOP-2), 3,
                          fill_color=TUBE, stroke_color=TUBE)
-
 
             
         pipe_cap(B0_PIPE_X, B0_PIPE_TOP+3, True)
@@ -446,13 +442,11 @@ class WaterPool(TileBase):
             )
             ray.set_fill_color(SPLASH[:3] + (alpha,))
 
-
 def _place_dash(path, dash, s: float, color) -> None:
     center, direction = _path_point(path, s)
     offset = direction * 7
     dash.set_segment_points(_clamp(center - offset), _clamp(center + offset))
     dash.set_fill_color(color)
-
 
 def _path_point(path, s: float):
     """Point and unit direction at distance s along a polyline."""
@@ -464,7 +458,6 @@ def _path_point(path, s: float):
     segment = path[-1] - path[-2]
     direction = segment / (segment.length or 1.0)
     return path[-1], direction
-
 
 def _clamp(point):
     return (
