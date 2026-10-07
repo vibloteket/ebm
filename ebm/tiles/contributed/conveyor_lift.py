@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import math
-
-from ebm import TileBase, TileBuilder
+from ebm import TileBase, TileBuilder, Vec2d
 
 
 BELT_SPEED = 85.0
@@ -52,10 +50,10 @@ class ConveyorLift(TileBase):
         # a kinematic chain around its prescribed loop is the sole powered
         # conveyor action; balls themselves are never inspected or modified.
         self.path = (
-            (210.0, 280.0), (300.0, 137.0),
-            (325.0, 170.0), (235.0, 313.0),
+            Vec2d(210.0, 280.0), Vec2d(300.0, 137.0),
+            Vec2d(325.0, 170.0), Vec2d(235.0, 313.0),
         )
-        lengths = [math.dist(self.path[i], self.path[(i + 1) % 4]) for i in range(4)]
+        lengths = [(self.path[(i + 1) % 4] - self.path[i]).length for i in range(4)]
         self.cumulative = [0.0]
         for length in lengths:
             self.cumulative.append(self.cumulative[-1] + length)
@@ -86,13 +84,10 @@ class ConveyorLift(TileBase):
                 a, end = self.path[index], self.path[(index + 1) % 4]
                 length = end_distance - start_distance
                 portion = (distance - start_distance) / length
-                x = a[0] + (end[0] - a[0]) * portion
-                y = a[1] + (end[1] - a[1]) * portion
-                velocity = (
-                    BELT_SPEED * (end[0] - a[0]) / length,
-                    BELT_SPEED * (end[1] - a[1]) / length,
-                )
-                return (x, y), velocity, math.atan2(end[1] - a[1], end[0] - a[0]), index
+                segment_vec = end - a
+                position = a + segment_vec * portion
+                velocity = segment_vec / length * BELT_SPEED
+                return position, velocity, segment_vec.angle, index
         raise AssertionError("unreachable conveyor position")
 
     def update(self, b: TileBuilder, dt: float):

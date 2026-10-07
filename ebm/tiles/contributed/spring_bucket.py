@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import math
-
-from ebm import TileBase, TileBuilder
+from ebm import TileBase, TileBuilder, Vec2d
 
 
 class SpringBucket(TileBase):
@@ -65,15 +63,10 @@ class SpringBucket(TileBase):
         b.static_segment((170, 310), (195, 335), 3, friction=0, elasticity=1)
 
     def _world(self, point):
-        x, y = self.bucket.position
-        c, s = math.cos(self.bucket.angle), math.sin(self.bucket.angle)
-        return x + c * point[0] - s * point[1], y + s * point[0] + c * point[1]
+        return self.bucket.position + Vec2d(*point).rotated(self.bucket.angle)
 
     def _local(self, ball):
-        x, y = ball.position
-        bx, by = self.bucket.position
-        c, s = math.cos(self.bucket.angle), math.sin(self.bucket.angle)
-        return c * (x - bx) + s * (y - by), -s * (x - bx) + c * (y - by)
+        return (ball.position - self.bucket.position).rotated(-self.bucket.angle)
 
     def update(self, b: TileBuilder, dt: float):
         attachment = self._world(self.attachment)

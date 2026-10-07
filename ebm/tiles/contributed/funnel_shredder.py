@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 
-from ebm import TileBase, TileBuilder
+from ebm import TileBase, TileBuilder, Vec2d
 
 # A funnel collects T0 into a bowl where a rotating spiked wheel shreds
 # incoming balls into a handful of small balls (minis) that rain into a
@@ -16,7 +16,7 @@ from ebm import TileBase, TileBuilder
 # through the exit. (Foreground graphics draw after balls, so the plates
 # genuinely occlude them; no fade tricks.)
 
-WHEEL = (200.0, 120.0)
+WHEEL = Vec2d(200.0, 120.0)
 SPOKES = 10
 SPOKE_INNER = 12.0
 SPOKE_OUTER = 55.0
@@ -55,7 +55,7 @@ CHAMBER = (168.0, UPPER_Y + 3.0, 232.0, 392.0)
 # ~9 minis (a bit over one shredded ball) keeps the recycled outflow close
 # to the inflow, so the stockpile stays within the flow validator capacity.
 CHAMBER_MINIS = 8
-BALL_SPAWN = (200.0, 365.0)
+BALL_SPAWN = Vec2d(200.0, 365.0)
 
 # The swallow box covers the L0 aperture. Its sloped ceiling catches
 # upward-angled arrivals and guides them inside; the floor drags balls to the
@@ -138,12 +138,11 @@ class FunnelShredder(TileBase):
         self.wheel.set_angular_velocity(WHEEL_RATE)
         self.spokes = []
         for i in range(SPOKES):
-            angle = i * math.tau / SPOKES
-            c, s = math.cos(angle), math.sin(angle)
+            direction = Vec2d(1, 0).rotated(i * math.tau / SPOKES)
             spoke = b.segment_shape(
                 self.wheel,
-                (SPOKE_INNER * c, SPOKE_INNER * s),
-                (SPOKE_OUTER * c, SPOKE_OUTER * s),
+                direction * SPOKE_INNER,
+                direction * SPOKE_OUTER,
                 SPOKE_RADIUS,
                 density=0.01,
                 friction=0.2,
@@ -284,13 +283,11 @@ class FunnelShredder(TileBase):
                 body.set_velocity((0.0, 0.0))
                 body.set_angular_velocity(0.0)
                 continue
-            vx, vy = body.velocity
-            squared = vx * vx + vy * vy
+            velocity = body.velocity
             # Minis are tile-owned bodies, so the engine ball speed cap does
             # not cover them; cap here to keep walls tunnel-proof at 60 Hz.
-            if squared > MINI_MAX_SPEED * MINI_MAX_SPEED:
-                scale = MINI_MAX_SPEED / math.sqrt(squared)
-                body.set_velocity((vx * scale, vy * scale))
+            if velocity.length_squared > MINI_MAX_SPEED * MINI_MAX_SPEED:
+                body.set_velocity(velocity.normalized() * MINI_MAX_SPEED)
 
     def _update_airlock(self, dt: float) -> None:
         self._drive(self.upper_hatch, UPPER_OPEN_X if self.top_open else HATCH_CLOSED_X, dt)
@@ -376,17 +373,16 @@ class FunnelShredder(TileBase):
         count = MINI_COUNTS[self.shatters % len(MINI_COUNTS)]
         n = self.shatters
         self.shatters += 1
-        rx, ry = position[0] - WHEEL[0], position[1] - WHEEL[1]
+        radial = position - WHEEL
         for k in range(count):
-            angle = k * 2.399963 + n * 0.7  # Golden-angle spread, per-shatter phase.
-            dx, dy = math.cos(angle), math.sin(angle)
+            direction = Vec2d(1, 0).rotated(k * 2.399963 + n * 0.7)  # Golden-angle spread, per-shatter phase.
             speed = 70 + 35 * ((k * 37 + n * 11) % 5)
             # Part of the wheel's surface velocity at the contact: the spokes
             # fling the fresh minis.
             kick = 0.35 * WHEEL_RATE
             self._spawn_mini(
-                (position[0] + 10 * dx, position[1] + 10 * dy),
-                (dx * speed - kick * ry, dy * speed + kick * rx),
+                position + direction * 10,
+                direction * speed + radial.perpendicular() * kick,
             )
 
     def _spawn_mini(self, position, velocity) -> None:
@@ -410,8 +406,7 @@ class FunnelShredder(TileBase):
             x, y = body.position
             in_pipe = 170 <= x <= 230 and y > 195
             in_chamber = in_pipe and y > CHAMBER[1]
-            vx, vy = body.velocity
-            return (2 if in_chamber else 1 if in_pipe else 0, vx * vx + vy * vy)
+            return (2 if in_chamber else 1 if in_pipe else 0, body.velocity.length_squared)
 
         body = min(self.minis, key=score)
         self.minis.remove(body)
@@ -427,13 +422,13 @@ class FunnelShredder(TileBase):
         inner = 6 + 22 * progress
         outer = 14 + 34 * progress
         alpha = int(RAY[3] * (1 - progress))
-        cx, cy = self.blast_center
+        center = self.blast_center
         for i, ray in enumerate(self.rays):
             theta = i * math.tau / BLAST_RAYS + (i * 0.6180339887) % 0.6 - 0.3
-            ux, uy = math.cos(theta), math.sin(theta)
+            direction = Vec2d(1, 0).rotated(theta)
             ray.set_segment_points(
-                _clamp((cx + inner * ux, cy + inner * uy)),
-                _clamp((cx + outer * ux, cy + outer * uy)),
+                _clamp(center + direction * inner),
+                _clamp(center + direction * outer),
             )
             ray.set_fill_color((RAY[0], RAY[1], RAY[2], alpha))
 

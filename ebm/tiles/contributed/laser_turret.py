@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import math
 
-from ebm import TileBase, TileBuilder
+from ebm import TileBase, TileBuilder, Vec2d
 
-TURRET = (280.0, 280.0)
-SENSOR_CENTER = (160.0, 160.0)
+TURRET = Vec2d(280.0, 280.0)
+SENSOR_CENTER = Vec2d(160.0, 160.0)
 SENSOR_RADIUS = 130.0
 # Only fire at targets well inside the zone; boundary grazers may escape.
 FIRE_DEPTH = 200.0
@@ -80,9 +80,7 @@ class LaserTurret(TileBase):
         self.blast_t = 0.0
         self.blast_center = TURRET
         self.flash_t = 0.0
-        self.angle = math.atan2(
-            SENSOR_CENTER[1] - TURRET[1], SENSOR_CENTER[0] - TURRET[0]
-        )
+        self.angle = (SENSOR_CENTER - TURRET).angle
         self.stockpile = []
         self.primed = False
         self.wave_t = 0.0
@@ -98,21 +96,13 @@ class LaserTurret(TileBase):
         sensor = b.sensor_circle(SENSOR_CENTER, SENSOR_RADIUS)
 
         # Danger-zone ring: a thin translucent outline of the sensor circle.
+        ring_points = [
+            SENSOR_CENTER + Vec2d(SENSOR_RADIUS, 0).rotated(i * math.tau / RING_SEGMENTS)
+            for i in range(RING_SEGMENTS + 1)
+        ]
         self.ring = [
-            b.visual_segment(
-                (
-                    SENSOR_CENTER[0] + SENSOR_RADIUS * math.cos(i * math.tau / RING_SEGMENTS),
-                    SENSOR_CENTER[1] + SENSOR_RADIUS * math.sin(i * math.tau / RING_SEGMENTS),
-                ),
-                (
-                    SENSOR_CENTER[0] + SENSOR_RADIUS * math.cos((i + 1) * math.tau / RING_SEGMENTS),
-                    SENSOR_CENTER[1] + SENSOR_RADIUS * math.sin((i + 1) * math.tau / RING_SEGMENTS),
-                ),
-                1.5,
-                fill_color=RING,
-                stroke_color=NO_RING,
-            )
-            for i in range(RING_SEGMENTS)
+            b.visual_segment(a, end, 1.5, fill_color=RING, stroke_color=NO_RING)
+            for a, end in zip(ring_points, ring_points[1:])
         ]
 
         # The physical turret: balls bounce off its base just outside the zone.
@@ -221,11 +211,9 @@ class LaserTurret(TileBase):
             except PermissionError:
                 self.target = None
             else:
-                self.angle = math.atan2(
-                    position[1] - TURRET[1], position[0] - TURRET[0]
-                )
+                self.angle = (position - TURRET).angle
                 self.aim -= dt
-                if self.aim <= 0 and self.cooldown == 0 and _distance(position, SENSOR_CENTER) <= FIRE_DEPTH:
+                if self.aim <= 0 and self.cooldown == 0 and position.get_distance(SENSOR_CENTER) <= FIRE_DEPTH:
                     self._fire(position)
         self.barrel.set_segment_points(TURRET, self._tip(self.angle, BARREL_LENGTH))
         wave_fired = self._update_supply(dt)
@@ -367,24 +355,20 @@ class LaserTurret(TileBase):
         inner = 8 + 26 * progress
         outer = 16 + 40 * progress
         alpha = int(RAY[3] * (1 - progress))
-        cx, cy = self.blast_center
+        center = self.blast_center
         for i, ray in enumerate(self.rays):
             # Fixed golden-angle jitter keeps the starburst deterministic.
             theta = i * math.tau / BLAST_RAYS + (i * 0.6180339887) % 0.6 - 0.3
-            ux, uy = math.cos(theta), math.sin(theta)
+            direction = Vec2d(1, 0).rotated(theta)
             ray.set_segment_points(
-                _clamp((cx + inner * ux, cy + inner * uy)),
-                _clamp((cx + outer * ux, cy + outer * uy)),
+                _clamp(center + direction * inner),
+                _clamp(center + direction * outer),
             )
             ray.set_fill_color((RAY[0], RAY[1], RAY[2], alpha))
 
     @staticmethod
     def _tip(angle: float, length: float):
-        return TURRET[0] + length * math.cos(angle), TURRET[1] + length * math.sin(angle)
-
-
-def _distance(a, b) -> float:
-    return math.hypot(a[0] - b[0], a[1] - b[1])
+        return TURRET + Vec2d(length, 0).rotated(angle)
 
 
 def _clamp(point):

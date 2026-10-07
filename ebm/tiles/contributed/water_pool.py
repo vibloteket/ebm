@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 
-from ebm import TileBase, TileBuilder
+from ebm import TileBase, TileBuilder, Vec2d
 
 # A wide open pool catches every incoming ball: T0 drops straight in, L0
 # arcs in over the low left rim (a slope guides even the slowest entries
@@ -110,7 +110,7 @@ class WaterPool(TileBase):
         self.restore_colors = []
         self.next_box = "b0"
         self.splash_t = 0.0
-        self.splash_center = (200.0, WATER_TOP)
+        self.splash_center = Vec2d(200.0, WATER_TOP)
 
         # The basin. The left rim sits below the L0 band with a slope so
         # even near-stationary entries roll in; the right wall runs to
@@ -148,7 +148,7 @@ class WaterPool(TileBase):
                 return
             if vy > 150:
                 self.splash_t = SPLASH_SECONDS
-                self.splash_center = (min(max(x, 40.0), 296.0), WATER_TOP)
+                self.splash_center = Vec2d(min(max(x, 40.0), 296.0), WATER_TOP)
 
         def leave(event):
             ball = event.ball
@@ -249,7 +249,7 @@ class WaterPool(TileBase):
                 "phase": "idle", "t": 0.0, "ball": None,
                 "spawn": B0_SPAWN, "kick": None,
                 "fill_segs": fill_stack(184.0, 216.0, 385.0, 355.0),
-                "path": ((B0_PIPE_X, POOL_FLOOR + 20), (B0_PIPE_X, B0_BOX_TOP - 7)),
+                "path": (Vec2d(B0_PIPE_X, POOL_FLOOR + 20), Vec2d(B0_PIPE_X, B0_BOX_TOP - 7)),
                 "dashes": [dash((B0_PIPE_X, POOL_FLOOR + 4), 3.5, NO_DASH) for _ in range(DASHES_PER_PIPE)],
                 "glints": [dash((B0_PIPE_X, POOL_FLOOR + 4), 2.0, NO_GLINT) for _ in range(DASHES_PER_PIPE)],
                 "gate": b0_hatch,
@@ -262,8 +262,8 @@ class WaterPool(TileBase):
                 "phase": "idle", "t": 0.0, "ball": None,
                 "spawn": R0_SPAWN, "kick": (EXIT_VX, 0.0),
                 "fill_segs": fill_stack(360.0, 390.0, 327.0, 297.0),
-                "path": ((POOL_RIGHT + 20, R0_PIPE_Y), (R0_PIPE_X, R0_PIPE_Y),
-                         (R0_PIPE_X, R0_CEIL_Y - 5)),
+                "path": (Vec2d(POOL_RIGHT + 20, R0_PIPE_Y), Vec2d(R0_PIPE_X, R0_PIPE_Y),
+                         Vec2d(R0_PIPE_X, R0_CEIL_Y - 5)),
                 "dashes": [dash((POOL_RIGHT + 4, R0_PIPE_Y), 3.5, NO_DASH) for _ in range(DASHES_PER_PIPE)],
                 "glints": [dash((POOL_RIGHT + 4, R0_PIPE_Y), 2.0, NO_GLINT) for _ in range(DASHES_PER_PIPE)],
                 "gate": r0_gate,
@@ -277,7 +277,7 @@ class WaterPool(TileBase):
             length = 0.0
             path = box["path"]
             for a, end in zip(path, path[1:]):
-                length += math.hypot(end[0] - a[0], end[1] - a[1])
+                length += (end - a).length
             box["path_len"] = length
 
         self.splash_rays = [
@@ -313,14 +313,14 @@ class WaterPool(TileBase):
         for ball in tuple(self.sinking):
             try:
                 _, y = ball.position
-                vx, vy = ball.velocity
+                velocity = ball.velocity
             except PermissionError:
                 self.sinking.discard(ball)
                 continue
             if ball.paused:
                 self.sinking.discard(ball)
                 continue
-            ball.set_velocity((vx * drag, vy * drag))
+            ball.set_velocity(velocity * drag)
             depth = (y - CAPTURE_TOP) / (CAPTURE_BOTTOM - CAPTURE_TOP)
             alpha = int(255 * max(0.0, min(1.0, 1.0 - depth)))
             ball.set_fill_color(BALL_FILL[:3] + (alpha,))
@@ -391,19 +391,17 @@ class WaterPool(TileBase):
     @staticmethod
     def _drive(gate, target, dt: float) -> bool:
         """Servo the gate toward its target without overshoot; True on arrival."""
-        x, y = gate.position
-        dx, dy = target[0] - x, target[1] - y
-        if abs(dx) <= 0.5 and abs(dy) <= 0.5:
+        delta = Vec2d(*target) - gate.position
+        if abs(delta.x) <= 0.5 and abs(delta.y) <= 0.5:
             gate.set_velocity((0.0, 0.0))
-            if (x, y) != target:
+            if gate.position != target:
                 gate.set_position(target)
             return True
         step = max(dt, 1 / 240)
-        distance = math.hypot(dx, dy)
-        if distance <= GATE_SPEED * step:
-            gate.set_velocity((dx / step, dy / step))  # Arrive exactly this frame.
+        if delta.length <= GATE_SPEED * step:
+            gate.set_velocity(delta / step)  # Arrive exactly this frame.
         else:
-            gate.set_velocity((GATE_SPEED * dx / distance, GATE_SPEED * dy / distance))
+            gate.set_velocity(delta.normalized() * GATE_SPEED)
         return False
 
     @staticmethod
@@ -439,39 +437,33 @@ class WaterPool(TileBase):
         inner = 5 + 16 * progress
         outer = 12 + 26 * progress
         alpha = int(SPLASH[3] * (1.0 - progress))
-        cx, cy = self.splash_center
+        center = self.splash_center
         for i, ray in enumerate(self.splash_rays):
-            theta = math.radians(-150 + i * 30)
-            ux, uy = math.cos(theta), math.sin(theta)
+            direction = Vec2d(1, 0).rotated(math.radians(-150 + i * 30))
             ray.set_segment_points(
-                _clamp((cx + inner * ux, cy + inner * uy)),
-                _clamp((cx + outer * ux, cy + outer * uy)),
+                _clamp(center + direction * inner),
+                _clamp(center + direction * outer),
             )
             ray.set_fill_color(SPLASH[:3] + (alpha,))
 
 
 def _place_dash(path, dash, s: float, color) -> None:
-    cx, cy, dx, dy = _path_point(path, s)
-    dash.set_segment_points(
-        _clamp((cx - 7 * dx, cy - 7 * dy)),
-        _clamp((cx + 7 * dx, cy + 7 * dy)),
-    )
+    center, direction = _path_point(path, s)
+    offset = direction * 7
+    dash.set_segment_points(_clamp(center - offset), _clamp(center + offset))
     dash.set_fill_color(color)
 
 
 def _path_point(path, s: float):
     """Point and unit direction at distance s along a polyline."""
     for a, end in zip(path, path[1:]):
-        segment = math.hypot(end[0] - a[0], end[1] - a[1])
-        if segment > 0 and s <= segment:
-            t = s / segment
-            return (a[0] + (end[0] - a[0]) * t,
-                    a[1] + (end[1] - a[1]) * t,
-                    (end[0] - a[0]) / segment,
-                    (end[1] - a[1]) / segment)
-    a, end = path[-2], path[-1]
-    segment = math.hypot(end[0] - a[0], end[1] - a[1]) or 1.0
-    return end[0], end[1], (end[0] - a[0]) / segment, (end[1] - a[1]) / segment
+        segment = end - a
+        if segment.length > 0 and s <= segment.length:
+            direction = segment / segment.length
+            return a + direction * s, direction
+    segment = path[-1] - path[-2]
+    direction = segment / (segment.length or 1.0)
+    return path[-1], direction
 
 
 def _clamp(point):
