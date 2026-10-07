@@ -7,6 +7,8 @@ import traceback
 from typing import Any, Callable
 from weakref import WeakKeyDictionary
 
+from pymunk import Vec2d
+
 from .ports import TILE_SIZE
 from .geometry_bounds import GeometryBoundsError, MAX_SHAPE_RADIUS, check_bounds, local_shape_geometry, points_bounds, radius_value, shape_bounds, transformed_bounds
 
@@ -95,12 +97,12 @@ class ShapeHandle(StyledHandle):
 class BodyHandle(ResourceHandle):
     @property
     def position(self) -> Point:
-        """Current tile-local body position."""
+        """Current tile-local body position, as a Vec2d."""
         return self._registry.body_position(self._owner, self)
 
     @property
     def velocity(self) -> Vector:
-        """Current world-space linear velocity."""
+        """Current world-space linear velocity, as a Vec2d."""
         return self._registry.body_velocity(self._owner, self)
 
     @property
@@ -199,12 +201,12 @@ class BallHandle:
 
     @property
     def position(self) -> Point:
-        """Current tile-local position."""
+        """Current tile-local position, as a Vec2d."""
         return self._registry.ball_position(self)
 
     @property
     def velocity(self) -> Vector:
-        """Current world-space velocity."""
+        """Current world-space velocity, as a Vec2d."""
         return self._registry.ball_velocity(self)
 
     @property
@@ -392,15 +394,15 @@ class TileResourceRegistry:
             contact_set = arbiter.contact_point_set
             if contact_set.points:
                 contact = contact_set.points[0]
-                point = (
+                point = Vec2d(
                     (float(contact.point_a.x) + float(contact.point_b.x)) / 2 - ox,
                     (float(contact.point_a.y) + float(contact.point_b.y)) / 2 - oy,
                 )
-        normal = (float(arbiter.normal.x), float(arbiter.normal.y))
+        normal = Vec2d(float(arbiter.normal.x), float(arbiter.normal.y))
         impulse = None
         kinetic_energy = None
         if phase == "post_solve":
-            impulse = (float(arbiter.total_impulse.x), float(arbiter.total_impulse.y))
+            impulse = Vec2d(float(arbiter.total_impulse.x), float(arbiter.total_impulse.y))
             kinetic_energy = float(arbiter.total_ke)
         return ContactEvent(handle, ball, point, normal, impulse, kinetic_energy)
 
@@ -539,11 +541,11 @@ class TileResourceRegistry:
 
     def body_position(self, owner: int, handle) -> Point:
         body = self.resolve(owner, handle); ox, oy = self._origins[owner]
-        return float(body.position.x - ox), float(body.position.y - oy)
+        return Vec2d(float(body.position.x - ox), float(body.position.y - oy))
 
     def body_velocity(self, owner: int, handle) -> Vector:
         body = self.resolve(owner, handle)
-        return float(body.velocity.x), float(body.velocity.y)
+        return Vec2d(float(body.velocity.x), float(body.velocity.y))
 
     def body_angle(self, owner: int, handle) -> float:
         return float(self.resolve(owner, handle).angle)
@@ -778,11 +780,11 @@ class TileResourceRegistry:
 
     def ball_position(self, handle):
         record = self._ball_record(handle); ox, oy = self._origins[handle._owner]
-        return float(record["body"].position.x - ox), float(record["body"].position.y - oy)
+        return Vec2d(float(record["body"].position.x - ox), float(record["body"].position.y - oy))
 
     def ball_velocity(self, handle):
         body = self._ball_record(handle)["body"]
-        return float(body.velocity.x), float(body.velocity.y)
+        return Vec2d(float(body.velocity.x), float(body.velocity.y))
 
     def ball_radius(self, handle):
         return float(self._ball_record(handle)["shape"].radius)

@@ -1,9 +1,9 @@
 import {loadPythonPackage} from "./python-package.js?v=1";
-import {initializeApiReference} from "./api-reference.js?v=0.75";
+import {initializeApiReference} from "./api-reference.js?v=0.76";
 
 const PYMUNK_WHEEL="./vendor/pymunk-7.3.0-cp314-cp314-pyemscripten_2026_0_wasm32.whl";
 const NEW_ID="__new__";
-const NEW_SOURCE=`from ebm import TileBase, TileBuilder
+const NEW_SOURCE=`from ebm import TileBase, TileBuilder, Vec2d
 
 
 class MyTile(TileBase):

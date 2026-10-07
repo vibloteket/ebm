@@ -19,7 +19,7 @@ def test_api_reference_covers_public_builder_methods():
 
 def test_api_reference_describes_current_contract():
     reference = build_reference()
-    assert reference["apiVersion"] == 3
+    assert reference["apiVersion"] == 4
     assert reference["tileSize"] == 400
     assert {port["name"] for port in reference["ports"]} == {"T0", "L0", "B0", "R0"}
     assert all(method["description"] for method in reference["tileBuilder"]["methods"])
@@ -42,7 +42,7 @@ def test_api_reference_describes_current_contract():
     assert "post_solve: ContactCallback | None" in signatures["on_ball_contact"]
     assert "separate: ContactCallback | None" in signatures["on_ball_contact"]
     assert {item["name"] for item in reference["commonTypes"]} == {
-        "Point", "Vector", "Color", "ShapeHandle", "BallHandle",
+        "Vec2d", "Point", "Vector", "Color", "ShapeHandle", "BallHandle",
     }
     assert reference["portRules"] == {
         "aperture": 120,

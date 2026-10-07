@@ -13,7 +13,7 @@ def test_main_entrypoint_cache_key_matches_app_version():
 
 def test_editor_entrypoint_cache_key_changes_with_runtime_dependencies():
     html = (ROOT / "web" / "editor.html").read_text()
-    assert 'editor.js?v=0.86' in html
+    assert 'editor.js?v=0.87' in html
     assert 'editor.css?v=0.73' in html
 
 

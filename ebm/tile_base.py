@@ -6,7 +6,7 @@ from types import ModuleType
 from .tile_api import TileBuilder
 
 
-TILE_API_VERSION = 3
+TILE_API_VERSION = 4
 
 
 class TileBase:

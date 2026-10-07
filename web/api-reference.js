@@ -11,7 +11,7 @@ function render(reference){
   const rules=reference.portRules;
   const validation=reference.validation;
   const flow=reference.flow;
-  const skeleton=`<pre><code>from ebm import TileBase, TileBuilder
+  const skeleton=`<pre><code>from ebm import TileBase, TileBuilder, Vec2d
 
 
 class MyTile(TileBase):
