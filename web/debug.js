@@ -1,6 +1,6 @@
 import {loadPythonPackage} from "./python-package.js?v=1";
 const APP_VERSION = "debug-0.58-tile-400";
-const PYMUNK_WHEEL = "./vendor/pymunk-7.3.0-cp314-cp314-pyemscripten_2026_0_wasm32.whl";
+const PYMUNK_WHEEL = "./vendor/pymunk-7.3.1-cp314-cp314-pyemscripten_2026_0_wasm32.whl";
 
 const diagnostics = [];
 let loading;
