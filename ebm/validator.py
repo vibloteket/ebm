@@ -19,6 +19,9 @@ BALL_MASS = 1
 DEFAULT_DT = 1 / 120
 VALIDATION_BALLS = 120
 MAX_ACTIVE_BALLS = 20
+MIN_OUTPUT_SHARE = 0.4
+# Fewer exits than this are too few to judge the output share split reliably.
+OUTPUT_SHARE_MIN_EXITS = 10
 SPAWN_INTERVAL = TILE_SPAWN_INTERVAL
 BOUNDS_EPSILON = 0.25
 MAX_EXIT_ANGLE_COSINE = math.cos(math.radians(MAX_EXIT_ANGLE_DEGREES))
@@ -38,6 +41,7 @@ class ValidationResult:
     name: str
     balls_target: int
     max_active_allowed: int
+    min_output_share: float = MIN_OUTPUT_SHARE
     balls_spawned: int = 0
     exited: int = 0
     active: int = 0
@@ -54,6 +58,18 @@ class ValidationResult:
         return all(self.output_counts.values())
 
     @property
+    def output_shares(self) -> dict[str, float]:
+        exited = self.exited
+        return {port: count / exited if exited else 0.0 for port, count in self.output_counts.items()}
+
+    @property
+    def balanced_outputs(self) -> bool:
+        """Each output must carry at least min_output_share of the exited balls."""
+        if self.exited < OUTPUT_SHARE_MIN_EXITS:
+            return True
+        return all(share + 1e-12 >= self.min_output_share for share in self.output_shares.values())
+
+    @property
     def conserved(self) -> bool:
         return self.exited + self.active + self.invalid + self.lost == self.balls_spawned
 
@@ -67,6 +83,7 @@ class ValidationResult:
             and not self.capacity_exceeded
             and self.active <= self.max_active_allowed
             and self.all_outputs_used
+            and self.balanced_outputs
             and not self.runtime_errors
         )
 
@@ -75,6 +92,7 @@ class ValidationResult:
             "name": self.name,
             "balls_target": self.balls_target,
             "max_active_allowed": self.max_active_allowed,
+            "min_output_share": self.min_output_share,
             "balls_spawned": self.balls_spawned,
             "exited": self.exited,
             "active": self.active,
@@ -83,7 +101,9 @@ class ValidationResult:
             "lost": self.lost,
             "capacity_exceeded": self.capacity_exceeded,
             "output_counts": self.output_counts,
+            "output_shares": {port: round(share, 4) for port, share in self.output_shares.items()},
             "all_outputs_used": self.all_outputs_used,
+            "balanced_outputs": self.balanced_outputs,
             "conserved": self.conserved,
             "ok": self.ok,
             "details": self.details,
@@ -96,6 +116,7 @@ def validate_tile_flow(
     name: str = "tile flow",
     balls: int = VALIDATION_BALLS,
     max_active: int = MAX_ACTIVE_BALLS,
+    min_output_share: float = MIN_OUTPUT_SHARE,
     spawn_interval: float = SPAWN_INTERVAL,
     dt: float = DEFAULT_DT,
 ) -> ValidationResult:
@@ -107,7 +128,7 @@ def validate_tile_flow(
     tile = tile_factory()
     registry = TileResourceRegistry.for_space(space)
     builder = TileBuilder(registry, 1, (0, 0))
-    result = ValidationResult(name, balls, max_active)
+    result = ValidationResult(name, balls, max_active, min_output_share=min_output_share)
     try:
         tile.build(builder)
         registry.validate_geometry(time=0, phase="build")
