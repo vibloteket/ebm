@@ -57,7 +57,7 @@ class SpringBucket(TileBase):
             ((185, 350), (185, 397)),
         ):
             b.static_segment(a, end, 3, friction=0, elasticity=0)
-        b.static_segment((170, 310), (195, 335), 3, friction=0, elasticity=1)
+        b.static_segment((161, 318), (195, 332), 3, friction=0, elasticity=1)
 
     def _world(self, point):
         return self.bucket.position + Vec2d(*point).rotated(self.bucket.angle)
