@@ -6,7 +6,7 @@ from pyodide.ffi import create_proxy
 
 from .ball_physics import TILE_SPAWN_INTERVAL, configure_ball_body, limit_space_ball_speeds
 from .ports import BALL_RADIUS, MAX_EXIT_ANGLE_DEGREES, Port, PORT_SPECS, TILE_SIZE, entry_velocity
-from .tile_api import BALL_COLLISION_TYPE, BALL_ELASTICITY, BALL_FRICTION, TileBuilder, TileResourceRegistry, VisualSegment, ball_shape_filter
+from .tile_api import BALL_COLLISION_TYPE, BALL_ELASTICITY, BALL_FRICTION, TileBuilder, TileResourceRegistry, VisualCircle, VisualSegment, ball_shape_filter
 from .tile_catalog import default_tile
 from .validator import validate_tile_flow
 
@@ -263,6 +263,10 @@ def draw(canvas, debug: DebugEngine) -> None:
             if style.stroke_color[3]:ctx.beginPath();ctx.moveTo(sx(shape.a[0]),sy(shape.a[1]));ctx.lineTo(sx(shape.b[0]),sy(shape.b[1]));ctx.strokeStyle=stroke;ctx.lineWidth=max(3,(shape.radius*2+2)*scale);ctx.stroke()
             ctx.beginPath();ctx.moveTo(sx(shape.a[0]),sy(shape.a[1]));ctx.lineTo(sx(shape.b[0]),sy(shape.b[1]));ctx.strokeStyle=fill
             ctx.lineWidth=max(3,shape.radius*2*scale);ctx.stroke()
+        elif isinstance(shape, VisualCircle):
+            ctx.beginPath();ctx.arc(sx(shape.center[0]),sy(shape.center[1]),shape.radius*scale,0,math.tau)
+            if style.fill_color[3]:ctx.fillStyle=fill;ctx.fill()
+            if style.stroke_color[3]:ctx.strokeStyle=stroke;ctx.lineWidth=2;ctx.stroke()
 
     for ball in debug.balls:
         if debug.registry.ball_is_paused(ball.body): continue

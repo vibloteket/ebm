@@ -9,7 +9,7 @@ from .ball_physics import INPUT_SPAWN_INTERVAL, configure_ball_body, limit_space
 from .editor_console import console_muted, console_phase
 from .debug_demo import Ball, _draw_port_overlays
 from .ports import BALL_RADIUS, COLUMN_OFFSET, MAX_EXIT_ANGLE_DEGREES, Port, PORT_SPECS, TILE_SIZE, entry_velocity, tile_origin
-from .tile_api import BALL_COLLISION_TYPE, BALL_ELASTICITY, BALL_FRICTION, TileBuilder, TileResourceRegistry, VisualPolygon, VisualSegment, ball_shape_filter
+from .tile_api import BALL_COLLISION_TYPE, BALL_ELASTICITY, BALL_FRICTION, TileBuilder, TileResourceRegistry, VisualCircle, VisualPolygon, VisualSegment, ball_shape_filter
 
 _preview = None
 _canvas = None
@@ -275,6 +275,10 @@ def _draw_tile_items(ctx, builder, sx, sy, scale, *, foreground):
         if isinstance(shape,VisualSegment):
             if style.stroke_color[3]:ctx.beginPath();ctx.moveTo(sx(bx+shape.a[0]),sy(by+shape.a[1]));ctx.lineTo(sx(bx+shape.b[0]),sy(by+shape.b[1]));ctx.strokeStyle=stroke;ctx.lineWidth=max(2,(shape.radius*2+2)*scale);ctx.stroke()
             ctx.beginPath();ctx.moveTo(sx(bx+shape.a[0]),sy(by+shape.a[1]));ctx.lineTo(sx(bx+shape.b[0]),sy(by+shape.b[1]));ctx.strokeStyle=fill;ctx.lineWidth=max(2,shape.radius*2*scale);ctx.stroke()
+        elif isinstance(shape,VisualCircle):
+            ctx.beginPath();ctx.arc(sx(bx+shape.center[0]),sy(by+shape.center[1]),shape.radius*scale,0,math.tau)
+            if style.fill_color[3]:ctx.fillStyle=fill;ctx.fill()
+            if style.stroke_color[3]:ctx.strokeStyle=stroke;ctx.lineWidth=2;ctx.stroke()
         elif isinstance(shape,VisualPolygon):
             ctx.beginPath();ctx.moveTo(sx(bx+shape.points[0][0]),sy(by+shape.points[0][1]))
             for point in shape.points[1:]:ctx.lineTo(sx(bx+point[0]),sy(by+point[1]))

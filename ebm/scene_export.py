@@ -32,7 +32,7 @@ import struct
 import pymunk
 import pymunk.batch
 
-from .tile_api import DEFAULT_BALL_FILL, DEFAULT_BALL_STROKE, VisualPolygon, VisualSegment
+from .tile_api import DEFAULT_BALL_FILL, DEFAULT_BALL_STROKE, VisualCircle, VisualPolygon, VisualSegment
 
 _POSE_FIELDS = (
     pymunk.batch.BodyFields.BODY_ID
@@ -138,6 +138,9 @@ class SceneExporter:
             fill = _color(style.fill_color)
             stroke = _color(style.stroke_color)
             fg = 1 if style.foreground else 0
+            if isinstance(shape, VisualCircle):
+                statics.append([1, float(shape.center[0]), float(shape.center[1]), float(shape.radius), fill, stroke, fg])
+                continue
             if isinstance(shape, VisualPolygon):
                 points: list[float] = []
                 for px, py in shape.points:
