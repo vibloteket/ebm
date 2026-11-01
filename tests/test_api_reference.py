@@ -35,6 +35,10 @@ def test_api_reference_describes_current_contract():
         "description": "Defaults to True. False skips publication flow checks and machine selection, but keeps the tile in the editor. Syntax, imports and metadata must still be valid.",
     }]
     signatures = {method["name"]: method["signature"] for method in reference["tileBuilder"]["methods"]}
+    for name in ("visual_segment", "visual_circle", "visual_polygon", "visual_box"):
+        assert "dynamic: bool = False" in signatures[name]
+    visual = next(item for item in reference["handles"] if item["name"] == "VisualHandle")
+    assert "set_radius" in {item["name"] for item in visual["methods"]}
     assert "a: Point" in signatures["static_segment"]
     assert "-> ShapeHandle" in signatures["static_segment"]
     assert "begin: CollisionCallback | None" in signatures["on_ball_contact"]

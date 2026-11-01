@@ -67,7 +67,7 @@ def build_reference() -> dict:
             {
                 "name": "VisualHandle",
                 "description": "Ownership-safe handle returned by visual-only builders.",
-                "methods": method_reference(VisualHandle, ("set_fill_color", "set_stroke_color", "set_segment_points", "pause", "resume")),
+                "methods": method_reference(VisualHandle, ("set_fill_color", "set_stroke_color", "set_radius", "set_segment_points", "pause", "resume")),
             },
             {
                 "name": "BodyHandle",

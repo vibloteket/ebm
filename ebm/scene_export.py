@@ -117,16 +117,20 @@ class SceneExporter:
             self._dirty_balls.clear()
         return events
 
+    @staticmethod
+    def _visual_entry(shape, style):
+        fill, stroke = _color(style.fill_color), _color(style.stroke_color)
+        fg = 1 if style.foreground else 0
+        if isinstance(shape, VisualCircle):
+            return [1, float(shape.center[0]), float(shape.center[1]), float(shape.radius), fill, stroke, fg]
+        if isinstance(shape, VisualPolygon):
+            points = [float(value) for point in shape.points for value in point]
+            return [2, float(shape.radius), fill, stroke, points, fg]
+        return [0, float(shape.a[0]), float(shape.a[1]), float(shape.b[0]), float(shape.b[1]), float(shape.radius), fill, stroke, fg]
+
     def _dyn_visuals(self, builder) -> list:
-        result = []
-        for shape, style in builder.visual_items:
-            if isinstance(shape, VisualSegment) and shape.dynamic:
-                result.append([
-                    0, float(shape.a[0]), float(shape.a[1]), float(shape.b[0]), float(shape.b[1]),
-                    float(shape.radius), _color(style.fill_color), _color(style.stroke_color),
-                    1 if style.foreground else 0,
-                ])
-        return result
+        return [self._visual_entry(shape, style) for shape, style in builder.visual_items
+                if isinstance(shape, (VisualSegment, VisualCircle, VisualPolygon)) and shape.dynamic]
 
     def _tile_event(self, kind: str, active) -> list:
         builder = active.builder
@@ -138,17 +142,8 @@ class SceneExporter:
             fill = _color(style.fill_color)
             stroke = _color(style.stroke_color)
             fg = 1 if style.foreground else 0
-            if isinstance(shape, VisualCircle):
-                statics.append([1, float(shape.center[0]), float(shape.center[1]), float(shape.radius), fill, stroke, fg])
-                continue
-            if isinstance(shape, VisualPolygon):
-                points: list[float] = []
-                for px, py in shape.points:
-                    points += [float(px), float(py)]
-                statics.append([2, float(shape.radius), fill, stroke, points, fg])
-                continue
-            if isinstance(shape, VisualSegment):
-                entry = [0, float(shape.a[0]), float(shape.a[1]), float(shape.b[0]), float(shape.b[1]), float(shape.radius), fill, stroke, fg]
+            if isinstance(shape, (VisualSegment, VisualCircle, VisualPolygon)):
+                entry = self._visual_entry(shape, style)
                 (dyn_visuals if shape.dynamic else statics).append(entry)
                 continue
             body = getattr(shape, "body", None)

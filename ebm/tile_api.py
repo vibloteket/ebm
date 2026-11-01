@@ -149,6 +149,10 @@ class MotorHandle(ConstraintHandle):
 
 @dataclass(frozen=True)
 class VisualHandle(StyledHandle):
+    def set_radius(self, radius: float) -> None:
+        """Resize a visual circle, keeping its center fixed and wholly inside the tile."""
+        self._registry.set_visual_circle_radius(self._owner, self, radius)
+
     def set_segment_points(self, a: Point, b: Point) -> None:
         """Move the endpoints of a visual segment in tile-local coordinates."""
         self._registry.set_visual_segment_points(self._owner, self, a, b)
@@ -171,12 +175,14 @@ class VisualSegment:
 class VisualCircle:
     center: Point
     radius: float
+    dynamic: bool = False
 
 @dataclass(frozen=True)
 class VisualPolygon:
     """Non-physical filled polygon; tile-local points, immutable."""
     points: tuple[Point, ...]
     radius: float = 0.0
+    dynamic: bool = False
 
 @dataclass(frozen=True)
 class BallHandle:
@@ -604,8 +610,7 @@ class TileResourceRegistry:
             raise RuntimeError("object cannot be paused independently") from exc
         self._paused_resources.update(group)
         self._resource_resumes.pop(handle.id, None)
-        self._visual_revisions[owner] = self._visual_revisions.get(owner, 0) + 1
-        self._emit_scene("visual", owner)
+        self._visual_changed(owner, self._objects[handle.id])
 
     def resume_resource(self, owner: int, handle, *, delay=0) -> None:
         self.resolve(owner, handle)
@@ -627,8 +632,7 @@ class TileResourceRegistry:
             self.space.add(self._objects[key])
         self._paused_resources.difference_update(group)
         self._resource_resumes.pop(resource_id, None)
-        self._visual_revisions[owner] = self._visual_revisions.get(owner, 0) + 1
-        self._emit_scene("visual", owner)
+        self._visual_changed(owner, self._objects[resource_id])
 
     def set_style(self, owner: int, handle, *, fill_color=_UNSET, stroke_color=_UNSET):
         obj = self.resolve(owner, handle)
@@ -643,11 +647,14 @@ class TileResourceRegistry:
             value = _validate_color(stroke_color)
             if style.stroke_color != value: style.stroke_color = value; changed = True
         if changed:
-            if isinstance(obj, VisualSegment) and obj.dynamic:
-                self._emit_scene("dynvisual", owner)
-            else:
-                self._visual_revisions[owner] = self._visual_revisions.get(owner, 0) + 1
-                self._emit_scene("visual", owner)
+            self._visual_changed(owner, obj)
+
+    def _visual_changed(self, owner: int, obj) -> None:
+        if isinstance(obj, (VisualSegment, VisualCircle, VisualPolygon)) and obj.dynamic:
+            self._emit_scene("dynvisual", owner)
+        else:
+            self._visual_revisions[owner] = self._visual_revisions.get(owner, 0) + 1
+            self._emit_scene("visual", owner)
 
     def add_visual(self, owner: int, visual: Any, fill_color: Color | None, stroke_color: Color | None, foreground: bool = False):
         if isinstance(visual, VisualCircle):
@@ -665,7 +672,7 @@ class TileResourceRegistry:
         self._owner[handle.id] = owner
         self._styles[handle.id] = style
         self._visuals.setdefault(owner, []).append(handle.id)
-        self._emit_scene("visual", owner)
+        self._emit_scene("dynvisual" if visual.dynamic else "visual", owner)
         return handle
 
     def set_object_style(self, handle, fill_color: Color | None, stroke_color: Color | None, foreground: bool = False):
@@ -680,11 +687,21 @@ class TileResourceRegistry:
                      label=f"VisualSegment #{handle.id}, tile {owner}", owner=owner, object_id=handle.id)
         self._objects[handle.id] = VisualSegment(points[0], points[1], visual.radius, visual.dynamic)
         self._checked_visuals[handle.id] = self._objects[handle.id]
-        if visual.dynamic:
-            self._emit_scene("dynvisual", owner)
-        else:
-            self._visual_revisions[owner] = self._visual_revisions.get(owner, 0) + 1
-            self._emit_scene("visual", owner)
+        self._visual_changed(owner, visual)
+
+    def set_visual_circle_radius(self, owner: int, handle, radius: float) -> None:
+        visual = self.resolve(owner, handle)
+        if not isinstance(visual, VisualCircle):
+            raise TypeError("resource is not a visual circle")
+        radius = radius_value(radius)
+        check_bounds(points_bounds((visual.center,), radius),
+                     label=f"VisualCircle #{handle.id}, tile {owner}", owner=owner, object_id=handle.id)
+        if radius == visual.radius:
+            return
+        replacement = VisualCircle(visual.center, radius, visual.dynamic)
+        self._objects[handle.id] = replacement
+        self._checked_visuals[handle.id] = replacement
+        self._visual_changed(owner, replacement)
 
     def visual_items(self, owner: int):
         result = []
@@ -896,15 +913,14 @@ class TileResourceRegistry:
 
     def remove_resource(self, owner: int, handle) -> None:
         """Remove an owned resource and its bookkeeping; the handle is dead afterwards."""
-        self.resolve(owner, handle)
+        obj = self.resolve(owner, handle)
         for body, ids in list(self._ball_constraints.items()):
             if handle.id in ids:
                 ids.remove(handle.id)
                 if not ids:
                     del self._ball_constraints[body]
         self._purge_resource(handle.id)
-        self._visual_revisions[owner] = self._visual_revisions.get(owner, 0) + 1
-        self._emit_scene("visual", owner)
+        self._visual_changed(owner, obj)
 
     def _purge_resource(self, resource_id: int) -> None:
         obj = self._objects.pop(resource_id, None)
@@ -1271,34 +1287,38 @@ class TileBuilder:
         local_a=(float(a[0]),float(a[1]));local_b=(float(b[0]),float(b[1]))
         return self._registry.add_visual(self._owner,VisualSegment(local_a,local_b,radius_value(radius),dynamic),fill_color,stroke_color,foreground)
 
-    def visual_circle(self, center: Point, radius: float, *, fill_color: Color | None = DEFAULT_CIRCLE_FILL, stroke_color: Color | None = DEFAULT_CIRCLE_STROKE, foreground: bool = False) -> VisualHandle:
+    def visual_circle(self, center: Point, radius: float, *, fill_color: Color | None = DEFAULT_CIRCLE_FILL, stroke_color: Color | None = DEFAULT_CIRCLE_STROKE, dynamic: bool = False, foreground: bool = False) -> VisualHandle:
         """Build a non-physical circle in tile-local coordinates.
 
         foreground=True draws it after balls. None disables fill or stroke.
         The entire circle must fit within the tile, just like static_circle.
+        Use dynamic=True for animated radius or colors without rebuilding the static cache.
         """
         x, y = map(float, center)
+        _validate_flag(dynamic, "dynamic")
         _validate_flag(foreground, "foreground")
         return self._registry.add_visual(
-            self._owner, VisualCircle((x, y), radius_value(radius)),
+            self._owner, VisualCircle((x, y), radius_value(radius), dynamic),
             fill_color, stroke_color, foreground,
         )
 
-    def visual_polygon(self, points: list[Point] | tuple[Point, ...], *, radius: float = 0, fill_color: Color | None = DEFAULT_SEGMENT_FILL, stroke_color: Color | None = DEFAULT_SEGMENT_STROKE, foreground: bool = False) -> VisualHandle:
+    def visual_polygon(self, points: list[Point] | tuple[Point, ...], *, radius: float = 0, fill_color: Color | None = DEFAULT_SEGMENT_FILL, stroke_color: Color | None = DEFAULT_SEGMENT_STROKE, dynamic: bool = False, foreground: bool = False) -> VisualHandle:
         """Build a non-physical filled convex polygon from tile-local points.
 
         foreground=True draws the polygon after balls, so it can occlude them;
-        a foreground plate is how a tile hides balls inside a housing."""
+        a foreground plate is how a tile hides balls inside a housing.
+        dynamic=True draws outside the static cache, suitable for animated colors."""
         local = self._polygon_points(points, radius)
+        _validate_flag(dynamic, "dynamic")
         _validate_flag(foreground, "foreground")
-        return self._registry.add_visual(self._owner, VisualPolygon(tuple(local), radius), fill_color, stroke_color, foreground)
+        return self._registry.add_visual(self._owner, VisualPolygon(tuple(local), radius, dynamic), fill_color, stroke_color, foreground)
 
-    def visual_box(self, left: float, top: float, right: float, bottom: float, *, radius: float = 0, fill_color: Color | None = DEFAULT_SEGMENT_FILL, stroke_color: Color | None = DEFAULT_SEGMENT_STROKE, foreground: bool = False) -> VisualHandle:
-        """Build a non-physical filled rectangle from tile-local extents; see visual_polygon."""
+    def visual_box(self, left: float, top: float, right: float, bottom: float, *, radius: float = 0, fill_color: Color | None = DEFAULT_SEGMENT_FILL, stroke_color: Color | None = DEFAULT_SEGMENT_STROKE, dynamic: bool = False, foreground: bool = False) -> VisualHandle:
+        """Build a non-physical filled rectangle; dynamic and foreground work as in visual_polygon."""
         return self.visual_polygon(
             ((left, top), (right, top), (right, bottom), (left, bottom)),
             radius=radius, fill_color=fill_color, stroke_color=stroke_color,
-            foreground=foreground,
+            dynamic=dynamic, foreground=foreground,
         )
 
     def remove(self, handle: ResourceHandle) -> None:

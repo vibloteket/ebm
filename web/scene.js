@@ -271,8 +271,7 @@
       if (!tile.dynVisuals.length || !tileVisible(tile, vx, vy, vw, vh)) continue;
       for (const s of tile.dynVisuals) {
         if (s.fg) continue;
-        if (s.stroke) { dctx.strokeStyle = s.stroke; dctx.lineWidth = Math.max(2, s.r * 2 + 2); dctx.beginPath(); segmentPath(dctx, tile.ox + s.x1, tile.oy + s.y1, tile.ox + s.x2, tile.oy + s.y2); dctx.stroke(); }
-        if (s.fill) { dctx.strokeStyle = s.fill; dctx.lineWidth = Math.max(2, s.r * 2); dctx.beginPath(); segmentPath(dctx, tile.ox + s.x1, tile.oy + s.y1, tile.ox + s.x2, tile.oy + s.y2); dctx.stroke(); }
+        drawShape(dctx, s, tile.ox, tile.oy);
       }
     }
 

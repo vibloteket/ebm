@@ -11,7 +11,7 @@ Strict validation runs one concurrent stream of 120 balls, balanced across both 
 ## Visual-only circles
 
 `ctx.visual_circle(center, radius, *, fill_color=DEFAULT_CIRCLE_FILL,
-stroke_color=DEFAULT_CIRCLE_STROKE, foreground=False)` draws a circle without
+stroke_color=DEFAULT_CIRCLE_STROKE, dynamic=False, foreground=False)` draws a circle without
 adding a collision shape or body. The center is tile-local, and the entire
 circle must fit within the tile. Radius must be finite and nonnegative.
 
@@ -26,6 +26,33 @@ ring.set_stroke_color((80, 120, 200, 255))
 Returns an owned `VisualHandle`, like `visual_segment`, `visual_polygon`, and
 `visual_box`. `None` disables fill or stroke independently. Circles render in
 the live scene, editor preview, and debug view; they do not affect ball routing.
+
+## Animated visual primitives
+
+All four visual builders—`visual_segment`, `visual_circle`, `visual_polygon`,
+and `visual_box`—accept `dynamic=True`. This draws them outside the static
+bitmap cache, so geometry or color updates do not rebuild that cache. The
+coordinates remain tile-local; dynamic does not mean physical or automatically
+moving. `foreground=True` works independently and draws after balls.
+Defaults remain `dynamic=False`.
+
+A circle's `VisualHandle.set_radius(radius)` changes its radius without replacing
+the handle, center, colors, or rendering flags. It accepts finite, nonnegative
+radii only, and the resized circle must still fit entirely within the tile.
+Invalid changes leave the circle unchanged. Other visual types reject this
+method; it does not resize physical balls or shapes.
+
+```python
+# build(): a stand-in for a paused ball at its destination
+self.appearance = ctx.visual_circle((200, 200), 1, dynamic=True)
+
+# update(): grow toward the real ball's normal radius
+self.appearance.set_radius(animated_radius)
+# When finished, remove the stand-in and resume the real ball.
+```
+
+Segments retain `set_segment_points(a, b)`. Polygon/box geometry setters are
+not added here; `dynamic=True` also makes their color animation inexpensive.
 
 ## World layout
 
