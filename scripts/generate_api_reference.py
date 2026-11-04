@@ -9,6 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from ebm import Tween, ease  # noqa: E402
 from ebm.ball_physics import MAX_BALL_SPEED  # noqa: E402
 from ebm.ports import BALL_RADIUS, ENTRY_TEST_SPEEDS, PORT_APERTURE, PORT_CENTER_RANGE, Port, TILE_SIZE  # noqa: E402
 from ebm.tile_api import BUILD_MARGIN, BallHandle, BodyHandle, ConstraintHandle, ContactEvent, MotorHandle, ShapeHandle, TileBuilder, VisualHandle  # noqa: E402
@@ -90,6 +91,16 @@ def build_reference() -> dict:
                 "methods": method_reference(BallHandle, ("set_fill_color", "set_stroke_color", "set_friction", "set_elasticity", "set_position", "set_velocity", "pause", "resume")),
             },
         ],
+        "animation": {
+            "signature": "Tween" + public_signature(Tween).replace(repr(ease.linear), "ease.linear"),
+            "description": inspect.getdoc(Tween),
+            "properties": [
+                {"name": "value", "type": "float", "description": inspect.getdoc(Tween.value)},
+                {"name": "done", "type": "bool", "description": inspect.getdoc(Tween.done)},
+            ],
+            "methods": method_reference(Tween, ("update",)),
+            "easing": list(ease.__all__),
+        },
         "contactEvent": {
             "description": inspect.getdoc(ContactEvent),
             "properties": [
@@ -120,6 +131,11 @@ def build_reference() -> dict:
             "maxActive": MAX_ACTIVE_BALLS,
         },
         "recipes": [
+            {
+                "title": "Grow a visual circle over two seconds",
+                "description": "Store the tween on the tile, advance it with simulation dt, and handle completion explicitly. No global animation manager.",
+                "code": "from ebm import Tween, ease\n\n# In build(builder), or when starting the effect:\ncircle = builder.visual_circle((200, 200), 1, dynamic=True)\nself.growth = Tween(1, 15, duration=2, apply=circle.set_radius,\n                    easing=ease.in_out_sine)\n\n# In update(self, builder, dt):\nif self.growth is not None:\n    self.growth.update(dt)\n    if self.growth.done:\n        self.growth = None\n        # Optionally remove the stand-in and resume a paused ball here.",
+            },
             {
                 "title": "Sloping rail",
                 "description": "A physical segment that guides balls using friction and restitution.",
@@ -167,10 +183,11 @@ def build_reference() -> dict:
                 "Dynamic compound bodies with attached circles, segments, polygons, and boxes",
                 "World pivots, anchored damped springs, slack rope limits, and mutable rotary motors",
                 "Invisible, massless sensor segments, circles, polygons, and boxes; static or body-attached",
-                "Moving visual cords with dynamic=True (no collision shape or static-cache rebuild)",
+                "All visual primitives support dynamic=True; visual circles can change radius",
+                "Scalar Tween animations with optional apply callable, value/done properties, and standard ease functions",
                 "Body position, velocity, angle, force, impulse, and torque controls",
                 "Pymunk-style begin, pre_solve, post_solve, and separate ball-contact callbacks",
-                "Visual-only segments",
+                "Visual-only segments, circles, polygons, and boxes",
                 "Surface velocity for powered rails",
                 "Mutable colors and physical materials",
                 "Pins between bodies and owned balls, for ropes, chains, and glue",

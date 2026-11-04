@@ -62,6 +62,13 @@ def test_api_reference_describes_current_contract():
         "perInputInterval": pytest.approx(2.5),
     }
     assert reference["validation"] == {"balls": 120, "maxActive": 20}
+    animation = reference["animation"]
+    assert animation["signature"].startswith("Tween(")
+    assert "ease.linear" in animation["signature"] and "0x" not in animation["signature"]
+    assert {prop["name"] for prop in animation["properties"]} == {"value", "done"}
+    assert [method["name"] for method in animation["methods"]] == ["update"]
+    from ebm import ease
+    assert animation["easing"] == ease.__all__
     assert reference["capabilities"]["available"]
     assert reference["capabilities"]["unavailable"]
     assert {prop["name"] for prop in reference["contactEvent"]["properties"]} == {

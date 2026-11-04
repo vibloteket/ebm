@@ -2,6 +2,9 @@
 
 from pymunk import Vec2d
 
+from . import ease
+from .tween import Tween
+
 from .ports import INPUT_PORTS, MIRROR_PORT, OUTPUT_PORTS, Port
 from .tile_api import BallHandle, BodyHandle, Color, ConstraintHandle, ContactEvent, MotorHandle, Point, ShapeHandle, TileBuilder, Vector, VisualHandle
 from .tile_base import TileBase

@@ -51,7 +51,23 @@ self.appearance.set_radius(animated_radius)
 # When finished, remove the stand-in and resume the real ball.
 ```
 
-Segments retain `set_segment_points(a, b)`. Polygon/box geometry setters are
+For reusable timing and interpolation, use [`Tween` and `ease`](ANIMATION.md):
+
+```python
+from ebm import Tween, ease
+
+# When starting the effect:
+self.growth = Tween(1, ball.radius, duration=2,
+                    apply=self.appearance.set_radius, easing=ease.in_out_sine)
+# In update():
+if self.growth is not None:
+    self.growth.update(dt)
+    if self.growth.done:
+        self.growth = None
+        # Remove the stand-in and resume the paused ball here.
+```
+
+Segments retain `set_segment_points(a, b)`.  Polygon/box geometry setters are
 not added here; `dynamic=True` also makes their color animation inexpensive.
 
 ## World layout

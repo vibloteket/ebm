@@ -25,6 +25,13 @@ Disabled tiles remain downloadable and editable, labelled **[disabled]** in the 
 
 The machine selects uniformly from the sorted enabled catalog using `WORLD_SEED` and tile coordinates. Panning, reloads and different visitors agree for the same catalog. Adding, disabling or renaming a tile may rearrange existing positions. Filenames form tile identity, so avoid needless renames.
 
+## Tile API and animation
+
+See [the Flow Tile API](docs/FLOW_TILE_API.md) for visual primitives and
+[animation helpers](docs/ANIMATION.md) for `Tween`, setter callbacks, completion
+handling, and the standard `ease` functions. The browser editor's API help also
+includes signatures and a growing-circle recipe.
+
 ## Local development
 
 Run locally with uv:
