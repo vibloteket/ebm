@@ -13,10 +13,10 @@ def test_main_entrypoint_cache_key_matches_app_version():
 
 def test_editor_entrypoint_cache_key_changes_with_runtime_dependencies():
     html = (ROOT / "web" / "editor.html").read_text()
-    assert 'editor.js?v=0.89' in html
+    assert 'editor.js?v=0.90' in html
     assert 'pointer-coordinates.js?v=1' in (ROOT / 'web' / 'editor.js').read_text()
     assert 'web/pointer-coordinates.js' in (ROOT / 'scripts' / 'build-static-site.sh').read_text()
-    assert 'api-reference.js?v=0.77' in (ROOT / 'web' / 'editor.js').read_text()
+    assert 'api-reference.js?v=0.78' in (ROOT / 'web' / 'editor.js').read_text()
     assert 'editor.css?v=0.74' in html
 
 

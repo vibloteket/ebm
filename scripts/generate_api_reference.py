@@ -12,7 +12,7 @@ sys.path.insert(0, str(ROOT))
 from ebm import Tween, ease  # noqa: E402
 from ebm.ball_physics import MAX_BALL_SPEED  # noqa: E402
 from ebm.ports import BALL_RADIUS, ENTRY_TEST_SPEEDS, PORT_APERTURE, PORT_CENTER_RANGE, Port, TILE_SIZE  # noqa: E402
-from ebm.tile_api import BUILD_MARGIN, BallHandle, BodyHandle, ConstraintHandle, ContactEvent, MotorHandle, ShapeHandle, TileBuilder, VisualHandle  # noqa: E402
+from ebm.tile_api import DEFAULT_BALL_FILL, DEFAULT_BALL_STROKE, BUILD_MARGIN, BallHandle, BodyHandle, ConstraintHandle, ContactEvent, MotorHandle, ShapeHandle, TileBuilder, VisualHandle  # noqa: E402
 from ebm.tile_base import TILE_API_VERSION, TileBase  # noqa: E402
 from ebm.validator import MAX_ACTIVE_BALLS, SPAWN_INTERVAL, VALIDATION_BALLS  # noqa: E402
 
@@ -35,6 +35,7 @@ def build_reference() -> dict:
     return {
         "apiVersion": TILE_API_VERSION,
         "tileSize": TILE_SIZE,
+        "ballColors": {"fill": list(DEFAULT_BALL_FILL), "stroke": list(DEFAULT_BALL_STROKE)},
         "commonTypes": [
             {"name": "Vec2d", "type": "class", "description": "2D vector imported from ebm (re-exported from Pymunk). Position, velocity, and contact getters return it; every setter also accepts a plain (x, y) tuple. Supports +, -, *, /, ==, unpacking, and .length, .normalized(), .dot(), .cross(), .perpendicular(), .projection(), .rotated(). Immutable: build a new vector instead of mutating."},
             {"name": "Point", "type": "tuple[float, float] | Vec2d", "description": "Tile-local (x, y) coordinates in tile units."},

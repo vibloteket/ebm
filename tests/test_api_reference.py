@@ -19,6 +19,9 @@ def test_api_reference_covers_public_builder_methods():
 
 def test_api_reference_describes_current_contract():
     reference = build_reference()
+    assert reference["ballColors"] == {
+        "fill": [22, 114, 212, 255], "stroke": [12, 63, 143, 255],
+    }
     assert reference["apiVersion"] == 4
     assert reference["tileSize"] == 400
     assert {port["name"] for port in reference["ports"]} == {"T0", "L0", "B0", "R0"}
