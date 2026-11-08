@@ -125,6 +125,18 @@ uv run python -m ebm validate --json
 
 The command exits non-zero if an enabled tile fails, metadata/imports are invalid, or there are no enabled tiles. Disabled tiles are reported as skipped. The debug page remains a reference simulator; the editor can test any selected tile explicitly.
 
+### Picking positions in the tile editor
+
+The preview shows live **tile-local (x, y)** coordinates beneath the canvas.
+**Shift+click** inside a tile to pin a position, then use **Copy pinned** to copy
+`(x, y)` into your code. **Clear pin** removes the saved position. Normal clicks
+still spawn balls; Shift+click does not. Values use one decimal place.
+
+In the 3 × 3 preview, the readout also identifies the hovered tile with 1-based
+row/column numbers. Coordinates remain local to that tile (including staggered
+columns), not world or screen pixels. Margins and gaps show no live coordinates.
+Picking works while paused too; pinned positions remain until cleared or replaced.
+
 ### Ball supply
 
 The nominal source rate is **0.8 balls per second across a tile's two inputs**:

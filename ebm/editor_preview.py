@@ -164,6 +164,9 @@ def start(canvas):
         canvas.height = max(260, int(canvas.clientHeight))
 
     def click(_event=None):
+        # Shift-click belongs to the coordinate inspector, not ball spawning.
+        if _event is not None and _event.shiftKey:
+            return
         if _preview and _view == "simulation": _preview.spawn_boundary()
 
     resize_proxy = create_proxy(resize); click_proxy = create_proxy(click)
@@ -327,17 +330,46 @@ def _draw_tile_items(ctx, builder, sx, sy, scale, *, foreground):
                 for point in points[1:]:ctx.lineTo(sx(point.x),sy(point.y))
                 ctx.closePath();ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=stroke;ctx.lineWidth=2;ctx.stroke()
 
-def draw(canvas, preview):
-    ctx = canvas.getContext("2d")
-    width, height = canvas.width, canvas.height
-    ctx.fillStyle = "#f4e8c8"; ctx.fillRect(0, 0, width, height)
-    world_width = preview.grid_size * TILE_SIZE
-    world_height = preview.grid_size * TILE_SIZE + (COLUMN_OFFSET if preview.grid_size > 1 else 0)
+def preview_transform(width, height, grid_size):
+    """Shared world-to-canvas transform for rendering and pointer inspection."""
+    world_width = grid_size * TILE_SIZE
+    world_height = grid_size * TILE_SIZE + (COLUMN_OFFSET if grid_size > 1 else 0)
     # Always fit the complete grid inside the canvas. A 3 × 3 grid needs a
     # scale below .3 on narrow mobile previews; clamping it to .3 clipped the
     # first and last rows instead of preserving the intended margins.
     scale = max(.01, min((width-36)/world_width, (height-44)/world_height))
     ox, oy = (width-world_width*scale)/2, (height-world_height*scale)/2
+    return scale, ox, oy
+
+
+def canvas_tile_coordinates(x, y, width, height, grid_size):
+    """Map backing-store pixels to tile-local coordinates; margins/gaps return None."""
+    scale, ox, oy = preview_transform(width, height, grid_size)
+    wx, wy = (x - ox) / scale, (y - oy) / scale
+    col = math.floor(wx / TILE_SIZE)
+    if not 0 <= col < grid_size:
+        return None
+    row = math.floor((wy - (col & 1) * COLUMN_OFFSET) / TILE_SIZE)
+    if not 0 <= row < grid_size:
+        return None
+    tx, ty = tile_origin(row, col)
+    return {"x": wx - tx, "y": wy - ty, "row": row, "col": col, "gridSize": grid_size}
+
+
+def pointer_coordinates(x, y):
+    """Return JSON for the web coordinate inspector (input in canvas pixels)."""
+    import json
+    if _preview is None or _canvas is None:
+        return "null"
+    return json.dumps(canvas_tile_coordinates(float(x), float(y), float(_canvas.width),
+                                            float(_canvas.height), _preview.grid_size))
+
+
+def draw(canvas, preview):
+    ctx = canvas.getContext("2d")
+    width, height = canvas.width, canvas.height
+    ctx.fillStyle = "#f4e8c8"; ctx.fillRect(0, 0, width, height)
+    scale, ox, oy = preview_transform(width, height, preview.grid_size)
     sx=lambda x:ox+x*scale; sy=lambda y:oy+y*scale
     for _, _, builder in preview.owners:
         bx, by = builder.origin

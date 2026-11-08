@@ -5,7 +5,7 @@
     <link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Tile Editor — Endless Ball Machine</title>
-  <link rel="stylesheet" href="./editor.css?v=0.73">
+  <link rel="stylesheet" href="./editor.css?v=0.74">
   <script src="https://cdn.jsdelivr.net/pyodide/v314.0.4/full/pyodide.js"></script>
   <script data-goatcounter="https://ebm.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </head>
@@ -35,6 +35,13 @@
       <button id="validate-button" type="button">Validate flow</button>
     </div>
     <canvas id="preview" aria-label="Tile preview"></canvas>
+    <div class="pointer-panel" aria-label="Tile-local pointer coordinates">
+      <span>Live <output id="pointer-live">—</output></span>
+      <span>Pinned <output id="pointer-pinned" aria-live="polite">—</output></span>
+      <button id="pointer-copy" type="button" disabled>Copy pinned</button>
+      <button id="pointer-clear" type="button" disabled>Clear pin</button>
+      <small>Tile-local (x, y) · Shift+click to pin · Click to spawn balls</small>
+    </div>
     <section class="status-panel">
       <div id="status" class="status pending">Loading Python runtime…</div>
       <div id="validation-results" hidden></div>
@@ -59,6 +66,6 @@
 <div id="api-backdrop" class="api-backdrop"></div>
 <div id="loading"><div><h2>Starting Tile Editor</h2><p>Loading Pyodide and pymunk…</p></div></div>
 <script src="./vendor/codemirror/editor-codemirror.js?v=0.62"></script>
-<script type="module" src="./editor.js?v=0.88"></script>
+<script type="module" src="./editor.js?v=0.89"></script>
 </body>
 </html>
