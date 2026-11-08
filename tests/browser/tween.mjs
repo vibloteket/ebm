@@ -56,9 +56,11 @@ class TweenSmoke(TileBase):
   assert.ok((await page.locator('#status').textContent()).includes('Running'));
   await page.keyboard.press('F1');
   await page.waitForSelector('#api-animation');
-  const intro = await page.locator('#api-start').textContent();
+  const balls = await page.locator('#api-balls').textContent();
+  assert.equal(await page.locator('#api-ports').evaluate(el => el.previousElementSibling.id), 'api-balls');
+  assert.ok(!(await page.locator('#api-start').textContent()).includes('Default balls'));
   for (const text of ['Default balls', 'radius 15', 'diameter 30', '(22, 114, 212, 255)', '(12, 63, 143, 255)', 'RGBA']) {
-    assert.ok(intro.includes(text), `Intro missing ball information: ${text}`);
+    assert.ok(balls.includes(text), `Default balls section missing information: ${text}`);
   }
   const help = await page.locator('#api-animation').textContent();
   assert.ok(help.includes('ease.in_out_sine') && help.includes('ease.out_bounce'));
