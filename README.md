@@ -127,15 +127,13 @@ The command exits non-zero if an enabled tile fails, metadata/imports are invali
 
 ### Picking positions in the tile editor
 
-The preview shows live **tile-local (x, y)** coordinates beneath the canvas.
-**Shift+click** inside a tile to pin a position, then use **Copy pinned** to copy
-`(x, y)` into your code. **Clear pin** removes the saved position. Normal clicks
-still spawn balls; Shift+click does not. Values use one decimal place.
+The preview shows live **tile-local (x, y)** coordinates beneath the canvas,
+using one decimal place. Move the pointer over a tile to see its position;
+clicks still spawn balls. There are no pin or copy controls.
 
-In the 3 × 3 preview, the readout also identifies the hovered tile with 1-based
-row/column numbers. Coordinates remain local to that tile (including staggered
-columns), not world or screen pixels. Margins and gaps show no live coordinates.
-Picking works while paused too; pinned positions remain until cleared or replaced.
+In the 3 × 3 preview, coordinates remain local to the tile under the pointer
+(including staggered columns), not world or screen pixels. Margins and gaps
+show no coordinates. The readout works while paused too.
 
 ### Ball supply
 

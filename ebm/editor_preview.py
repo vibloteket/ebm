@@ -164,9 +164,6 @@ def start(canvas):
         canvas.height = max(260, int(canvas.clientHeight))
 
     def click(_event=None):
-        # Shift-click belongs to the coordinate inspector, not ball spawning.
-        if _event is not None and _event.shiftKey:
-            return
         if _preview and _view == "simulation": _preview.spawn_boundary()
 
     resize_proxy = create_proxy(resize); click_proxy = create_proxy(click)

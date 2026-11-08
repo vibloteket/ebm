@@ -1,6 +1,6 @@
 import {loadPythonPackage} from "./python-package.js?v=1";
 import {initializeApiReference} from "./api-reference.js?v=0.78";
-import {setupPointerCoordinates} from "./pointer-coordinates.js?v=1";
+import {setupPointerCoordinates} from "./pointer-coordinates.js?v=2";
 
 const PYMUNK_WHEEL="./vendor/pymunk-7.3.1-cp314-cp314-pyemscripten_2026_0_wasm32.whl";
 const NEW_ID="__new__";
