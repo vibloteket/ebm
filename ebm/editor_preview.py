@@ -1,5 +1,6 @@
 import math
 import random
+import traceback
 
 from js import window
 from pyodide.ffi import create_proxy
@@ -19,6 +20,20 @@ _view = "simulation"
 _failure_replay = None
 _replay_started = None
 _proxies = []
+_error = ""
+
+
+def get_error():
+    """Return the latched preview failure for the editor status indicator."""
+    return _error
+
+
+def _record_error(error):
+    global _error
+    _error = f"{type(error).__name__}: {error}"
+    with console_phase("preview"):
+        traceback.print_exc()
+
 
 class EditorPreview:
     def __init__(self, mode="single"):
@@ -159,28 +174,40 @@ def start(canvas):
 
     def frame(ts):
         global _last_ts
-        # Pausing freezes live simulation, but validation replays must keep
-        # drawing even if the user paused before entering validation mode.
-        if not _paused or _view == "validation":
-            dt = 1/60 if _last_ts is None else max(0, min(.05, (ts-_last_ts)/1000))
-            _last_ts = ts
-            if _preview:
-                if _view == "simulation": _preview.step(dt)
-                draw(canvas, _preview)
-        window.requestAnimationFrame(frame_proxy)
+        try:
+            # A failed preview stays stopped until Run successfully rebuilds it.
+            # Keep the callback alive, without flooding the console every frame.
+            if not _error and (not _paused or _view == "validation"):
+                dt = 1/60 if _last_ts is None else max(0, min(.05, (ts-_last_ts)/1000))
+                _last_ts = ts
+                if _preview:
+                    if _view == "simulation": _preview.step(dt)
+                    draw(canvas, _preview)
+        except Exception as error:
+            _record_error(error)
+        finally:
+            # User code (update, animation callbacks, drawing) must never kill
+            # the scheduler: refresh() relies on it to resume after a fix.
+            window.requestAnimationFrame(frame_proxy)
 
     frame_proxy = create_proxy(frame); _proxies.append(frame_proxy)
     window.requestAnimationFrame(frame_proxy)
 
 def refresh(mode="single"):
-    global _preview
+    global _preview, _error, _last_ts
     if _preview is None:
         return
     # Rebuild even while paused, then draw the fresh state once without
     # advancing physics. This keeps Run useful as an edit/inspect workflow.
-    _preview.configure(str(mode))
-    if _canvas is not None:
-        draw(_canvas, _preview)
+    try:
+        _preview.configure(str(mode))
+        if _canvas is not None:
+            draw(_canvas, _preview)
+    except Exception as error:
+        _record_error(error)
+        raise
+    _error = ""
+    _last_ts = None
 
 def set_paused(paused):
     """Pause physics and drawing while keeping the animation callback lightweight."""

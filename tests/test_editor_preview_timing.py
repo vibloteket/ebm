@@ -23,7 +23,7 @@ def test_editor_preview_keeps_validation_replay_drawing_while_paused():
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == "frame"
     )
     frame_source = ast.get_source_segment(source, frame)
-    assert 'if not _paused or _view == "validation"' in frame_source
+    assert 'not _paused or _view == "validation"' in frame_source
     assert 'if _view == "simulation": _preview.step(dt)' in frame_source
     assert "draw(canvas, _preview)" in frame_source
 

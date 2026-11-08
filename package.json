@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "build:editor": "esbuild web/editor-codemirror-entry.js --bundle --format=iife --target=es2020 --minify --legal-comments=external --outfile=web/vendor/codemirror/editor-codemirror.js",
-    "test:browser": "node tests/browser/smoke.mjs && node tests/browser/dynamic-visuals.mjs && node tests/browser/tween.mjs"
+    "test:browser": "node tests/browser/smoke.mjs && node tests/browser/dynamic-visuals.mjs && node tests/browser/tween.mjs && node tests/browser/preview-recovery.mjs"
   },
   "devDependencies": {
     "@codemirror/lang-python": "^6.2.1",
