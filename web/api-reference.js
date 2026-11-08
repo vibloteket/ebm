@@ -56,7 +56,7 @@ class MyTile(TileBase):
     ])}<p class="api-note">These values describe the current validator. The durable contract is to accept varied input, conserve every ball, produce valid exits, and keep retention bounded.</p>`],
     ["class","Tile class",`<p>${escapeHtml(reference.tileBase.description)}</p><h4>Properties</h4>${propertyTable(reference.tileBase.properties)}<h4>Lifecycle</h4>${methods(reference.tileBase.methods)}`],
     ["builder","TileBuilder",`<p>${escapeHtml(reference.tileBuilder.description)}</p>${methods(reference.tileBuilder.methods)}`],
-    ["events","Handles & contact events",`<p>Builder methods return ownership-checked handles. Change an existing object through its handle; resources are cleaned up automatically when the tile instance is destroyed.</p>${(reference.handles||[]).map(handle=>`<h4>${escapeHtml(handle.name)}</h4><p>${escapeHtml(handle.description)}</p>${methods(handle.methods)}`).join("")}<h4>Contact phases</h4><p><code>on_ball_contact()</code> uses Pymunk's phase names. Register any combination as named callbacks:</p><pre><code>builder.on_ball_contact(
+    ["events","Handles & contact events",`<p>Builder methods return ownership-checked handles. Change an existing object through its handle; resources are cleaned up automatically when the tile instance is destroyed.</p>${(reference.handles||[]).map(handle=>`<h4>${escapeHtml(handle.name)}</h4><p>${escapeHtml(handle.description)}</p>${handle.properties?propertyTable(handle.properties):""}${methods(handle.methods)}`).join("")}<h4>Contact phases</h4><p><code>on_ball_contact()</code> uses Pymunk's phase names. Register any combination as named callbacks:</p><pre><code>builder.on_ball_contact(
     shape,
     begin=on_begin,
     pre_solve=on_pre_solve,

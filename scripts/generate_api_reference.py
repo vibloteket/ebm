@@ -67,8 +67,12 @@ def build_reference() -> dict:
             },
             {
                 "name": "VisualHandle",
-                "description": "Ownership-safe handle returned by visual-only builders.",
-                "methods": method_reference(VisualHandle, ("set_fill_color", "set_stroke_color", "set_radius", "set_segment_points", "pause", "resume")),
+                "description": "Ownership-safe handle returned by visual-only builders. Geometry is tile-local; getters return immutable snapshots. Each geometry getter/setter rejects other visual types. Failed edits leave geometry unchanged; dynamic=True avoids rebuilding the static cache during animation.",
+                "properties": [
+                    {"name": name, "type": kind, "description": inspect.getdoc(getattr(VisualHandle, name))}
+                    for name, kind in (("center", "Vec2d"), ("segment_points", "tuple[Vec2d, Vec2d]"), ("points", "tuple[Vec2d, ...]"))
+                ],
+                "methods": method_reference(VisualHandle, ("set_fill_color", "set_stroke_color", "set_radius", "set_center", "set_segment_points", "set_points", "pause", "resume")),
             },
             {
                 "name": "BodyHandle",

@@ -67,8 +67,41 @@ if self.growth is not None:
         # Remove the stand-in and resume the paused ball here.
 ```
 
-Segments retain `set_segment_points(a, b)`.  Polygon/box geometry setters are
-not added here; `dynamic=True` also makes their color animation inexpensive.
+### Reading and moving visual geometry
+
+| Visual | Getter | Setter |
+| --- | --- | --- |
+| Circle | `.center` | `.set_center(center)` |
+| Segment | `.segment_points` | `.set_segment_points(a, b)` |
+| Polygon / box | `.points` | `.set_points(points)` |
+
+Coordinates are tile-local, even in repeat previews or translated world tiles.
+Getters return immutable snapshots: a `Vec2d` for the center, or a tuple of
+`Vec2d` values for endpoints/vertices. Setters accept tuples or `Vec2d` values.
+Boxes expose their four polygon vertices; `set_points()` can reshape them.
+
+```python
+# build()
+self.dot = ctx.visual_circle((100, 100), 10, dynamic=True)
+self.line = ctx.visual_segment((100, 150), (200, 150), dynamic=True)
+self.panel = ctx.visual_box(100, 200, 200, 250, dynamic=True)
+
+# update(): translate each object without storing its geometry separately
+shift = Vec2d(10 * dt, 0)  # import Vec2d from ebm
+self.dot.set_center(self.dot.center + shift)
+a, b = self.line.segment_points
+self.line.set_segment_points(a + shift, b + shift)
+self.panel.set_points(tuple(point + shift for point in self.panel.points))
+```
+
+These operations preserve the handle, radius, colors, and rendering flags.
+Every edit must keep the entire visual (including its radius) inside the tile;
+coordinates must be finite and polygons need at least three vertices, as at
+construction. Invalid edits leave the object unchanged. Geometry-specific
+getters/setters raise `TypeError` on the wrong visual type; removed handles are
+invalid. Paused visuals may be edited and show the new geometry on resume.
+Static visuals also support edits, but use `dynamic=True` for efficient animation.
+No shared `.position` anchor is imposed on segments or polygons.
 
 ## World layout
 

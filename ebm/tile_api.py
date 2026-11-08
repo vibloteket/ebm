@@ -149,6 +149,32 @@ class MotorHandle(ConstraintHandle):
 
 @dataclass(frozen=True)
 class VisualHandle(StyledHandle):
+    @property
+    def center(self) -> Point:
+        """Visual circle's tile-local center, as an immutable Vec2d."""
+        visual = self._registry.visual_geometry(self._owner, self, VisualCircle)
+        return Vec2d(*visual.center)
+
+    def set_center(self, center: Point) -> None:
+        """Move a visual circle's center in tile-local coordinates, preserving its radius."""
+        self._registry.set_visual_circle_center(self._owner, self, center)
+
+    @property
+    def segment_points(self) -> tuple[Point, Point]:
+        """Visual segment's tile-local endpoints, as a tuple of immutable Vec2d values."""
+        visual = self._registry.visual_geometry(self._owner, self, VisualSegment)
+        return Vec2d(*visual.a), Vec2d(*visual.b)
+
+    @property
+    def points(self) -> tuple[Point, ...]:
+        """Visual polygon/box's tile-local vertices, as a tuple of immutable Vec2d values."""
+        visual = self._registry.visual_geometry(self._owner, self, VisualPolygon)
+        return tuple(Vec2d(*point) for point in visual.points)
+
+    def set_points(self, points: list[Point] | tuple[Point, ...]) -> None:
+        """Replace a visual polygon/box's vertices (at least three), preserving its radius."""
+        self._registry.set_visual_polygon_points(self._owner, self, points)
+
     def set_radius(self, radius: float) -> None:
         """Resize a visual circle, keeping its center fixed and wholly inside the tile."""
         self._registry.set_visual_circle_radius(self._owner, self, radius)
@@ -678,11 +704,40 @@ class TileResourceRegistry:
     def set_object_style(self, handle, fill_color: Color | None, stroke_color: Color | None, foreground: bool = False):
         self._styles[handle.id] = VisualStyle(_validate_color(fill_color), _validate_color(stroke_color), _validate_flag(foreground, "foreground"))
 
+    def visual_geometry(self, owner: int, handle, kind):
+        visual = self.resolve(owner, handle)
+        if not isinstance(visual, kind):
+            raise TypeError(f"resource is not a {kind.__name__}")
+        return visual
+
+    def _replace_visual_geometry(self, owner: int, handle, visual, bounds) -> None:
+        check_bounds(bounds, label=f"{type(visual).__name__} #{handle.id}, tile {owner}",
+                     owner=owner, object_id=handle.id)
+        if visual == self._objects[handle.id]:
+            return
+        self._objects[handle.id] = visual
+        self._checked_visuals[handle.id] = visual
+        self._visual_changed(owner, visual)
+
+    def set_visual_circle_center(self, owner: int, handle, center) -> None:
+        visual = self.visual_geometry(owner, handle, VisualCircle)
+        center = tuple(Vec2d(*map(float, center)))
+        replacement = VisualCircle(center, visual.radius, visual.dynamic)
+        self._replace_visual_geometry(owner, handle, replacement, points_bounds((center,), visual.radius))
+
+    def set_visual_polygon_points(self, owner: int, handle, points) -> None:
+        visual = self.visual_geometry(owner, handle, VisualPolygon)
+        points = tuple(tuple(Vec2d(*map(float, point))) for point in points)
+        if len(points) < 3:
+            raise ValueError("polygon needs at least three points")
+        replacement = VisualPolygon(points, visual.radius, visual.dynamic)
+        self._replace_visual_geometry(owner, handle, replacement, points_bounds(points, visual.radius))
+
     def set_visual_segment_points(self, owner: int, handle, a, b) -> None:
         visual = self.resolve(owner, handle)
         if not isinstance(visual, VisualSegment):
             raise TypeError("resource is not a visual segment")
-        points = [tuple(map(float, point)) for point in (a, b)]
+        points = [tuple(Vec2d(*map(float, point))) for point in (a, b)]
         check_bounds(points_bounds(points, visual.radius),
                      label=f"VisualSegment #{handle.id}, tile {owner}", owner=owner, object_id=handle.id)
         self._objects[handle.id] = VisualSegment(points[0], points[1], visual.radius, visual.dynamic)

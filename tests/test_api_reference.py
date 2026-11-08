@@ -38,7 +38,10 @@ def test_api_reference_describes_current_contract():
     for name in ("visual_segment", "visual_circle", "visual_polygon", "visual_box"):
         assert "dynamic: bool = False" in signatures[name]
     visual = next(item for item in reference["handles"] if item["name"] == "VisualHandle")
-    assert "set_radius" in {item["name"] for item in visual["methods"]}
+    assert {"set_radius", "set_center", "set_segment_points", "set_points"} <= {item["name"] for item in visual["methods"]}
+    assert {item["name"]: item["type"] for item in visual["properties"]} == {
+        "center": "Vec2d", "segment_points": "tuple[Vec2d, Vec2d]", "points": "tuple[Vec2d, ...]",
+    }
     assert "a: Point" in signatures["static_segment"]
     assert "-> ShapeHandle" in signatures["static_segment"]
     assert "begin: CollisionCallback | None" in signatures["on_ball_contact"]
