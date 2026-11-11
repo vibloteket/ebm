@@ -93,7 +93,7 @@ def build_reference() -> dict:
             {
                 "name": "BallHandle",
                 "description": "Tile-bound handle to a contacting ball. Style and material changes reset after handoff.",
-                "methods": method_reference(BallHandle, ("set_fill_color", "set_stroke_color", "set_friction", "set_elasticity", "set_position", "set_velocity", "pause", "resume")),
+                "methods": method_reference(BallHandle, ("set_fill_color", "set_stroke_color", "set_friction", "set_elasticity", "set_position", "set_velocity", "apply_force", "apply_impulse", "apply_torque", "pause", "resume")),
             },
         ],
         "animation": {

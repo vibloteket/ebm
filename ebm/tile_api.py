@@ -260,6 +260,18 @@ class BallHandle:
     def set_velocity(self, velocity: Vector) -> None:
         self._registry.set_ball_velocity(self, velocity)
 
+    def apply_force(self, force: Vector, point: Point = (0, 0)) -> None:
+        """Apply a body-local force at a body-local point (default: center)."""
+        self._registry.apply_ball_force(self, force, point)
+
+    def apply_impulse(self, impulse: Vector, point: Point = (0, 0)) -> None:
+        """Apply a body-local impulse at a body-local point (default: center)."""
+        self._registry.apply_ball_impulse(self, impulse, point)
+
+    def apply_torque(self, torque: float) -> None:
+        """Add torque to the ball for the current simulation step."""
+        self._registry.apply_ball_torque(self, torque)
+
     def pause(self) -> None:
         """Temporarily remove the ball from physics and normal rendering."""
         self._registry.pause_ball(self)
@@ -869,6 +881,18 @@ class TileResourceRegistry:
 
     def set_ball_velocity(self, handle, velocity):
         record = self._ball_record(handle); record["body"].velocity = tuple(map(float, velocity))
+
+    def apply_ball_force(self, handle, force, point):
+        body = self._ball_record(handle)["body"]
+        body.apply_force_at_local_point(tuple(map(float, force)), tuple(map(float, point)))
+
+    def apply_ball_impulse(self, handle, impulse, point):
+        body = self._ball_record(handle)["body"]
+        body.apply_impulse_at_local_point(tuple(map(float, impulse)), tuple(map(float, point)))
+
+    def apply_ball_torque(self, handle, torque):
+        body = self._ball_record(handle)["body"]
+        body.torque += self._number(torque, "torque")
 
     def pause_ball(self, handle):
         record = self._ball_record(handle)

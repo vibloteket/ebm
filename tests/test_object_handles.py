@@ -150,3 +150,75 @@ def test_ball_wholly_outside_tile_cannot_be_paused():
     ball = contact_ball(registry, 1, body, shape)
     with pytest.raises(ValueError, match="overlap the tile"):
         ball.pause()
+
+
+def test_ball_center_force_impulse_and_torque():
+    pymunk, space, registry, _ = setup_world()
+    body, shape = add_ball(pymunk, space)
+    ball = contact_ball(registry, 1, body, shape)
+
+    ball.apply_impulse((2, 3))
+    assert ball.velocity == pytest.approx((2, 3))
+    assert body.angular_velocity == 0
+    ball.apply_force((4, 6))
+    assert body.force == pytest.approx((4, 6))
+    assert body.torque == 0
+    ball.apply_torque(8)
+    ball.apply_torque(-2)
+    assert body.torque == 6
+    space.step(.25)
+    assert ball.velocity == pytest.approx((3, 4.5))
+    assert body.angular_velocity == pytest.approx(6 / body.moment * .25)
+
+
+@pytest.mark.parametrize("method, accumulator", [
+    ("apply_force", "torque"), ("apply_impulse", "angular_velocity"),
+])
+def test_ball_off_center_actions_match_body_local_coordinates(method, accumulator):
+    import math
+
+    pymunk, space, registry, _ = setup_world(origin=(400, 0))
+    body, shape = add_ball(pymunk, space, position=(500, 100))
+    body.angle = math.pi / 2
+    ball = contact_ball(registry, 1, body, shape)
+    getattr(ball, method)((0, 4), (2, 0))
+    if method == "apply_force":
+        assert body.force == pytest.approx((-4, 0))
+        assert getattr(body, accumulator) == pytest.approx(8)
+    else:
+        assert ball.velocity == pytest.approx((-4, 0))
+        assert getattr(body, accumulator) == pytest.approx(8 / body.moment)
+
+
+@pytest.mark.parametrize("method, args", [
+    ("apply_force", ((1, 2),)),
+    ("apply_impulse", ((1, 2),)),
+    ("apply_torque", (3,)),
+])
+def test_ball_actions_reject_stale_handles_after_handoff_and_reclaim(method, args):
+    pymunk, space, registry, _ = setup_world()
+    body, shape = add_ball(pymunk, space)
+    old = contact_ball(registry, 1, body, shape)
+    body.position = (420, 100)
+    registry.advance(0)
+    with pytest.raises(PermissionError):
+        getattr(old, method)(*args)
+    body.position = (100, 100)
+    current = contact_ball(registry, 1, body, shape)
+    with pytest.raises(PermissionError):
+        getattr(old, method)(*args)
+    assert body.force == (0, 0)
+    assert body.velocity == (0, 0)
+    assert body.torque == 0
+    getattr(current, method)(*args)
+
+
+@pytest.mark.parametrize("torque", [float("nan"), float("inf"), -float("inf"), "invalid"])
+def test_ball_torque_validation_leaves_existing_torque_unchanged(torque):
+    pymunk, space, registry, _ = setup_world()
+    body, shape = add_ball(pymunk, space)
+    ball = contact_ball(registry, 1, body, shape)
+    ball.apply_torque(5)
+    with pytest.raises((ValueError, TypeError)):
+        ball.apply_torque(torque)
+    assert body.torque == 5

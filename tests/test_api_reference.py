@@ -40,6 +40,13 @@ def test_api_reference_describes_current_contract():
     signatures = {method["name"]: method["signature"] for method in reference["tileBuilder"]["methods"]}
     for name in ("visual_segment", "visual_circle", "visual_polygon", "visual_box"):
         assert "dynamic: bool = False" in signatures[name]
+    ball = next(item for item in reference["handles"] if item["name"] == "BallHandle")
+    body = next(item for item in reference["handles"] if item["name"] == "BodyHandle")
+    ball_methods = {item["name"]: item for item in ball["methods"]}
+    body_methods = {item["name"]: item for item in body["methods"]}
+    for name in ("apply_force", "apply_impulse", "apply_torque"):
+        assert ball_methods[name]["signature"] == body_methods[name]["signature"]
+        assert ball_methods[name]["description"]
     visual = next(item for item in reference["handles"] if item["name"] == "VisualHandle")
     assert {"set_radius", "set_center", "set_segment_points", "set_points"} <= {item["name"] for item in visual["methods"]}
     assert {item["name"]: item["type"] for item in visual["properties"]} == {
