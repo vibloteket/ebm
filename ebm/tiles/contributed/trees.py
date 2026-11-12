@@ -10,7 +10,7 @@ BUSH_COLOR = (74,125,27,255)
 
 class Trees(TileBase):
     author = "Victor"
-    enabled = False
+    enabled = True
 
     growing:list = []
     
@@ -25,12 +25,6 @@ class Trees(TileBase):
         c(150,55)
         c(100,35)
         c(130,35)
-        # top right
-        #c(285,55,27)
-        #c(325,55)
-        #c(365,55)
-        #c(320,35)
-        #c(360,35)
         # bottom left
         c(35,145,28)
         c(70,145,30)
@@ -49,8 +43,8 @@ class Trees(TileBase):
             s = b.static_segment((x1,y1), (x2,y2), 6, fill_color = GROUND_COLOR, 
                              stroke_color = None, foreground=True)
             
-        g(6,370, 160, 380)
-        g(240,320, 394, 345)
+        g(6, 370, 160, 380)
+        g(240, 320, 394, 330)
         
         # Trunk 1
         pos1 = Vec2d(100,380)
@@ -73,7 +67,7 @@ class Trees(TileBase):
         c(pos1 + (60,-120))
 
         # Trunk 2
-        pos2 = Vec2d(300,341)
+        pos2 = Vec2d(300,320)
         p = [
             pos2 + (-14,0),
             pos2 + (14,0),
@@ -96,11 +90,11 @@ class Trees(TileBase):
         # Bush
         def c(x,y,r=20):
             b.static_circle((x,y), r, fill_color=BUSH_COLOR, stroke_color=None)
-        c(259, 315, 20)
+        c(259, 295, 20)
         c(284, 305, 20)
         c(274, 295, 20)
-        c(274, 322, 20)
-        c(244, 322, 20)
+        c(274, 302, 20)
+        c(244, 302, 20)
         c(254, 302, 20)
 
         # catching balls
@@ -114,7 +108,7 @@ class Trees(TileBase):
 
             spawn_center = random.choice([
                 (140,257),
-                (325,216)
+                (325,190)
             ])
             p = random_in_circle(spawn_center, 50)
             #p = random.choice(growing_areas)
@@ -135,6 +129,29 @@ class Trees(TileBase):
         b.on_ball_contact(sensor2, begin=catch_ball)
         b.on_ball_contact(sensor3, begin=catch_ball)
 
+        # push out of R0
+        sensor_r0 = b.sensor_segment((399,255),(399, 340), 1)
+        def push_ball(event):
+            ball = event.ball
+            vx, vy = ball.velocity
+            if vx <= 0:
+                return  # only assist outgoing balls
+
+            speed = max(math.hypot(vx, vy), 300)
+            angle = math.atan2(vy, vx)
+            
+            angle = max(
+                math.radians(-30),
+                min(math.radians(10), angle),
+            )
+            
+            ball.set_velocity((
+                speed * math.cos(angle),
+                speed * math.sin(angle),
+            ))                
+
+        b.on_ball_contact(sensor_r0, begin=push_ball)
+        
     def update(self, b, dt):
         done = []
         for d in self.growing:
