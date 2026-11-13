@@ -17,8 +17,11 @@ class MyTile(TileBase):
         pass
 
 `;
-const ids=["tile-select","status","validation-results","draft-state","cursor-position","preview","loading","console-output","console-count"];
+const ids=["stop-on-first-failure","tile-select","status","validation-results","draft-state","cursor-position","preview","loading","console-output","console-count"];
 const els=Object.fromEntries(ids.map(id=>[id.replaceAll("-","_"),document.getElementById(id)]));
+const stopPreference=localStorage.getItem("ebm-stop-on-first-failure");
+if(stopPreference!==null)els.stop_on_first_failure.checked=stopPreference!=="false";
+els.stop_on_first_failure.addEventListener("change",()=>localStorage.setItem("ebm-stop-on-first-failure",String(els.stop_on_first_failure.checked)));
 let pyodide,manifest,currentTile,originalSource="",mode="single",view="simulation",paused=false,saveTimer,consoleTimer,consoleLines=[],codeEditor;
 const getSource=()=>codeEditor.getValue();
 const setSource=value=>codeEditor.setValue(value);
@@ -47,7 +50,7 @@ function setView(nextView){
   if(view==="simulation")pyodide?.globals.get("refresh_preview")?.(mode);
 }
 function renderRuntimeErrors(errors){if(!errors?.length)return"";return `<div class="failure-diagnostics"><h2>Runtime exception</h2>${errors.map(error=>`<section class="failure-group"><h3>${escapeHtml(error.type)} during ${escapeHtml(error.phase)}${error.time===undefined?"":` · t=${escapeHtml(Number(error.time).toFixed(4))}s`}${error.row===undefined?"":` · tile ${error.row},${error.col}`}</h3><p>${escapeHtml(error.message)}</p><pre>${escapeHtml(error.traceback||"")}</pre></section>`).join("")}</div>`}
-function renderRepeatValidation(r){const label=r.ok?"PASS":"FAIL";return `<h2>3 × 3 repeat</h2><table class="validation-table"><tbody><tr><th>Result</th><th>Entered</th><th>Exited</th><th>Active</th><th>Peak</th><th>Lost</th></tr><tr><td class="${r.ok?"pass":"fail-text"}">${label}</td><td>${r.balls_spawned}</td><td>${r.exited}</td><td>${r.active}</td><td>${r.peak_active}</td><td>${r.lost}</td></tr></tbody></table>${renderRuntimeErrors(r.runtime_errors)}`}
+function renderRepeatValidation(r){if(!r)return '<h2>3 × 3 repeat</h2><p>Skipped: stop on first failure is enabled.</p>';const label=r.stopped_early?"Stopped early":r.ok?"PASS":"FAIL";return `<h2>3 × 3 repeat</h2><table class="validation-table"><tbody><tr><th>Result</th><th>Entered</th><th>Exited</th><th>Active</th><th>Peak</th><th>Lost</th></tr><tr><td class="${r.ok?"pass":"fail-text"}">${label}</td><td>${r.balls_spawned}</td><td>${r.exited}</td><td>${r.active}</td><td>${r.peak_active}</td><td>${r.lost}</td></tr></tbody></table>${renderRuntimeErrors(r.runtime_errors)}`}
 function renderValidation(r){
   const failures=r.details.filter(detail=>detail.status==="invalid"||detail.status==="lost");
   const groups=new Map();
@@ -56,7 +59,9 @@ function renderValidation(r){
     const group=groups.get(key)||{entry:detail.entry,reason:detail.exit,count:0,examples:[]};
     group.count+=1;if(group.examples.length<3)group.examples.push(detail);groups.set(key,group);
   }
-  const summary=`<table class="validation-table"><thead><tr><th>Result</th><th>Entered</th><th>Exited</th><th>Active</th><th>Peak</th><th>B0</th><th>R0</th><th>Invalid/lost</th></tr></thead><tbody><tr><td class="${r.ok?"pass":"fail-text"}">${r.ok?"PASS":"FAIL"}</td><td>${r.balls_spawned}</td><td>${r.exited}</td><td>${r.active}/${r.max_active_allowed}</td><td>${r.peak_active}/${r.max_active_allowed}</td><td>${r.output_counts.B0}</td><td>${r.output_counts.R0}</td><td>${r.invalid+r.lost}</td></tr></tbody></table>`;
+  const notice=r.stopped_early?'<p><strong>Stopped early:</strong> this is an incomplete run. Failure details and replay are retained.</p>':"";
+  const capacity=r.capacity_exceeded?`<p>Active-ball capacity exceeded: peak ${r.peak_active}, allowed ${r.max_active_allowed}.</p>`:"";
+  const summary=`${notice}${capacity}<table class="validation-table"><thead><tr><th>Result</th><th>Entered</th><th>Exited</th><th>Active</th><th>Peak</th><th>B0</th><th>R0</th><th>Invalid/lost</th></tr></thead><tbody><tr><td class="${r.ok?"pass":"fail-text"}">${r.stopped_early?"Stopped early":r.ok?"PASS":"FAIL"}</td><td>${r.balls_spawned}/${r.balls_target}</td><td>${r.exited}</td><td>${r.active}/${r.max_active_allowed}</td><td>${r.peak_active}/${r.max_active_allowed}</td><td>${r.output_counts.B0}</td><td>${r.output_counts.R0}</td><td>${r.invalid+r.lost}</td></tr></tbody></table>`;
   if(!failures.length)return summary+renderRuntimeErrors(r.runtime_errors);
   const diagnostics=[...groups.values()].map(group=>`<section class="failure-group"><h3>${group.count} × ${escapeHtml(group.entry)} → ${escapeHtml(group.reason)}</h3><p>${escapeHtml(group.examples[0].message||"Outside the flow contract")}</p>${group.examples.map(detail=>`<div class="failure-example"><code>#${detail.id} · pos (${detail.position.join(", ")}) · vel (${detail.velocity.join(", ")})</code><button type="button" class="replay-failure" data-failure-id="${detail.id}">Replay</button></div>`).join("")}</section>`).join("");
   return `${summary}${renderRuntimeErrors(r.runtime_errors)}<div class="failure-diagnostics"><h2>Why it failed</h2><p>Grouped by input and failure reason. Replay shows the red ball's validator path in the preview.</p>${diagnostics}</div>`;
@@ -65,8 +70,8 @@ async function validate(){
   setView("validation");pyodide.globals.get("refresh_preview")("single");
   setStatus("Validating 120-ball concurrent flow…");els.validation_results.innerHTML="";await new Promise(r=>setTimeout(r,20));
   try{
-    const result=JSON.parse(pyodide.globals.get("validate_source")());if(!result.result){setStatus("Validation failed","fail",result.message);return}
-    const r=result.result,repeat=result.repeatResult;setStatus(result.ok?"Flow validation passed":"Flow validation failed",result.ok?"ok":"fail");els.validation_results.innerHTML=renderValidation(r)+renderRepeatValidation(repeat);
+    const result=JSON.parse(pyodide.globals.get("validate_source")(els.stop_on_first_failure.checked));if(!result.result){setStatus("Validation failed","fail",result.message);return}
+    const r=result.result,repeat=result.repeatResult;setStatus(result.ok?"Flow validation passed":r.stopped_early||repeat?.stopped_early?"Stopped early — validation failed":"Flow validation failed",result.ok?"ok":"fail");els.validation_results.innerHTML=renderValidation(r)+renderRepeatValidation(repeat);
     const failures=new Map(r.details.filter(detail=>detail.status==="invalid"||detail.status==="lost").map(detail=>[String(detail.id),detail]));
     els.validation_results.querySelectorAll(".replay-failure").forEach(button=>button.addEventListener("click",()=>{const detail=failures.get(button.dataset.failureId);if(detail){setView("validation");pyodide.globals.get("refresh_preview")("single");pyodide.globals.get("set_preview_view")("validation");pyodide.globals.get("replay_validation_failure")(JSON.stringify(detail));els.validation_results.querySelectorAll(".replay-failure").forEach(item=>item.textContent="Replay");button.textContent="Replaying…"}}));
   }catch(error){setStatus("Validation error","fail",error.stack||String(error))}finally{drainConsole()}

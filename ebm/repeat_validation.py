@@ -17,12 +17,14 @@ class RepeatValidationResult:
     peak_active: int = 0
     lost: int = 0
     capacity_exceeded: bool = False
+    stopped_early: bool = False
     runtime_errors: list[dict[str, Any]] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
         return (
-            self.balls_spawned > 0
+            not self.stopped_early
+            and self.balls_spawned > 0
             and self.exited > 0
             and self.lost == 0
             and not self.capacity_exceeded
@@ -38,6 +40,7 @@ class RepeatValidationResult:
             "peak_active": self.peak_active,
             "lost": self.lost,
             "capacity_exceeded": self.capacity_exceeded,
+            "stopped_early": self.stopped_early,
             "runtime_errors": self.runtime_errors,
             "ok": self.ok,
         }
@@ -51,6 +54,7 @@ def validate_repeated_flow(
     max_active_per_tile: int = 20,
     dt: float = 1 / 120,
     seed: int = 17,
+    stop_on_first_failure: bool = False,
 ) -> RepeatValidationResult:
     """Run a deterministic repeated-grid integration test with real handoffs."""
     import pymunk
@@ -72,6 +76,7 @@ def validate_repeated_flow(
                 result.runtime_errors.append(_error(error, owner, "build", size))
                 for built_owner in range(1, owner + 1):
                     registry.destroy_owner(built_owner)
+                result.stopped_early = True
                 return result
             owners.append((owner, tile, builder))
             owner += 1
@@ -123,6 +128,8 @@ def validate_repeated_flow(
             if not all(math.isfinite(float(value)) for value in (x, y, body.velocity.x, body.velocity.y)):
                 result.lost += 1
                 _remove(space, balls, ball)
+                if stop_on_first_failure:
+                    break
             elif x < -200 or x > edge_x + 200 or y < -200 or y > edge_y + 300:
                 result.exited += 1
                 _remove(space, balls, ball)
@@ -131,8 +138,11 @@ def validate_repeated_flow(
         if result.active > max_active:
             result.capacity_exceeded = True
             break
+        if stop_on_first_failure and result.lost:
+            break
         t += dt
 
+    result.stopped_early = t < duration
     result.active = len(balls)
     for ball in list(balls):
         _remove(space, balls, ball)

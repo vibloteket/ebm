@@ -63,3 +63,19 @@ def test_validation_failures_include_explanation_and_replay_trajectory():
     assert all(detail["message"] for detail in failures)
     assert all(len(detail["trajectory"]) >= 2 for detail in failures)
     assert all(len(point) == 3 for detail in failures for point in detail["trajectory"])
+
+
+def test_fail_fast_skips_repeat_and_preserves_replay():
+    runtime = EditorRuntime()
+    assert json.loads(runtime.compile('''from ebm import TileBase
+class EmptyTile(TileBase):
+    author = "Tests"
+    def build(self, b): pass
+'''))["ok"]
+    result = json.loads(runtime.validate(stop_on_first_failure=True))
+    assert not result["ok"]
+    assert result["repeatSkipped"] and result["repeatResult"] is None
+    assert result["result"]["stopped_early"]
+    assert result["result"]["conserved"]
+    failure = next(d for d in result["result"]["details"] if d["status"] == "invalid")
+    assert failure["trajectory"]

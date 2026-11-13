@@ -63,3 +63,35 @@ def test_output_share_gate_band_and_small_sample_floor():
 def test_output_share_gate_is_disabled_with_min_output_share_zero():
     result = validate_tile_flow(OneSidedTile, min_output_share=0)
     assert result.balanced_outputs
+
+
+class EmptyTile(TileBase):
+    author = "Tests"
+
+    def build(self, builder):
+        pass
+
+
+def test_fail_fast_retains_first_failure_and_conservation():
+    quick = validate_tile_flow(EmptyTile, balls=20, spawn_interval=.1, stop_on_first_failure=True)
+    full = validate_tile_flow(EmptyTile, balls=20, spawn_interval=.1)
+    assert quick.stopped_early and not quick.ok
+    assert quick.balls_spawned < full.balls_spawned == 20
+    assert quick.invalid + quick.lost == 1
+    assert quick.conserved and full.conserved
+    failures = [detail for detail in quick.details if detail["status"] in ("invalid", "lost")]
+    assert len(failures) == 1 and failures[0]["trajectory"]
+    assert quick.to_dict()["stopped_early"]
+    assert not full.stopped_early
+
+
+def test_fail_fast_stops_at_first_capacity_breach():
+    result = validate_tile_flow(BucketTile, balls=12, max_active=5, spawn_interval=.05, stop_on_first_failure=True)
+    assert result.stopped_early and result.capacity_exceeded
+    assert result.balls_spawned == result.active == 6
+    assert result.conserved and not result.ok
+
+
+def test_fail_fast_does_not_stop_on_temporary_output_imbalance():
+    result = validate_tile_flow(default_tile, stop_on_first_failure=True)
+    assert result.ok and not result.stopped_early

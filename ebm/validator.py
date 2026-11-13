@@ -49,6 +49,7 @@ class ValidationResult:
     invalid: int = 0
     lost: int = 0
     capacity_exceeded: bool = False
+    stopped_early: bool = False
     output_counts: dict[str, int] = field(default_factory=lambda: {port.name: 0 for port in OUTPUT_PORTS})
     details: list[dict[str, Any]] = field(default_factory=list)
     runtime_errors: list[dict[str, Any]] = field(default_factory=list)
@@ -76,7 +77,8 @@ class ValidationResult:
     @property
     def ok(self) -> bool:
         return (
-            self.balls_spawned == self.balls_target
+            not self.stopped_early
+            and self.balls_spawned == self.balls_target
             and self.invalid == 0
             and self.lost == 0
             and self.conserved
@@ -100,6 +102,7 @@ class ValidationResult:
             "invalid": self.invalid,
             "lost": self.lost,
             "capacity_exceeded": self.capacity_exceeded,
+            "stopped_early": self.stopped_early,
             "output_counts": self.output_counts,
             "output_shares": {port: round(share, 4) for port, share in self.output_shares.items()},
             "all_outputs_used": self.all_outputs_used,
@@ -119,6 +122,7 @@ def validate_tile_flow(
     min_output_share: float = MIN_OUTPUT_SHARE,
     spawn_interval: float = SPAWN_INTERVAL,
     dt: float = DEFAULT_DT,
+    stop_on_first_failure: bool = False,
 ) -> ValidationResult:
     """Run one concurrent flow test with a global active-ball allowance and no drain phase."""
     import pymunk
@@ -134,6 +138,7 @@ def validate_tile_flow(
         registry.validate_geometry(time=0, phase="build")
     except Exception as error:
         result.runtime_errors.append(_runtime_error(error, 1, "build", 0))
+        result.stopped_early = True
         registry.destroy_owner(1)
         return result
     active: list[ValidationBall] = []
@@ -170,15 +175,20 @@ def validate_tile_flow(
         limit_space_ball_speeds(active)
         t += dt
         _record_trajectories(active, t)
-        _classify_active(space, active, result, t)
+        _classify_active(space, active, result, t, stop_on_first_failure=stop_on_first_failure)
         result.active = len(active)
         result.peak_active = max(result.peak_active, result.active)
         if result.active > max_active:
             result.capacity_exceeded = True
+        if stop_on_first_failure and (result.invalid or result.lost or result.capacity_exceeded):
+            result.stopped_early = True
+            break
 
+    result.stopped_early = result.stopped_early or bool(result.runtime_errors)
     # No drain phase: balls still physically inside immediately become the
     # tile's allowed active inventory, whether buffered or merely in transit.
-    _classify_active(space, active, result, t)
+    if not result.stopped_early:
+        _classify_active(space, active, result, t)
     result.active = len(active)
     result.peak_active = max(result.peak_active, result.active)
     if result.active > max_active:
@@ -218,7 +228,7 @@ def _record_trajectories(active: list[ValidationBall], t: float) -> None:
         ])
         ball.next_sample_at = t + 0.05
 
-def _classify_active(space, active: list[ValidationBall], result: ValidationResult, t: float) -> None:
+def _classify_active(space, active: list[ValidationBall], result: ValidationResult, t: float, *, stop_on_first_failure=False) -> None:
     for ball in list(active):
         classification = _classify_ball(space, ball)
         if classification is None:
@@ -234,6 +244,8 @@ def _classify_active(space, active: list[ValidationBall], result: ValidationResu
             result.invalid += 1
         _remove_ball(space, ball)
         active.remove(ball)
+        if stop_on_first_failure and status != "exited":
+            break
 
 def _classify_ball(space, ball: ValidationBall) -> tuple[str, str | None] | None:
     registry = TileResourceRegistry.for_space(space)
@@ -244,6 +256,10 @@ def _classify_ball(space, ball: ValidationBall) -> tuple[str, str | None] | None
     x, y = float(ball.body.position.x), float(ball.body.position.y)
     vx, vy = float(ball.body.velocity.x), float(ball.body.velocity.y)
     radius = float(ball.shape.radius)
+    return classify_ball_state(x, y, vx, vy, radius)
+
+def classify_ball_state(x, y, vx, vy, radius):
+    """Shared full-passage exit rules for validation and live preview."""
     if not all(math.isfinite(value) for value in (x, y, vx, vy, radius)):
         return "lost", "non-finite-state"
 

@@ -54,3 +54,22 @@ def test_callback_exception_fails_single_and_repeat_validation():
         assert not result.ok
         assert result.runtime_errors[0]["phase"] == "begin"
         assert result.runtime_errors[0]["message"] == "callback exploded"
+
+
+def test_repeat_fail_fast_stops_on_first_lost_ball(monkeypatch):
+    import ebm.repeat_validation as repeat_module
+
+    class EmptyTile(TileBase):
+        author = "Tests"
+        def build(self, builder): pass
+
+    def corrupt_after_physics(body):
+        body.position = (float("nan"), 0)
+
+    monkeypatch.setattr(repeat_module, "limit_ball_speed", corrupt_after_physics)
+    quick = validate_repeated_flow(EmptyTile, duration=.2, spawn_interval=.01, stop_on_first_failure=True)
+    full = validate_repeated_flow(EmptyTile, duration=.2, spawn_interval=.01)
+    assert quick.lost == 1 and quick.stopped_early and not quick.ok
+    assert quick.to_dict()["stopped_early"]
+    assert full.lost > 1 and not full.stopped_early
+    assert quick.balls_spawned == quick.lost + quick.active + quick.exited

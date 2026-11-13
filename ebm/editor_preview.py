@@ -6,6 +6,7 @@ from js import window
 from pyodide.ffi import create_proxy
 
 from . import editor_runtime
+from .preview_validation import PreviewExitMonitor
 from .ball_physics import INPUT_SPAWN_INTERVAL, configure_ball_body, limit_space_ball_speeds
 from .editor_console import console_muted, console_phase
 from .debug_demo import Ball, _draw_port_overlays
@@ -63,6 +64,7 @@ class EditorPreview:
         self.tile_class = editor_runtime._runtime.tile_class
         self.mode = "repeat" if str(mode) == "repeat" else "single"
         size = 3 if self.mode == "repeat" else 1
+        self.exit_monitor = PreviewExitMonitor(size)
         owner = 1
         for row in range(size):
             for col in range(size):
@@ -104,6 +106,10 @@ class EditorPreview:
             self.space.step(1 / 60)
             self.registry.advance(1 / 60)
             limit_space_ball_speeds(self.balls)
+            self.exit_monitor.advance(1 / 60)
+            for ball in self.balls:
+                if not self.registry.ball_is_paused(ball.body):
+                    self.exit_monitor.check(ball.body, float(ball.shape.radius))
         edge_x = self.grid_size * TILE_SIZE
         edge_y = self.grid_size * TILE_SIZE + COLUMN_OFFSET
         for ball in list(self.balls):
@@ -145,8 +151,12 @@ class EditorPreview:
         shape.collision_type = BALL_COLLISION_TYPE; shape.filter = ball_shape_filter()
         self.space.add(body, shape)
         self.balls.append(Ball(body, shape))
+        col = int(ox // TILE_SIZE)
+        row = int((oy - (col & 1) * COLUMN_OFFSET) // TILE_SIZE)
+        self.exit_monitor.add(body, row, col)
 
     def remove_ball(self, ball):
+        self.exit_monitor.remove(ball.body)
         self.registry._drop_ball_constraints(ball.body)
         try: self.space.remove(ball.shape, ball.body)
         except Exception: pass
@@ -383,11 +393,25 @@ def draw(canvas, preview):
     for ball in preview.balls:
         if preview.registry.ball_is_paused(ball.body): continue
         p=ball.body.position;ctx.beginPath();ctx.arc(sx(p.x),sy(p.y),BALL_RADIUS*scale,0,math.tau)
-        ctx.fillStyle=_canvas_color(getattr(ball.shape,"ebm_fill_color",(22,114,212,255)));ctx.fill()
-        ctx.strokeStyle=_canvas_color(getattr(ball.shape,"ebm_stroke_color",(12,63,143,255)));ctx.lineWidth=1.5;ctx.stroke()
+        failed = ball.body in preview.exit_monitor.failed
+        ctx.fillStyle="#dc2626" if failed else _canvas_color(getattr(ball.shape,"ebm_fill_color",(22,114,212,255)));ctx.fill()
+        ctx.strokeStyle="#7f1d1d" if failed else _canvas_color(getattr(ball.shape,"ebm_stroke_color",(12,63,143,255)));ctx.lineWidth=1.5;ctx.stroke()
     # Foreground graphics draw after balls so they can occlude them.
     for _, _, builder in preview.owners:
         _draw_tile_items(ctx, builder, sx, sy, scale, foreground=True)
+    if _view == "simulation":
+        for marker in preview.exit_monitor.markers:
+            mx, my = sx(marker["x"]), sy(marker["y"])
+            ctx.strokeStyle="#dc2626";ctx.lineWidth=2
+            ctx.beginPath();ctx.moveTo(mx-5,my-5);ctx.lineTo(mx+5,my+5)
+            ctx.moveTo(mx-5,my+5);ctx.lineTo(mx+5,my-5);ctx.stroke()
+            ctx.font="bold 12px system-ui"
+            text = marker["text"]
+            tw = float(ctx.measureText(text).width)
+            tx = max(6, min(width-tw-6, mx-tw/2))
+            ty = max(20, min(height-30, my-12))
+            ctx.fillStyle="rgba(255,255,255,.92)";ctx.fillRect(tx-3,ty-13,tw+6,18)
+            ctx.fillStyle="#991b1b";ctx.fillText(text,tx,ty)
     replay = _replay_position(float(window.performance.now())) if _view == "validation" else None
     if replay is not None and preview.mode == "single":
         x, y, finished = replay

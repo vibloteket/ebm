@@ -73,6 +73,12 @@ The default output is:
 dist/site/
 ```
 
+## Quick editor feedback
+
+- Live simulation marks balls red when they fail the validator's full-passage exit checks (wrong edge, aperture or angle). Exit markers show the reason for eight simulation seconds, even after the ball disappears. Run or changing preview mode clears them. The 3 × 3 preview checks each tile handoff too.
+- **Stop on first failure** defaults to on and remembers your choice in this browser. Validation retains the first detected failure and its replay, marks incomplete runs **Stopped early**, and skips the repeat test if single-tile flow fails. Uncheck it for the full report. Output balance is only judged at the end; a temporary imbalance does not stop a run.
+- Preview feedback is advisory, not a replacement for full validation. Publication checks still run the full validators.
+
 ## GitHub Pages publication
 
 The workflow in [`.github/workflows/pages.yml`](.github/workflows/pages.yml) runs on commits to `main` and can be rerun manually. Pull requests run the checks without deployment.

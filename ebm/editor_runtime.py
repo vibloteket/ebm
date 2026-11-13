@@ -36,17 +36,25 @@ class EditorRuntime:
         finally:
             sys.modules.pop(module.__name__, None)
 
-    def validate(self) -> str:
+    def validate(self, *, stop_on_first_failure: bool = False) -> str:
         if self.tile_class is None:
             return json.dumps({"ok": False, "message": "Run the source before validating."})
         try:
             with console_phase("validation"):
-                result = validate_tile_flow(self.tile_class, name=tile_display_name(self.tile_class))
-                repeat = validate_repeated_flow(self.tile_class)
+                result = validate_tile_flow(
+                    self.tile_class, name=tile_display_name(self.tile_class),
+                    stop_on_first_failure=stop_on_first_failure,
+                )
+                repeat = None
+                if not (stop_on_first_failure and not result.ok):
+                    repeat = validate_repeated_flow(
+                        self.tile_class, stop_on_first_failure=stop_on_first_failure,
+                    )
             return json.dumps({
-                "ok": result.ok and repeat.ok,
+                "ok": result.ok and repeat is not None and repeat.ok,
                 "result": result.to_dict(),
-                "repeatResult": repeat.to_dict(),
+                "repeatResult": repeat.to_dict() if repeat is not None else None,
+                "repeatSkipped": repeat is None,
             })
         except Exception as error:
             return json.dumps(self._error(error))
@@ -88,5 +96,5 @@ _runtime = EditorRuntime()
 def compile_source(source: str) -> str:
     return _runtime.compile(source)
 
-def validate_source() -> str:
-    return _runtime.validate()
+def validate_source(stop_on_first_failure=False) -> str:
+    return _runtime.validate(stop_on_first_failure=bool(stop_on_first_failure))
