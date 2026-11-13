@@ -137,7 +137,7 @@ class Trees(TileBase):
             if vx <= 0:
                 return  # only assist outgoing balls
 
-            speed = max(math.hypot(vx, vy), 300)
+            speed = max(math.hypot(vx, vy), 320)
             angle = math.atan2(vy, vx)
             
             angle = max(
