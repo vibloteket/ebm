@@ -10,7 +10,7 @@ BUSH_COLOR = (74,125,27,255)
 
 class Trees(TileBase):
     author = "Victor"
-    enabled = False
+    enabled = True
 
     growing:list = []
     
