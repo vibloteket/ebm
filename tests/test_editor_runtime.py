@@ -79,3 +79,58 @@ class EmptyTile(TileBase):
     assert result["result"]["conserved"]
     failure = next(d for d in result["result"]["details"] if d["status"] == "invalid")
     assert failure["trajectory"]
+
+
+def test_seeded_editor_runs_are_reproducible_and_restore_random():
+    import random
+
+    runtime = EditorRuntime()
+    assert json.loads(runtime.compile('''from ebm import TileBase
+import random
+class RandomTile(TileBase):
+    author = "Tests"
+    def build(self, b):
+        height = random.uniform(100, 300)
+        b.static_segment((20, height), (380, height), 3)
+'''))["ok"]
+    state = random.getstate()
+    first = json.loads(runtime.validate(stop_on_first_failure=True, seed="123"))
+    assert random.getstate() == state
+    random.random()  # preview activity must not change the seeded result
+    next_state = random.getstate()
+    second = json.loads(runtime.validate(stop_on_first_failure=True, seed=123))
+    assert random.getstate() == next_state
+    assert first == second and first["seed"] == 123
+    assert first["result"]["details"]
+    random.setstate(state)
+
+
+def test_editor_reseeds_repeat_and_forwards_input_seed(monkeypatch):
+    import random
+    import ebm.editor_runtime as module
+    from types import SimpleNamespace
+
+    draws = []
+    result = SimpleNamespace(ok=True, to_dict=lambda: {"ok": True})
+    def single(*args, **kwargs):
+        draws.append(random.random())
+        return result
+    def repeat(*args, **kwargs):
+        assert kwargs["seed"] == 0
+        draws.append(random.random())
+        return result
+    monkeypatch.setattr(module, "validate_tile_flow", single)
+    monkeypatch.setattr(module, "validate_repeated_flow", repeat)
+    runtime = EditorRuntime()
+    runtime.tile_class = type("TestTile", (), {})
+    output = json.loads(runtime.validate(seed="0"))
+    assert output["ok"] and output["seed"] == 0
+    assert draws == [random.Random(0).random()] * 2
+
+
+def test_editor_seed_error_is_actionable():
+    runtime = EditorRuntime()
+    runtime.tile_class = type("TestTile", (), {})
+    output = json.loads(runtime.validate(seed="abc"))
+    assert not output["ok"]
+    assert "Seed must be an integer" in output["message"]

@@ -17,7 +17,7 @@ class MyTile(TileBase):
         pass
 
 `;
-const ids=["stop-on-first-failure","tile-select","status","validation-results","draft-state","cursor-position","preview","loading","console-output","console-count"];
+const ids=["validation-seed","stop-on-first-failure","tile-select","status","validation-results","draft-state","cursor-position","preview","loading","console-output","console-count"];
 const els=Object.fromEntries(ids.map(id=>[id.replaceAll("-","_"),document.getElementById(id)]));
 const stopPreference=localStorage.getItem("ebm-stop-on-first-failure");
 if(stopPreference!==null)els.stop_on_first_failure.checked=stopPreference!=="false";
@@ -45,6 +45,7 @@ function setView(nextView){
   view=nextView==="validation"?"validation":"simulation";
   document.querySelectorAll("[data-view]").forEach(button=>button.classList.toggle("active",button.dataset.view===view));
   document.querySelectorAll(".simulation-control").forEach(control=>control.hidden=view!=="simulation");
+  document.querySelectorAll(".validation-control").forEach(control=>control.hidden=view!=="validation");
   els.validation_results.hidden=view!=="validation";
   pyodide?.globals.get("set_preview_view")?.(view);
   if(view==="simulation")pyodide?.globals.get("refresh_preview")?.(mode);
@@ -70,8 +71,9 @@ async function validate(){
   setView("validation");pyodide.globals.get("refresh_preview")("single");
   setStatus("Validating 120-ball concurrent flow…");els.validation_results.innerHTML="";await new Promise(r=>setTimeout(r,20));
   try{
-    const result=JSON.parse(pyodide.globals.get("validate_source")(els.stop_on_first_failure.checked));if(!result.result){setStatus("Validation failed","fail",result.message);return}
-    const r=result.result,repeat=result.repeatResult;setStatus(result.ok?"Flow validation passed":r.stopped_early||repeat?.stopped_early?"Stopped early — validation failed":"Flow validation failed",result.ok?"ok":"fail");els.validation_results.innerHTML=renderValidation(r)+renderRepeatValidation(repeat);
+    const result=JSON.parse(pyodide.globals.get("validate_source")(els.stop_on_first_failure.checked,els.validation_seed.value.trim()));if(!result.result){setStatus("Validation failed","fail",result.message);return}
+    els.validation_seed.value=String(result.seed);
+    const r=result.result,repeat=result.repeatResult;setStatus(result.ok?"Flow validation passed":r.stopped_early||repeat?.stopped_early?"Stopped early — validation failed":"Flow validation failed",result.ok?"ok":"fail");els.validation_results.innerHTML=`<p class="validation-seed-used">Seed: <code>${escapeHtml(result.seed)}</code> · use the same seed and source to reproduce this run.</p>`+renderValidation(r)+renderRepeatValidation(repeat);
     const failures=new Map(r.details.filter(detail=>detail.status==="invalid"||detail.status==="lost").map(detail=>[String(detail.id),detail]));
     els.validation_results.querySelectorAll(".replay-failure").forEach(button=>button.addEventListener("click",()=>{const detail=failures.get(button.dataset.failureId);if(detail){setView("validation");pyodide.globals.get("refresh_preview")("single");pyodide.globals.get("set_preview_view")("validation");pyodide.globals.get("replay_validation_failure")(JSON.stringify(detail));els.validation_results.querySelectorAll(".replay-failure").forEach(item=>item.textContent="Replay");button.textContent="Replaying…"}}));
   }catch(error){setStatus("Validation error","fail",error.stack||String(error))}finally{drainConsole()}

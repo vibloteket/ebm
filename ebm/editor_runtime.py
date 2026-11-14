@@ -8,6 +8,7 @@ from .repeat_validation import validate_repeated_flow
 from .tile_api import TileBuilder, TileResourceRegistry
 from .tile_base import TileBase, tile_class_from_module, tile_display_name
 from .validator import validate_tile_flow
+from .validation_seed import resolve_validation_seed, seeded_random
 
 class EditorRuntime:
     """Compile and validate an editor-provided flow tile."""
@@ -36,22 +37,25 @@ class EditorRuntime:
         finally:
             sys.modules.pop(module.__name__, None)
 
-    def validate(self, *, stop_on_first_failure: bool = False) -> str:
+    def validate(self, *, stop_on_first_failure: bool = False, seed=None) -> str:
         if self.tile_class is None:
             return json.dumps({"ok": False, "message": "Run the source before validating."})
         try:
-            with console_phase("validation"):
+            seed = resolve_validation_seed(seed)
+            with console_phase("validation"), seeded_random(seed):
                 result = validate_tile_flow(
                     self.tile_class, name=tile_display_name(self.tile_class),
                     stop_on_first_failure=stop_on_first_failure,
                 )
-                repeat = None
-                if not (stop_on_first_failure and not result.ok):
+            repeat = None
+            if not (stop_on_first_failure and not result.ok):
+                with console_phase("validation"), seeded_random(seed):
                     repeat = validate_repeated_flow(
-                        self.tile_class, stop_on_first_failure=stop_on_first_failure,
+                        self.tile_class, stop_on_first_failure=stop_on_first_failure, seed=seed,
                     )
             return json.dumps({
                 "ok": result.ok and repeat is not None and repeat.ok,
+                "seed": seed,
                 "result": result.to_dict(),
                 "repeatResult": repeat.to_dict() if repeat is not None else None,
                 "repeatSkipped": repeat is None,
@@ -96,5 +100,5 @@ _runtime = EditorRuntime()
 def compile_source(source: str) -> str:
     return _runtime.compile(source)
 
-def validate_source(stop_on_first_failure=False) -> str:
-    return _runtime.validate(stop_on_first_failure=bool(stop_on_first_failure))
+def validate_source(stop_on_first_failure=False, seed=None) -> str:
+    return _runtime.validate(stop_on_first_failure=bool(stop_on_first_failure), seed=seed)

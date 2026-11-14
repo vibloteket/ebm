@@ -9,6 +9,8 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import sys
 import webbrowser
 
+from .validation_seed import resolve_validation_seed
+
 def serve(port: int, open_browser: bool) -> None:
     root = Path(__file__).resolve().parents[1]
     env = {**os.environ, "PATH": str(Path(sys.executable).parent) + os.pathsep + os.environ.get("PATH", "")}
@@ -24,17 +26,21 @@ def serve(port: int, open_browser: bool) -> None:
     except KeyboardInterrupt:
         print("\nStopping server")
 
-def validate(json_output: bool) -> int:
+def validate(json_output: bool, seed=None) -> int:
+    selected_seed = None
     try:
+        selected_seed = resolve_validation_seed(seed)
+        print(f"Validation seed: {selected_seed}", file=sys.stderr)
         # Author print() calls are diagnostics, not part of the JSON report.
         with redirect_stdout(sys.stderr):
             from .publication import validate_publication
-            report = validate_publication()
+            report = validate_publication(seed=selected_seed)
     except Exception as error:
-        report = {"ok": False, "error": f"{type(error).__name__}: {error}", "tiles": []}
+        report = {"ok": False, "seed": selected_seed, "error": f"{type(error).__name__}: {error}", "tiles": []}
     if json_output:
         print(json.dumps(report, indent=2))
     else:
+        print(f"Validation seed: {report['seed']}")
         for tile in report["tiles"]:
             print(f"{tile['id']}: {tile['status']}")
             if tile["status"] == "failed":
@@ -54,12 +60,13 @@ def main(argv: list[str] | None = None) -> None:
 
     validate_parser = sub.add_parser("validate", help="validate enabled tiles, single and homogeneous 3x3")
     validate_parser.add_argument("--json", action="store_true", help="print machine-readable JSON")
+    validate_parser.add_argument("--seed", help="unsigned 32-bit seed; omitted generates a fresh seed")
 
     args = parser.parse_args(argv)
     if args.command in (None, "serve"):
         serve(getattr(args, "port", 8000), getattr(args, "open", False))
     elif args.command == "validate":
-        raise SystemExit(validate(args.json))
+        raise SystemExit(validate(args.json, args.seed))
     else:
         parser.error(f"unknown command: {args.command}")
 

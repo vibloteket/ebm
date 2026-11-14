@@ -77,6 +77,10 @@ dist/site/
 
 - Live simulation marks balls red when they fail the validator's full-passage exit checks (wrong edge, aperture or angle). Exit markers show the reason for eight simulation seconds, even after the ball disappears. Run or changing preview mode clears them. The 3 × 3 preview checks each tile handoff too.
 - **Stop on first failure** defaults to on and remembers your choice in this browser. Validation retains the first detected failure and its replay, marks incomplete runs **Stopped early**, and skips the repeat test if single-tile flow fails. Uncheck it for the full report. Output balance is only judged at the end; a temporary imbalance does not stop a run.
+- Validation controls (Validate flow, fail-fast and Seed) appear only in **Validation** mode. The optional **Seed** accepts a decimal integer from `0` to `4294967295`; blank generates a fresh seed. Results show the actual seed and fill the textbox for reruns; clear it for another random seed.
+- CI generates a fresh seed per publication run, prints `Validation seed: …` in its log, and records top-level `seed` in the `tile-validation` artifact's `validation.json`, even on validation failure. Reproduce with `python -m ebm validate --seed 123 --json`, or enter that seed in the browser using the same tile source. Disable fail-fast for a full report matching CI.
+- Each tile's single and repeat stages reset Python's global `random` to that seed, including tile construction/build/update/callback calls. Repeat input generation uses the same seed. The prior global random state is restored afterward, so preview activity and catalog order do not shift validation randomness.
+- Independent unseeded `random.Random()` instances, `secrets`, wall-clock values and randomness during source import/compilation are not controlled. Browser/native physics can still differ numerically; a matching seed does not promise identical trajectories across runtimes.
 - Preview feedback is advisory, not a replacement for full validation. Publication checks still run the full validators.
 
 ## GitHub Pages publication
@@ -84,7 +88,7 @@ dist/site/
 The workflow in [`.github/workflows/pages.yml`](.github/workflows/pages.yml) runs on commits to `main` and can be rerun manually. Pull requests run the checks without deployment.
 
 - Installs locked Python dependencies, checks syntax and runs unit tests.
-- Runs full single-tile and homogeneous 3 × 3 validation for **each enabled tile** with deterministic data. No random mixed-grid gate or exhaustive combination tests.
+- Runs full single-tile and homogeneous 3 × 3 validation for **each enabled tile** with a recorded, randomly generated run seed. No random mixed-grid gate or exhaustive combination tests.
 - Saves `validation.json` as the `tile-validation` Actions artifact for diagnostics.
 - Builds the site, tile manifest and Python package file list.
 - Deploys only after all checks succeed. Failed builds leave the previous deployment in place; publication runs are serialized.

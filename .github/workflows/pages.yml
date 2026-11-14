@@ -38,6 +38,8 @@ jobs:
           uv run --no-sync python -m compileall -q ebm
           uv run --no-sync python -m pytest -q
       - name: Validate enabled tiles (single and homogeneous 3x3)
+        # CLI generates a seed, logs it to stderr and embeds it in the JSON artifact.
+        # Reproduce with `python -m ebm validate --seed <seed> --json` or the editor.
         run: uv run --no-sync python -m ebm validate --json > validation.json
       - name: Save validation diagnostics
         if: always()

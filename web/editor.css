@@ -4,3 +4,6 @@
 .api-content mark.api-hit.current{background:#f59e0b;outline:1px solid #b45309}
 .pointer-panel{padding:6px 12px;flex:none;border-top:1px solid #b8aa8b;background:#f4e8c8;font-size:12px;line-height:18px;color:#554f42;white-space:nowrap}
 .pointer-panel output{font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums}
+
+/* Validation options only appear in the validation view. */
+.validation-control[hidden]{display:none}.validation-seed input{width:110px;min-width:0;font:inherit;padding:5px 7px;border:1px solid #c2c7c5;border-radius:5px;background:#fff}
