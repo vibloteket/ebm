@@ -90,12 +90,12 @@ class Trees(TileBase):
         # Bush
         def c(x,y,r=20):
             b.static_circle((x,y), r, fill_color=BUSH_COLOR, stroke_color=None)
-        c(259, 295, 20)
+        c(254, 302, 20)
+        c(259, 275, 20)
         c(284, 305, 20)
         c(274, 295, 20)
         c(274, 302, 20)
         c(244, 302, 20)
-        c(254, 302, 20)
 
         # catching balls
         sensor1 = b.sensor_segment((40,160),(115, 121), 1)
@@ -142,7 +142,7 @@ class Trees(TileBase):
             
             angle = max(
                 math.radians(-30),
-                min(math.radians(10), angle),
+                min(math.radians(8), angle),
             )
             
             ball.set_velocity((
