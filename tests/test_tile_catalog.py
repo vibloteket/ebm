@@ -24,3 +24,10 @@ def test_catalog_creates_route_free_tiles():
 def test_catalog_rejects_unknown_id():
     with pytest.raises(KeyError):
         get_tile("missing.tile")
+
+
+@pytest.mark.parametrize("tile_id", ["contributed.trees", "contributed.funnel-shredder"])
+def test_temporarily_disabled_physics_tiles_remain_in_catalog(tile_id):
+    registration = get_tile(tile_id)
+    assert registration.enabled is False
+    assert isinstance(create_tile(tile_id), registration.tile_class)
