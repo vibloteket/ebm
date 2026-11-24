@@ -14,6 +14,7 @@ from pyodide.ffi import to_js
 from pyodide.ffi import create_proxy
 
 from .engine import Engine
+from .physics_config import set_solver, solver_info
 from .ports import TILE_SIZE
 from .scene_export import SceneExporter
 
@@ -49,6 +50,16 @@ def set_tile_profiling(enabled):
     if _engine is not None:
         _engine.set_tile_profiling(bool(enabled))
 
+def physics_info():
+    return json.dumps(solver_info(_engine.space))
+
+
+def set_solver_mode(mode):
+    # JS callbacks run between animation frames, never inside Space.step().
+    set_solver(_engine.space, mode)
+    return physics_info()
+
+
 def performance_stats():
     """Return and reset one profiling window as JSON for the web overlay."""
     if _engine is None:
@@ -71,9 +82,10 @@ def performance_stats():
         _render_profile[key] = 0 if key.endswith(("frames", "calls", "events")) else 0.0
     return json.dumps(snapshot)
 
-def start(static_canvas, dynamic_canvas):
+def start(static_canvas, dynamic_canvas, solver_mode="baseline"):
     global _engine, _exporter, _last_ts
     _engine = Engine(dynamic_canvas.width, dynamic_canvas.height)
+    set_solver(_engine.space, solver_mode)
     _exporter = SceneExporter(_engine)
     _last_ts = None
     window.EbmScene.attach(static_canvas, dynamic_canvas)

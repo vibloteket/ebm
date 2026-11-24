@@ -4,6 +4,26 @@ A browser-based, community-built ball machine running real-time Python/pymunk ph
 
 The complete machine runs in the visitor's browser using Pyodide and Pymunk. Hosting is static; no application server or authoring-agent environment is required.
 
+## Main-machine physics selection
+
+The main machine defaults to **Pymunk 7.4.0 with the baseline solver**.
+The [admin page](https://ebm.viblo.se/admin.html) links to comparison views:
+
+- `/?pymunk=7.3.1#stats`: previous Pymunk release (baseline only).
+- `/?solver=auto#stats`: 7.4.0 with automatic acceleration (Wasm SIMD when available).
+- `/#stats`: current default with the performance popup.
+
+On 7.4.0, the popup's Auto solver checkbox switches live, without resetting the
+machine. It updates the URL and starts a fresh profiling window. Reports include
+the loaded Pymunk version and selected solver. `auto` is a selection policy,
+not a guarantee of acceleration; it falls back to baseline if unavailable.
+Accelerated solvers can change simulation results slightly and may not be faster.
+
+Version changes require a reload. Settings are URL-only, not persisted in local
+storage. Unknown versions/modes produce a startup error; `solver=auto` on 7.3.1
+uses baseline and disables the checkbox. The editor, demos, and other tools
+remain pinned to 7.3.1 and ignore these parameters.
+
 ## Add or disable a tile
 
 1. Build and manually validate your tile in the browser editor, then download its `.py` file.

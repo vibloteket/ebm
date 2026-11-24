@@ -105,6 +105,8 @@ html, body, main {
 #performance-stats span { display: block; }
 #performance-stats strong { color: #b9e3ff; font-size: 15px; }
 #performance-stats b { color: #fff; font-weight: 700; }
+#performance-stats .solver-control { pointer-events: auto; cursor: pointer; }
+#performance-stats .solver-toggle { cursor: pointer; }
 #performance-stats .tile-detail { opacity: .72; padding-left: 4px; }
 #performance-stats hr {
   height: 1px;
