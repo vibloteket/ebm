@@ -163,3 +163,26 @@ def test_frame_streams_all_body_poses():
         i = streamed[ball.body.id]
         assert floats[3 * i] == pytest.approx(ball.body.position.x)
         assert floats[3 * i + 1] == pytest.approx(ball.body.position.y)
+
+
+def test_frame_preserves_pose_order_across_reused_buffers():
+    from ebm.engine import Engine
+
+    engine = Engine(800, 600)
+    engine.resize(800, 600)
+    engine.step_frame(1 / 60)
+    exporter = SceneExporter(engine)
+    for turn in range(2):
+        for index, ball in enumerate(engine.balls):
+            ball.body.position = (100 + index + turn, 200 + index)
+            ball.body.angle = 0.25 + index + turn
+        ids, floats, stride = exporter.frame()
+        streamed = {
+            int(ids[i * stride]) + (int(ids[i * stride + 1]) << 32 if stride == 2 else 0): i
+            for i in range(len(ids) // stride)
+        }
+        for ball in engine.balls:
+            i = streamed[ball.body.id]
+            assert tuple(floats[3 * i:3 * i + 3]) == pytest.approx(
+                (*ball.body.position, ball.body.angle)
+            )

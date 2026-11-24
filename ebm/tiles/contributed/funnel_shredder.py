@@ -114,7 +114,7 @@ class FunnelShredder(TileBase):
     into a ball. L0 balls roll into a teleport box and re-emerge at R0."""
 
     author = "Pi"
-    enabled = True
+    enabled = False  # Temporarily disabled: Pymunk 7.4 repeat-flow bounds failure.
 
     def build(self, b: TileBuilder) -> None:
         self.pending = {}

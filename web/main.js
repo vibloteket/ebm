@@ -1,6 +1,6 @@
 import {loadPythonPackage} from "./python-package.js?v=1";
-const APP_VERSION = "prototype-0.70-tile-400";
-const PYMUNK_WHEEL = "./vendor/pymunk-7.3.1-cp314-cp314-pyemscripten_2026_0_wasm32.whl";
+const APP_VERSION = "prototype-0.71-tile-400";
+import { physicsConfig, solverUrl } from "./physics-config.js?v=1";
 
 const diagnostics = [];
 let loading;
@@ -110,7 +110,7 @@ async function writePackage(pyodide) {
 // the hashchange event. Sampling (rAF loop) only runs while enabled, and the
 // consume-style counters on both the Python and JS scene side are discarded
 // on enable so the first sample is a fresh window.
-function setupPerformanceStats(getPerformanceStats, getZoom, setTileProfiling) {
+function setupPerformanceStats(getPerformanceStats, getZoom, setTileProfiling, getPhysicsInfo, setSolverMode) {
   const stats = document.getElementById("performance-stats");
   if (!stats) return;
 
@@ -139,6 +139,25 @@ function setupPerformanceStats(getPerformanceStats, getZoom, setTileProfiling) {
       textarea.select();
       document.execCommand("copy");
       textarea.remove();
+    }
+  });
+
+  stats.addEventListener("change", (event) => {
+    if (!event.target.matches(".solver-toggle")) return;
+    const mode = event.target.checked ? "auto" : "baseline";
+    try {
+      setSolverMode(mode);
+      history.replaceState(null, "", solverUrl(location.href, mode));
+      // Discard mixed-mode counters so the next report measures only this mode.
+      getPerformanceStats();
+      window.EbmScene?.consumeStats?.();
+      browserFrames = 0;
+      last = performance.now();
+      latestReport = "Solver changed; waiting for a fresh profiling sample…";
+    } catch (error) {
+      event.target.checked = !event.target.checked;
+      logStep("Solver change failed", String(error));
+      window.alert(String(error));
     }
   });
 
@@ -172,10 +191,16 @@ function setupPerformanceStats(getPerformanceStats, getZoom, setTileProfiling) {
         dynamic: ms((scene.dynamicTotalMs||0)/Math.max(1,dynamicFrames)), dynamicMax: ms(scene.dynamicMaxMs),
         staticDraw: ms((scene.staticTotalMs||0)/Math.max(1,scene.staticFrames||0)), staticRedraws: scene.staticFrames||0,
       };
+      const physics = JSON.parse(String(getPhysicsInfo()));
       stats.innerHTML = `
         <strong>${metrics.renderedFps} rendered FPS</strong>
         <button type="button" class="copy-performance-report">${performance.now() < copiedUntil ? "Copied" : "Copy report"}</button>
         <span>${metrics.browserFps} browser FPS · target 30</span>
+        <span>Pymunk ${physics.version}</span>
+        <label class="solver-control"><input class="solver-toggle" type="checkbox"
+          ${physics.solver === "auto" ? "checked" : ""} ${physics.solver_supported ? "" : "disabled"}>
+          Auto solver (Wasm SIMD when available)</label>
+        ${physics.solver_supported ? "" : "<span>Baseline only in this version</span>"}
         <hr>
         <span>Engine total <b>${metrics.engine} ms/frame</b></span>
         <span>Tile updates <b>${metrics.tileUpdates} ms</b></span>
@@ -196,6 +221,7 @@ function setupPerformanceStats(getPerformanceStats, getZoom, setTileProfiling) {
         "Endless Ball Machine performance report",
         `Timestamp: ${new Date().toISOString()}`,
         `App: ${APP_VERSION}`,
+        `Pymunk: ${physics.version}; solver: ${physics.solver}`,
         `URL: ${location.href}`,
         `Browser: ${navigator.userAgent}`,
         `Rendered FPS: ${metrics.renderedFps} (target 30)`,
@@ -243,10 +269,12 @@ function setupPerformanceStats(getPerformanceStats, getZoom, setTileProfiling) {
 }
 
 async function main() {
+  const config = physicsConfig(location.search);
+  logStep("Physics configuration", config);
   loading = document.getElementById("loading");
   const canvas = document.getElementById("dynamic-machine");
 
-  const pymunkWheelUrl = new URL(PYMUNK_WHEEL, location.href).href;
+  const pymunkWheelUrl = new URL(config.wheel, location.href).href;
 
   setStatus("Checking static files…");
   await checkResource(pymunkWheelUrl);
@@ -274,10 +302,11 @@ async function main() {
   await writePackage(pyodide);
 
   setStatus("Starting simulation…");
+  pyodide.globals.set("initial_solver_mode", config.solver);
   await pyodide.runPythonAsync(`
-from ebm.web_demo import start, zoom_at, set_zoom, zoom_value, performance_stats, set_tile_profiling
+from ebm.web_demo import start, zoom_at, set_zoom, zoom_value, performance_stats, set_tile_profiling, physics_info, set_solver_mode
 from js import window, document
-start(document.getElementById('static-machine'), document.getElementById('dynamic-machine'))
+start(document.getElementById('static-machine'), document.getElementById('dynamic-machine'), initial_solver_mode)
 `);
 
   // Expose zoom for pinch-to-zoom, touchpads without wheel events, and
@@ -338,7 +367,7 @@ start(document.getElementById('static-machine'), document.getElementById('dynami
 
   loading.classList.add("hidden");
 
-  setupPerformanceStats(pyodide.globals.get("performance_stats"), getZoom, pyodide.globals.get("set_tile_profiling"));
+  setupPerformanceStats(pyodide.globals.get("performance_stats"), getZoom, pyodide.globals.get("set_tile_profiling"), pyodide.globals.get("physics_info"), pyodide.globals.get("set_solver_mode"));
 }
 
 window.addEventListener("error", (event) => {

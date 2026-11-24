@@ -40,6 +40,13 @@ _POSE_FIELDS = (
     | pymunk.batch.BodyFields.ANGLE
 )
 
+# Layout introspection was added alongside the field reordering in 7.4.
+_POSE_ANGLE_FIRST = (
+    hasattr(pymunk.batch, "get_body_layout")
+    and pymunk.batch.get_body_layout(_POSE_FIELDS).fields[pymunk.batch.BodyFields.ANGLE][0] == 0
+)
+
+
 def _color(color) -> list[int]:
     return [int(color[0]), int(color[1]), int(color[2]), int(color[3])]
 
@@ -216,4 +223,12 @@ class SceneExporter:
         pymunk.batch.get_space_bodies(self.engine.space, _POSE_FIELDS, self._buffer)
         ids = memoryview(self._buffer.int_buf()).cast("I")
         floats = memoryview(self._buffer.float_buf()).cast("d")
+        # Pymunk 7.4 reordered batch fields from x,y,angle to angle,x,y.
+        # Keep our renderer's x,y,angle contract on both releases. Strided
+        # memoryview copies run in C, without a Python loop over every body.
+        if _POSE_ANGLE_FIRST:
+            angles = floats[0::3].tobytes()
+            floats[0::3] = floats[1::3]
+            floats[1::3] = floats[2::3]
+            floats[2::3] = memoryview(angles).cast("d")
         return ids, floats, struct.calcsize("P") // 4

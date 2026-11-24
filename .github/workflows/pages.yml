@@ -37,6 +37,8 @@ jobs:
         run: |
           uv run --no-sync python -m compileall -q ebm
           uv run --no-sync python -m pytest -q
+      - name: Check main-machine Pymunk 7.4 compatibility
+        run: uv run --with 'pymunk==7.4.0' python -m pytest -q tests/test_physics_config.py tests/test_dynamic_visuals.py
       - name: Validate enabled tiles (single and homogeneous 3x3)
         # CLI generates a seed, logs it to stderr and embeds it in the JSON artifact.
         # Reproduce with `python -m ebm validate --seed <seed> --json` or the editor.
@@ -82,6 +84,10 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Install Chromium headless shell
         run: bunx playwright install --with-deps --only-shell chromium
+      - name: Check physics version and live solver selection
+        run: |
+          node tests/browser/physics-config.mjs
+          node tests/browser/physics-runtime.mjs
       - name: Run browser smoke test
         run: node tests/browser/smoke.mjs
 
